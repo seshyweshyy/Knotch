@@ -123,7 +123,10 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(
+                        width: vm.notchState == .open ? vm.notchSize.width : nil,
+                        height: vm.notchState == .open ? vm.notchSize.height : nil
+                    )
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -358,6 +361,13 @@ struct ContentView: View {
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         ShelfView()
+                    }
+                }
+                .onChange(of: coordinator.currentView) { _, newView in
+                    if vm.notchState == .open {
+                        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                            vm.notchSize = newView == .home ? openNotchHomeSize : openNotchSize
+                        }
                     }
                 }
                 .transition(

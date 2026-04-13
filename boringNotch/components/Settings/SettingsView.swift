@@ -766,7 +766,7 @@ struct CalendarSettings: View {
                             ) {
                                 Text(calendar.title)
                             }
-                            .accentColor(lighterColor(from: calendar.color))
+                            .tint(Color(calendar.color))
                             .disabled(!showCalendar)
                         }
                     }
@@ -802,7 +802,7 @@ struct CalendarSettings: View {
                             ) {
                                 Text(calendar.title)
                             }
-                            .accentColor(lighterColor(from: calendar.color))
+                            .tint(Color(calendar.color))
                             .disabled(!showCalendar)
                         }
                     }
