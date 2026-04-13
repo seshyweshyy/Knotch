@@ -110,17 +110,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    @MainActor
     private func broadcastLockState(_ locked: Bool) {
         if locked {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
                 vm.isScreenLocked = true
-                vm.lockNotch()
             }
             for viewModel in viewModels.values {
                 withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
                     viewModel.isScreenLocked = true
-                    viewModel.lockNotch()
                 }
             }
         } else {
