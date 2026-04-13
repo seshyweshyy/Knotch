@@ -45,14 +45,14 @@ struct MusicLiveActivity: View {
                     axis: (x: 0, y: 1, z: 0),
                     perspective: 0.4
                 )
-                .onChange(of: musicManager.albumArt) { _, newArt in
-                    let dir: Double = musicManager.flipDirection == .forward ? -1 : 1
+                .onChange(of: musicManager.artFlipSignal) { _, signal in
+                    let dir: Double = signal.direction == .forward ? -1 : 1
 
                     withAnimation(.easeIn(duration: 0.15)) {
                         rotationDegrees = dir * 90
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        displayedArt = newArt
+                        displayedArt = signal.art
                         rotationDegrees = dir * -90
                         withAnimation(.easeOut(duration: 0.15)) {
                             rotationDegrees = 0

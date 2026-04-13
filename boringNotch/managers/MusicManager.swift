@@ -19,6 +19,14 @@ enum FlipDirection {
     case backward  // previous track
 }
 
+struct ArtFlipSignal: Equatable {
+    let art: NSImage
+    let direction: FlipDirection
+    static func == (lhs: ArtFlipSignal, rhs: ArtFlipSignal) -> Bool {
+        lhs.art === rhs.art && lhs.direction == rhs.direction
+    }
+}
+
 class MusicManager: ObservableObject {
     // MARK: - Properties
     static let shared = MusicManager()
@@ -33,8 +41,10 @@ class MusicManager: ObservableObject {
     // Active controller
     private var activeController: (any MediaControllerProtocol)?
     
-    // Music art flip direction
+    // Music album art items
     private var directionIsLocked: Bool = false
+    private var appIconFallbackWorkItem: DispatchWorkItem?
+    @Published var artFlipSignal: ArtFlipSignal = ArtFlipSignal(art: defaultImage, direction: .forward)
 
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
@@ -71,7 +81,7 @@ class MusicManager: ObservableObject {
     private var lastArtworkBundleIdentifier: String? = nil
 
     @Published var isFlipping: Bool = false
-    @Published var flipDirection: FlipDirection = .forward
+    var flipDirection: FlipDirection = .forward
     private var flipWorkItem: DispatchWorkItem?
 
     @Published var isTransitioning: Bool = false
@@ -217,17 +227,23 @@ class MusicManager: ObservableObject {
         if hasContentChange {
             self.triggerFlipAnimation()
 
-            // Delay artwork swap to sync with the flip midpoint (phase 1 duration = 0.15s)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                guard let self = self else { return }
-                if artworkChanged, let artwork = state.artwork {
-                    self.updateArtwork(artwork)
-                } else if state.artwork == nil {
-                    if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
+            if artworkChanged, let artwork = state.artwork {
+                // Cancel any pending app icon fallback — real art is here
+                self.appIconFallbackWorkItem?.cancel()
+                self.updateArtwork(artwork)
+            } else if state.artwork == nil {
+                // Delay the app icon fallback — give real artwork time to arrive
+                self.appIconFallbackWorkItem?.cancel()
+                let bundleID = state.bundleIdentifier
+                let fallback = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    if let appIconImage = AppIconAsNSImage(for: bundleID) {
                         self.usingAppIconForArtwork = true
                         self.updateAlbumArt(newAlbumArt: appIconImage)
                     }
                 }
+                self.appIconFallbackWorkItem = fallback
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: fallback)
             }
             self.artworkData = state.artwork
 
@@ -568,6 +584,7 @@ class MusicManager: ObservableObject {
         workItem?.cancel()
         withAnimation(.smooth) {
             self.albumArt = newAlbumArt
+            self.artFlipSignal = ArtFlipSignal(art: newAlbumArt, direction: self.flipDirection)
             if Defaults[.coloredSpectrogram] {
                 self.calculateAverageColor()
             }
