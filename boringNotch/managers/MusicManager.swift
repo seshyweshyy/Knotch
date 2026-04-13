@@ -42,7 +42,6 @@ class MusicManager: ObservableObject {
     private var activeController: (any MediaControllerProtocol)?
     
     // Music album art items
-    private var directionIsLocked: Bool = false
     private var appIconFallbackWorkItem: DispatchWorkItem?
     @Published var artFlipSignal: ArtFlipSignal = ArtFlipSignal(art: defaultImage, direction: .forward)
 
@@ -81,7 +80,7 @@ class MusicManager: ObservableObject {
     private var lastArtworkBundleIdentifier: String? = nil
 
     @Published var isFlipping: Bool = false
-    var flipDirection: FlipDirection = .forward
+    private var pendingFlipDirection: FlipDirection = .forward
     private var flipWorkItem: DispatchWorkItem?
 
     @Published var isTransitioning: Bool = false
@@ -225,21 +224,19 @@ class MusicManager: ObservableObject {
 
         // Handle artwork and visual transitions for changed content
         if hasContentChange {
-            self.triggerFlipAnimation()
+            let capturedDirection = self.pendingFlipDirection
 
             if artworkChanged, let artwork = state.artwork {
-                // Cancel any pending app icon fallback — real art is here
                 self.appIconFallbackWorkItem?.cancel()
-                self.updateArtwork(artwork)
+                self.updateArtwork(artwork, direction: capturedDirection)
             } else if state.artwork == nil {
-                // Delay the app icon fallback — give real artwork time to arrive
                 self.appIconFallbackWorkItem?.cancel()
                 let bundleID = state.bundleIdentifier
                 let fallback = DispatchWorkItem { [weak self] in
                     guard let self = self else { return }
                     if let appIconImage = AppIconAsNSImage(for: bundleID) {
                         self.usingAppIconForArtwork = true
-                        self.updateAlbumArt(newAlbumArt: appIconImage)
+                        self.updateAlbumArt(newAlbumArt: appIconImage, direction: capturedDirection)
                     }
                 }
                 self.appIconFallbackWorkItem = fallback
@@ -534,11 +531,8 @@ class MusicManager: ObservableObject {
         return syncedLyrics[idx].text
     }
 
-    private func triggerFlipAnimation(direction: FlipDirection = .forward) {
+    private func triggerFlipAnimation() {
         flipWorkItem?.cancel()
-        if !directionIsLocked {
-            flipDirection = direction
-        }
         let workItem = DispatchWorkItem { [weak self] in
             self?.isFlipping = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -549,14 +543,13 @@ class MusicManager: ObservableObject {
         DispatchQueue.main.async(execute: workItem)
     }
 
-    private func updateArtwork(_ artworkData: Data) {
+    private func updateArtwork(_ artworkData: Data, direction: FlipDirection? = nil) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
                     self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+                    self?.updateAlbumArt(newAlbumArt: artworkImage, direction: direction)
                 }
             }
         }
@@ -580,11 +573,12 @@ class MusicManager: ObservableObject {
 
     private var workItem: DispatchWorkItem?
 
-    func updateAlbumArt(newAlbumArt: NSImage) {
-        workItem?.cancel()
+    func updateAlbumArt(newAlbumArt: NSImage, direction: FlipDirection? = nil) {
+        let resolvedDirection = direction ?? pendingFlipDirection
+        pendingFlipDirection = .forward
         withAnimation(.smooth) {
             self.albumArt = newAlbumArt
-            self.artFlipSignal = ArtFlipSignal(art: newAlbumArt, direction: self.flipDirection)
+            self.artFlipSignal = ArtFlipSignal(art: newAlbumArt, direction: resolvedDirection)
             if Defaults[.coloredSpectrogram] {
                 self.calculateAverageColor()
             }
@@ -658,20 +652,12 @@ class MusicManager: ObservableObject {
     }
 
     func nextTrack() {
-        flipDirection = .forward
-        directionIsLocked = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.directionIsLocked = false
-        }
+        pendingFlipDirection = .forward
         Task { await activeController?.nextTrack() }
     }
 
     func previousTrack() {
-        flipDirection = .backward
-        directionIsLocked = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.directionIsLocked = false
-        }
+        pendingFlipDirection = .backward
         Task { await activeController?.previousTrack() }
     }
 

@@ -46,7 +46,7 @@ struct MusicLiveActivity: View {
                     perspective: 0.4
                 )
                 .onChange(of: musicManager.artFlipSignal) { _, signal in
-                    let dir: Double = signal.direction == .forward ? -1 : 1
+                    let dir: Double = signal.direction == .forward ? 1 : -1
 
                     withAnimation(.easeIn(duration: 0.15)) {
                         rotationDegrees = dir * 90
