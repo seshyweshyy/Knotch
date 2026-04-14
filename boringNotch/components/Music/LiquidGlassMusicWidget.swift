@@ -59,7 +59,7 @@ struct LiquidGlassMusicWidget: View {
                 AudioSpectrumView(isPlaying: $musicManager.isPlaying)
                     .frame(width: 16, height: 12)
                     .colorMultiply(.white)
-                    .opacity(0.75)
+                    .opacity(0.30)
                     .fixedSize()
                     .padding(.trailing, 4)
             }
