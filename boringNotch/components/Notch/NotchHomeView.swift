@@ -472,9 +472,12 @@ struct NotchHomeView: View {
                     .frame(width: WidgetWidth.music)
             }
             if showCal {
-                Divider()
+                if showMusic {
+                    Divider()
+                }
                 CalendarView()
                     .frame(width: showCam ? WidgetWidth.calendarWithCam : WidgetWidth.calendar)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .onHover { isHovering in
                         vm.isHoveringCalendar = isHovering
                     }
@@ -489,6 +492,7 @@ struct NotchHomeView: View {
                     .transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
