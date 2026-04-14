@@ -69,7 +69,7 @@ struct AlbumArtView: View {
                 }
             }
             .buttonStyle(PlainButtonStyle())
-            .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
+            .scaleEffect(musicManager.isPlaying ? 1 : 0.90)
             
             albumArtDarkOverlay
         }

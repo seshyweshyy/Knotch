@@ -88,7 +88,7 @@ enum MusicPlayerImageSizes {
 
 /// Computes the open notch width for the home view based on which widgets are active.
 enum WidgetWidth {
-    static let music: CGFloat    = 320
+    static let music: CGFloat    = 400
     static let calendar: CGFloat = 220
     static let camera: CGFloat   = 100
     static let calendarWithCam: CGFloat = 180
