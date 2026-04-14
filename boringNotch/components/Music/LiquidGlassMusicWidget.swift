@@ -70,7 +70,7 @@ struct LiquidGlassMusicWidget: View {
                 .padding(.top, 14)
                 
                 // ── Progress bar ──────────────────────────────────────────────
-                TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+                TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
                     MusicSliderView(
                         sliderValue: $sliderValue,
                         duration: $musicManager.songDuration,
@@ -87,6 +87,12 @@ struct LiquidGlassMusicWidget: View {
                     }
                     .frame(height: 36)
                     .colorMultiply(Color.white)
+                }
+                .onAppear {
+                    let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
+                    withAnimation(.easeOut(duration: 0.4)) {
+                        sliderValue = target
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 4)

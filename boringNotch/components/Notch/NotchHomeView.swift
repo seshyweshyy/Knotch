@@ -41,9 +41,10 @@ struct AlbumArtView: View {
             albumArtButton
         }
     }
-
+    
+    @State private var blurredArt: NSImage = MusicManager.shared.albumArt
     private var albumArtBackground: some View {
-        Image(nsImage: musicManager.albumArt)
+        Image(nsImage: blurredArt)
             .resizable()
             .clipped()
             .clipShape(
@@ -57,6 +58,9 @@ struct AlbumArtView: View {
             .rotationEffect(.degrees(92))
             .blur(radius: 40)
             .opacity(musicManager.isPlaying ? 0.5 : 0)
+            .onChange(of: musicManager.artFlipSignal) { _, signal in
+                blurredArt = signal.art
+            }
     }
 
     private var albumArtButton: some View {
@@ -177,7 +181,7 @@ struct MusicControlsView: View {
             )
             .fontWeight(.medium)
             if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.25)) { timeline in
+                TimelineView(.animation(minimumInterval: 0.25, paused: !musicManager.isPlaying)) { timeline in
                     let currentElapsed: Double = {
                         guard musicManager.isPlaying else { return musicManager.elapsedTime }
                         let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
@@ -213,7 +217,7 @@ struct MusicControlsView: View {
     }
 
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+        TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -620,8 +624,14 @@ struct MusicSliderView: View {
             )
             .font(.caption)
         }
+        .onAppear {
+            let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
+            withAnimation(.easeOut(duration: 0.4)) {
+                sliderValue = target
+            }
+        }
         .onChange(of: currentDate) {
-           guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
             sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
         }
     }
