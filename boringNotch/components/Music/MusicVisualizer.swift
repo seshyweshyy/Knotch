@@ -87,10 +87,19 @@ class AudioSpectrum: NSView {
     }
     
     private func resetBars() {
+        let dotScale: CGFloat = 2.0 / 14.0
         for (i, barLayer) in barLayers.enumerated() {
             barLayer.removeAllAnimations()
-            barLayer.transform = CATransform3DMakeScale(1, 0.35, 1)
-            barScales[i] = 0.35
+            let animation = CABasicAnimation(keyPath: "transform.scale.y")
+            animation.fromValue = barScales[i]
+            animation.toValue = dotScale
+            animation.duration = 0.25
+            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            animation.fillMode = .forwards
+            animation.isRemovedOnCompletion = false
+            barLayer.add(animation, forKey: "scaleY")
+            barLayer.transform = CATransform3DMakeScale(1, dotScale, 1)
+            barScales[i] = dotScale
         }
     }
     
