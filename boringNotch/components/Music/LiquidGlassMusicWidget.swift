@@ -36,22 +36,24 @@ struct LiquidGlassMusicWidget: View {
                     albumArtThumbnail
                     
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(musicManager.songTitle.isEmpty ? "Not Playing" : musicManager.songTitle)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        
-                        Text(musicManager.artistName.isEmpty ? "—" : musicManager.artistName)
-                            .font(.subheadline)
-                            .foregroundStyle(
-                                playerColorTinting
+                        MarqueeText(
+                            .constant(musicManager.songTitle.isEmpty ? "Not Playing" : musicManager.songTitle),
+                            font: .headline,
+                            nsFont: .headline,
+                            textColor: .white,
+                            frameWidth: 180
+                        )
+                        .fontWeight(.semibold)
+
+                        MarqueeText(
+                            .constant(musicManager.artistName.isEmpty ? "—" : musicManager.artistName),
+                            font: .subheadline,
+                            nsFont: .subheadline,
+                            textColor: playerColorTinting
                                 ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
-                                : Color.white.opacity(0.65)
-                            )
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                                : Color.white.opacity(0.65),
+                            frameWidth: 180
+                        )
                     }
                     
                     Spacer()
