@@ -1450,8 +1450,10 @@ struct Widgets: View {
                 }
                     .disabled(AVCaptureDevice.default(for: .video) == nil)
             } header: {
-                Text("Toggle expanded notch widgets")
-                customBadge(text: "Beta")
+                HStack(spacing: 6) {
+                    Text("Toggle expanded notch widgets")
+                    customBadge(text: "Beta")
+                }
             } footer: {
                 Text("Choose which widgets are shown when the notch is open.")
                     .foregroundStyle(.secondary)
