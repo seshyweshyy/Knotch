@@ -21,25 +21,10 @@ struct LiquidGlassMusicWidget: View {
 
     var body: some View {
         ZStack {
-            // ── Blurred album art background ──────────────────────────────
-            Image(nsImage: displayedArt)
-                .resizable()
-                .scaledToFill()
-                .blur(radius: 40)
-                .saturation(1.4)
-                .brightness(-0.15)
-                .scaleEffect(1.15)
-                .opacity(0.5)
-                .clipped()
-
             // ── Glass surface ─────────────────────────────────────────────
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .opacity(0.72)
                 .environment(\.colorScheme, .dark)
-
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black.opacity(0.12))
 
             // ── Shimmer border ────────────────────────────────────────────
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -96,8 +81,8 @@ struct LiquidGlassMusicWidget: View {
                         ) { newValue in
                             MusicManager.shared.seek(to: newValue)
                         }
-                        .padding(.top, 4)
-                        .frame(height: 36)
+                        .padding(.top, 2)
+                        .frame(height: 32)
                     }
 
                     // Transport controls — same HoverButton used in the notch
@@ -115,16 +100,16 @@ struct LiquidGlassMusicWidget: View {
                             MusicManager.shared.nextTrack()
                         }
                     }
-                    .padding(.top, 2)
+                    .padding(.top, 0)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 6)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 28, x: 0, y: 10)
         .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
-        .frame(width: 340, height: 160)
+        .frame(width: 340, height: 130)
         // ── Album art flip — identical to AlbumArtView in the notch ──────
         .onChange(of: musicManager.artFlipSignal) { _, signal in
             let dir: Double = signal.direction == .forward ? 1 : -1
