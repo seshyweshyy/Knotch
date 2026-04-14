@@ -90,12 +90,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
-   private func showLiquidGlassWidgetIfNeeded() {
-       guard Defaults[.lockScreenMusicWidget] else { return }
-       guard !MusicManager.shared.isPlayerIdle else { return }
-       let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
-       LiquidGlassWidgetWindowController.shared.show(on: screen)
-   }
+    private func showLiquidGlassWidgetIfNeeded() {
+        guard Defaults[.lockScreenMusicWidget] else { return }
+        guard let bundleID = MusicManager.shared.bundleIdentifier,
+              NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { return }
+        let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        LiquidGlassWidgetWindowController.shared.show(on: screen)
+    }
 
     @MainActor
     func onScreenLocked(_ notification: Notification) {
@@ -391,14 +392,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
         }
         
-        MusicManager.shared.$isPlayerIdle
+        MusicManager.shared.$bundleIdentifier
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] idle in
+            .sink { [weak self] bundleID in
                 guard let self = self, self.isScreenLocked else { return }
-                if idle {
-                    LiquidGlassWidgetWindowController.shared.hide()
-                } else {
+                let appIsRunning = bundleID.flatMap { id in
+                    NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == id })
+                } != nil
+                if appIsRunning {
                     self.showLiquidGlassWidgetIfNeeded()
+                } else {
+                    LiquidGlassWidgetWindowController.shared.hide()
                 }
             }
             .store(in: &cancellables)
