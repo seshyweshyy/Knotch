@@ -62,17 +62,6 @@ private struct LiquidGlassWidgetRoot: View {
             .frame(width: geo.size.width)
 
             if isExpanded {
-                // Full-screen tap-to-dismiss layer (behind art)
-                Color.clear
-                    .contentShape(Rectangle())
-                    .allowsHitTesting(true)
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
-                            isExpanded = false
-                        }
-                    }
-                    .frame(width: geo.size.width, height: geo.size.height)
-
                 // X button — absolute top-left of screen
                 VStack {
                     HStack {

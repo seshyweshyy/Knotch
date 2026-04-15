@@ -58,6 +58,7 @@ struct LiquidGlassMusicWidget: View {
                             frameWidth: 180
                         )
                     }
+                    .frame(minWidth: isExpanded ? 260 : 0)
                     
                     Spacer()
                     

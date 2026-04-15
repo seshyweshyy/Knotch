@@ -47,14 +47,6 @@ private struct AlbumArtBackgroundView: View {
                 .ignoresSafeArea()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .opacity(isVisible ? 1 : 0)
-        .animation(.easeInOut(duration: 0.5), value: isVisible)
-        .onReceive(NotificationCenter.default.publisher(for: .albumArtBackgroundShouldShow)) { _ in
-            withAnimation { isVisible = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .albumArtBackgroundShouldHide)) { _ in
-            withAnimation { isVisible = false }
-        }
         .onChange(of: musicManager.artFlipSignal) { _, signal in
             withAnimation(.easeInOut(duration: 0.4)) {
                 displayedArt = signal.art
@@ -79,7 +71,7 @@ class AlbumArtBackgroundWindowController {
     private var window: AlbumArtBackgroundWindow?
     private init() {}
 
-    func show(on screen: NSScreen) {
+    func prepare(on screen: NSScreen) {
         if window == nil {
             let win = AlbumArtBackgroundWindow(
                 contentRect: screen.frame,
@@ -90,17 +82,27 @@ class AlbumArtBackgroundWindowController {
             win.contentView = NSHostingView(rootView: AlbumArtBackgroundView())
             window = win
         }
+        window?.setFrame(screen.frame, display: false)
+    }
+
+    func show() {
         guard let win = window else { return }
-        win.setFrame(screen.frame, display: false)
-        win.enableSkyLight()
+        win.alphaValue = 0
         win.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.5
+            win.animator().alphaValue = 1
+        }
     }
 
     func hide() {
         guard let win = window else { return }
-        win.disableSkyLight()
-        win.orderOut(nil)
-        window = nil
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.4
+            win.animator().alphaValue = 0
+        }, completionHandler: {
+            win.orderOut(nil)
+        })
     }
 
     func updateScreen(_ screen: NSScreen) {
