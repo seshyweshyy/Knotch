@@ -96,7 +96,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { return }
         let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         LiquidGlassWidgetWindowController.shared.show(on: screen)
-        AlbumArtBackgroundWindowController.shared.show(on: screen)
+        AlbumArtBackgroundWindowController.shared.prepare(on: screen)
     }
 
     @MainActor

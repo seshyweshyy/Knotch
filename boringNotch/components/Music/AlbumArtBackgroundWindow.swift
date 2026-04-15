@@ -31,25 +31,41 @@ class AlbumArtBackgroundWindow: BoringNotchSkyLightWindow {
 
 private struct AlbumArtBackgroundView: View {
     @ObservedObject var musicManager = MusicManager.shared
-    @State private var displayedArt: NSImage = MusicManager.shared.albumArt
-    @State private var isVisible: Bool = false
+    @State private var colors: [Color] = [.black, .gray, .black]
 
     var body: some View {
         ZStack {
-            Image(nsImage: displayedArt)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scaleEffect(1.3)  // push art past all edges before blurring
-                .blur(radius: 60)
-                .saturation(1.8)
-                .overlay(Color.black.opacity(0.35))
-                .ignoresSafeArea()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LinearGradient(
+                stops: [
+                    .init(color: colors[0].opacity(0.9), location: 0),
+                    .init(color: colors[safe: 1, fallback: colors[0]].opacity(0.95), location: 0.5),
+                    .init(color: colors[safe: 2, fallback: colors[0]], location: 1.0),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            .overlay(
+                RadialGradient(
+                    colors: [colors[0].opacity(0.3), .clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 400
+                )
+            )
         }
         .onChange(of: musicManager.artFlipSignal) { _, signal in
-            withAnimation(.easeInOut(duration: 0.4)) {
-                displayedArt = signal.art
+            signal.art.dominantColors(count: 3) { nsColors in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    colors = nsColors.map { Color(nsColor: $0).saturated(by: 1.4).darkened(by: 0.2) }
+                }
+            }
+        }
+        .onAppear {
+            musicManager.albumArt.dominantColors(count: 3) { nsColors in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    colors = nsColors.map { Color(nsColor: $0).saturated(by: 1.4).darkened(by: 0.2) }
+                }
             }
         }
     }
