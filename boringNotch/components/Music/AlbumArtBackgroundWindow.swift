@@ -21,7 +21,8 @@ class AlbumArtBackgroundWindow: BoringNotchSkyLightWindow {
         defer flag: Bool
     ) {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
-        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        // One level below the widget window (.mainMenu + 3) so it sits behind it
+        level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue - 1)
         isMovable = false
         sharingType = .none
     }
@@ -104,6 +105,7 @@ class AlbumArtBackgroundWindowController {
     func show() {
         guard let win = window else { return }
         win.alphaValue = 0
+        win.enableSkyLight()
         win.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.5
@@ -117,6 +119,7 @@ class AlbumArtBackgroundWindowController {
             ctx.duration = 0.4
             win.animator().alphaValue = 0
         }, completionHandler: {
+            win.disableSkyLight()
             win.orderOut(nil)
         })
     }
