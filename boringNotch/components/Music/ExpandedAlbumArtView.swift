@@ -104,7 +104,7 @@ struct ExpandedAlbumArtView: View {
 
                 // Transport controls
                 MusicSlotToolbar()
-                    .padding(.bottom, 48)
+                    .padding(.bottom, 16)
             }
         }
         .onChange(of: musicManager.artFlipSignal) { _, signal in

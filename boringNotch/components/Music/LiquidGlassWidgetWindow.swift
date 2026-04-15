@@ -62,10 +62,17 @@ private struct LiquidGlassWidgetRoot: View {
 
             // Expanded album art overlay
             if isExpanded {
-                ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .allowsHitTesting(true)
-                    .transition(.opacity)
+                VStack {
+                    Spacer()
+                    ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
+                        .frame(width: 320)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .shadow(color: .black.opacity(0.35), radius: 40, x: 0, y: 20)
+                        .allowsHitTesting(true)
+                    Spacer().frame(height: 120)
+                }
+                .frame(width: geo.size.width)
+                .transition(.opacity)
             }
         }
         .ignoresSafeArea()
