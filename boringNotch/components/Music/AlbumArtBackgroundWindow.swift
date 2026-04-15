@@ -38,13 +38,14 @@ private struct AlbumArtBackgroundView: View {
         ZStack {
             LinearGradient(
                 stops: [
-                    .init(color: colors[0].opacity(0.9), location: 0),
-                    .init(color: colors[safe: 1, fallback: colors[0]].opacity(0.95), location: 0.5),
+                    .init(color: colors[0], location: 0),
+                    .init(color: colors[safe: 1, fallback: colors[0]], location: 0.5),
                     .init(color: colors[safe: 2, fallback: colors[0]], location: 1.0),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .overlay(Color.black.opacity(0.15))
             .ignoresSafeArea()
             .overlay(
                 RadialGradient(

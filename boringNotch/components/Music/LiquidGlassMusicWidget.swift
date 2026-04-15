@@ -58,7 +58,7 @@ struct LiquidGlassMusicWidget: View {
                             frameWidth: 180
                         )
                     }
-                    .frame(minWidth: isExpanded ? 260 : 0)
+                    .frame(maxWidth: .infinity)
                     
                     Spacer()
                     
@@ -71,7 +71,7 @@ struct LiquidGlassMusicWidget: View {
                         .padding(.trailing, 4)
                 }
                 .padding(.horizontal, 14)
-                .padding(.top, isExpanded ? 10 : 14)
+                .padding(.top, isExpanded ? 12 : 14)
                 
                 // ── Progress bar ──────────────────────────────────────────────
                 TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in

@@ -126,6 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func broadcastLockState(_ locked: Bool) {
         if locked {
+            coordinator.isScreenLocked = true
             withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
                 vm.isScreenLocked = true
             }
@@ -138,6 +139,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Task {
                 try? await Task.sleep(for: .milliseconds(200))
                 await MainActor.run {
+                    coordinator.isScreenLocked = false
                     withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
                         vm.isScreenLocked = false
                     }

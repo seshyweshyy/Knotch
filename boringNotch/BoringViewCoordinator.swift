@@ -96,6 +96,7 @@ class BoringViewCoordinator: ObservableObject {
     }
 
     @Published var selectedScreenUUID: String = NSScreen.main?.displayUUID ?? ""
+    @Published var isScreenLocked: Bool = false
 
     @Published var optionKeyPressed: Bool = true
     private var accessibilityObserver: Any?

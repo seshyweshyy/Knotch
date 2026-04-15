@@ -605,6 +605,7 @@ class MusicManager: ObservableObject {
     }
 
     private func updateSneakPeek() {
+        guard !coordinator.isScreenLocked else { return }
         if isPlaying && Defaults[.enableSneakPeek] && coordinator.musicLiveActivityEnabled {
             if Defaults[.sneakPeekStyles] == .standard {
                 coordinator.toggleSneakPeek(status: true, type: .music)
