@@ -101,10 +101,10 @@ private struct LiquidGlassWidgetRoot: View {
             .animation(.spring(response: 0.4, dampingFraction: 0.82), value: isExpanded)
             .onChange(of: isExpanded) { _, expanded in
                 if expanded {
-                    NotificationCenter.default.post(name: .albumArtBackgroundShouldShow, object: nil)
+                    AlbumArtBackgroundWindowController.shared.show()
                     NotificationCenter.default.post(name: .lockScreenProfileShouldHide, object: nil)
                 } else {
-                    NotificationCenter.default.post(name: .albumArtBackgroundShouldHide, object: nil)
+                    AlbumArtBackgroundWindowController.shared.hide()
                     NotificationCenter.default.post(name: .lockScreenProfileShouldShow, object: nil)
                 }
             }
