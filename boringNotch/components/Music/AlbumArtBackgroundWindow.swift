@@ -21,7 +21,6 @@ class AlbumArtBackgroundWindow: BoringNotchSkyLightWindow {
         defer flag: Bool
     ) {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
-        // One level below the widget window (.mainMenu + 3) so it sits behind it
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue - 1)
         isMovable = false
         sharingType = .none
