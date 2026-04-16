@@ -691,7 +691,7 @@ struct Media: View {
                 Defaults.Toggle(key: .lockScreenMusicWidget) {
                     Text("Show music widget on lock screen")
                 }
-                Picker("Glass style", selection: $lockScreenWidgetStyle) {
+                Picker("Widget glass style", selection: $lockScreenWidgetStyle) {
                     ForEach(LockScreenWidgetStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
                     }

@@ -1246,7 +1246,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 272;
+				CURRENT_PROJECT_VERSION = 274;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1273,7 +1273,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.7.4;
+				MARKETING_VERSION = 2.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1301,7 +1301,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 272;
+				CURRENT_PROJECT_VERSION = 274;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1327,7 +1327,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.7.4;
+				MARKETING_VERSION = 2.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

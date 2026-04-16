@@ -32,7 +32,7 @@ class AlbumArtBackgroundWindow: BoringNotchSkyLightWindow {
 
 enum LockScreenClockStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case solid = "Solid"
-    case liquidGlass = "Liquid Glass"
+    case liquidGlass = "Glass"
     var id: String { rawValue }
 }
 
