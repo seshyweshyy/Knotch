@@ -84,7 +84,7 @@ private struct AlbumArtBackgroundView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .overlay(Color.black.opacity(0.1))
+                .overlay(Color.white.opacity(0.02))
                 .ignoresSafeArea()
                 .overlay(
                     RadialGradient(
