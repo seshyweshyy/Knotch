@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="iconclip">
+      <rect x="0" y="0" width="1024" height="1024" rx="220"/>
+    </clipPath>
+    <radialGradient id="bg" cx="45%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#6db8ff"/>
+      <stop offset="60%" stop-color="#3a8fd4"/>
+      <stop offset="100%" stop-color="#1a5fa0"/>
+    </radialGradient>
+    <radialGradient id="notchgrad" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#050505"/>
+      <stop offset="100%" stop-color="#0a0a18"/>
+    </radialGradient>
+    <linearGradient id="textgrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#b0b8c4"/>
+    </linearGradient>
+    <linearGradient id="bottomfade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a5fa0" stop-opacity="0"/>
+      <stop offset="75%" stop-color="#1a5fa0" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0d3a6e" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="textsideblend" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3a8fd4" stop-opacity="0.85"/>
+      <stop offset="12%" stop-color="#3a8fd4" stop-opacity="0"/>
+      <stop offset="88%" stop-color="#3a8fd4" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#3a8fd4" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="textbottomblend" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3a8fd4" stop-opacity="0"/>
+      <stop offset="80%" stop-color="#2a7fc4" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#1a5fa0" stop-opacity="0.65"/>
+    </linearGradient>
+    <linearGradient id="edgeshine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.4"/>
+      <stop offset="40%" stop-color="white" stop-opacity="0"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0.06"/>
+    </linearGradient>
+    <mask id="textmask">
+      <text x="512" y="630"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-weight="700" font-style="italic" font-size="252"
+        fill="white" text-anchor="middle" letter-spacing="-5"
+      >Knotch</text>
+    </mask>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#bg)"/>
+
+  <g clip-path="url(#iconclip)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+
+    <text x="512" y="630"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-weight="700" font-style="italic" font-size="252"
+      fill="url(#textgrad)"
+      text-anchor="middle" letter-spacing="-5"
+    >Knotch</text>
+
+    <text x="514" y="633"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-weight="700" font-style="italic" font-size="252"
+      fill="#333"
+      text-anchor="middle" letter-spacing="-5" opacity="0.15"
+    >Knotch</text>
+
+    <rect x="0" y="360" width="1024" height="290" fill="url(#textsideblend)" mask="url(#textmask)"/>
+    <rect x="0" y="360" width="1024" height="290" fill="url(#textbottomblend)" mask="url(#textmask)"/>
+    <rect x="0" y="365" width="1024" height="68" fill="white" opacity="0.2" mask="url(#textmask)"/>
+
+    <!-- shorter notch -->
+    <path d="M148 0 L148 180 C148 225 186 248 226 248 L798 248 C838 248 876 225 876 180 L876 0 Z" fill="url(#notchgrad)"/>
+    <path d="M148 0 L148 180 C148 225 186 248 226 248 L798 248 C838 248 876 225 876 180 L876 0 Z" fill="white" opacity="0.04"/>
+
+    <circle cx="512" cy="130" r="27" fill="#2e2e3e"/>
+    <circle cx="512" cy="130" r="15" fill="#1a1a28"/>
+
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bottomfade)"/>
+    <rect x="0" y="0" width="10" height="1024" fill="white" opacity="0.15"/>
+  </g>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#edgeshine)" opacity="0.4"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="none" stroke="white" stroke-width="3" opacity="0.2"/>
+</svg>
