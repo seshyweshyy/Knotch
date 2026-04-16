@@ -103,7 +103,7 @@ brew install --cask TheBoredTeam/boring-notch/boring-notch
 - [ ] Bluetooth Live Activity (connect/disconnect for bluetooth devices) 
 - [ ] Weather integration ⛅️
 - [ ] Customizable Layout options 🛠️
-- [ ] Lock Screen Widgets 🔒
+- [x] Lock Screen Widgets 🔒
 - [ ] Extension system 🧩
 - [ ] Notifications (under consideration) 🔔
 <!-- - [ ] Clipboard history manager 📌 `Extension` -->
