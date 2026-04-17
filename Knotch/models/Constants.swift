@@ -122,6 +122,10 @@ extension Defaults.Keys {
     static let closeGestureEnabled = Key<Bool>("closeGestureEnabled", default: true)
     static let swipeToCycleViews = Key<Bool>("swipeToCycleViews", default: true)
     static let gestureSensitivity = Key<CGFloat>("gestureSensitivity", default: 200.0)
+
+    // MARK: Notch Views
+    static let showHomeView = Key<Bool>("showHomeView", default: true)
+    static let showShelfView = Key<Bool>("showShelfView", default: true)
     
     // MARK: Media playback
     static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)

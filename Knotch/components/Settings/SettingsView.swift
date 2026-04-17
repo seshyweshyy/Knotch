@@ -1365,10 +1365,51 @@ struct Appearance: View {
 struct Widgets: View {
     @Default(.showCalendar) var showCalendar
     @Default(.showMirror) var showMirror
+    @Default(.showHomeView) var showHomeView
+    @Default(.showShelfView) var showShelfView
+    @Default(.swipeToCycleViews) var swipeToCycleViews
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+
+    // Swipe-to-cycle only makes sense when both views are enabled
+    private var onlyOneViewEnabled: Bool {
+        !showHomeView || !showShelfView
+    }
 
     var body: some View {
         Form {
+            Section {
+                Defaults.Toggle(key: .showHomeView) {
+                    Text("Home view")
+                }
+                .disabled(!showShelfView) // can't disable both
+                .settingsHighlight(id: "Widgets-Show home view")
+                Defaults.Toggle(key: .showShelfView) {
+                    Text("Shelf view")
+                }
+                .disabled(!showHomeView) // can't disable both
+                .onChange(of: showShelfView) {
+                    // If shelf is disabled while we're on shelf, jump to home
+                    if !showShelfView && coordinator.currentView == .shelf {
+                        coordinator.currentView = .home
+                    }
+                }
+                .settingsHighlight(id: "Widgets-Show shelf view")
+                if onlyOneViewEnabled {
+                    Text("Swipe to cycle views is disabled when only one view is active.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                HStack(spacing: 3) {
+                    Text("Notch views")
+                    customBadge(text: "Beta")
+                }
+            } footer: {
+                Text("Choose which views are available in the notch. Swipe to cycle is automatically disabled when only one view is enabled.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
             Section {
                 Toggle("Music player", isOn: $coordinator.musicLiveActivityEnabled.animation())
                     .settingsHighlight(id: "Widgets-Toggle expanded notch widgets")

@@ -679,6 +679,11 @@ struct ContentView: View {
             if translation > openThreshold {
                 guard Defaults[.swipeToCycleViews] else { return }
                 let destination: NotchViews = coordinator.currentView == .home ? .shelf : .home
+                // Don't cycle into a disabled view
+                let destinationEnabled = destination == .home
+                    ? Defaults[.showHomeView]
+                    : Defaults[.showShelfView]
+                guard destinationEnabled else { return }
                 lockedView = destination
                 hasTriggeredSwipe = true
                 if Defaults[.enableHaptics] { haptics.toggle() }
