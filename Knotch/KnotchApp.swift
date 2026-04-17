@@ -140,15 +140,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         viewModel.isUnlockAnimating = true
                         viewModel.isScreenLocked = false
                     }
-                    // Clear the unlock animation after it plays
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                        withAnimation(.spring(response: 0.40, dampingFraction: 0.80)) {
-                            self.vm.isUnlockAnimating = false
-                            for viewModel in self.viewModels.values {
-                                viewModel.isUnlockAnimating = false
-                            }
-                        }
-                    }
                 }
             }
         }

@@ -20,12 +20,16 @@ struct LockNotchOverlay: View {
         Group {
             if isLocked || isUnlockAnimating {
                 LottieAnimationViewRepresentable(playForward: playForward) {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
-                        isUnlockAnimating = false
+                    // Hide the Lottie view first, then clear state after a tiny delay
+                    // so SwiftUI never sees a frame where the view is visible at frame 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+                            isUnlockAnimating = false
+                        }
                     }
                 }
                 .frame(width: 20, height: 20)
-                .offset(x: -6)
+                .offset(x: -5, y: -1)
                     .transition(
                         .asymmetric(
                             insertion: .scale(scale: 0.7).combined(with: .opacity),
@@ -52,7 +56,7 @@ private struct LottieAnimationViewRepresentable: NSViewRepresentable {
         let view = LottieAnimationView(name: "lock-unlock")
         view.contentMode = .scaleAspectFit
         view.loopMode = .playOnce
-        view.animationSpeed = 1.8
+        view.animationSpeed = 2
         view.wantsLayer = true
         view.layer?.masksToBounds = false
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
