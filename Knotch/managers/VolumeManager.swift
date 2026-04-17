@@ -1,6 +1,6 @@
 //
 //  VolumeManager.swift
-//  boringNotch
+//  Knotch
 //
 //  Created by JeanLouis on 22/08/2025.
 //

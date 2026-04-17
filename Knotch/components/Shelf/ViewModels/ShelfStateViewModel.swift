@@ -1,6 +1,6 @@
 //
 //  ShelfStateViewModel.swift
-//  boringNotch
+//  Knotch
 //
 //  Created by Alexander on 2025-10-09.
 

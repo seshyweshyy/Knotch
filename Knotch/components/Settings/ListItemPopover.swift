@@ -1,6 +1,6 @@
 //
 //  ListItemPopover.swift
-//  boringNotch
+//  Knotch
 //
 //  Created by Richard Kunkli on 15/09/2024.
 //

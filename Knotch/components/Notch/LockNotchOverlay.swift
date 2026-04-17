@@ -1,6 +1,6 @@
 //
 //  LockNotchOverlay.swift
-//  boringNotch
+//  Knotch
 //
 //  Lock icon that appears inside the closed notch when the
 //  screen is locked.  When unlocked it plays a smooth scale+fade transition

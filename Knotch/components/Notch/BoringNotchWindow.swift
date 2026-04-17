@@ -1,6 +1,6 @@
 //
 //  BoringNotchWindow.swift
-//  boringNotch
+//  Knotch
 //
 //  Created by Harsh Vardhan  Goswami  on 06/08/24.
 //

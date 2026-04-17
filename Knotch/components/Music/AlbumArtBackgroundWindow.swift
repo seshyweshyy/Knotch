@@ -1,6 +1,6 @@
 //
 //  AlbumArtBackgroundWindow.swift
-//  boringNotch
+//  Knotch
 //
 //  A low-level full-screen window that renders a blurred, animated album art
 //  gradient behind the lock screen UI (clock, login) but above the wallpaper.

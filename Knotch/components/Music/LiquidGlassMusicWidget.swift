@@ -1,6 +1,6 @@
 //
 //  LiquidGlassMusicWidget.swift
-//  boringNotch
+//  Knotch
 //
 //  Lock-screen music widget styled to match the iOS lock screen player:
 //  large album art top-left, song/artist right of art, progress bar full-width,

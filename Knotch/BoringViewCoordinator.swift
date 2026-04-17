@@ -1,6 +1,6 @@
 //
 //  BoringViewCoordinator.swift
-//  boringNotch
+//  Knotch
 //
 //  Created by Alexander on 2024-11-20.
 //

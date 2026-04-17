@@ -1,6 +1,6 @@
 //
 //  LiquidGlassWidgetWindow.swift
-//  boringNotch
+//  Knotch
 //
 //  A dedicated full-screen transparent NSPanel that hosts the liquid glass
 //  music widget on the lock screen. Sits above everything, passes clicks

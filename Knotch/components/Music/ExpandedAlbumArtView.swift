@@ -1,6 +1,6 @@
 //
 //  ExpandedAlbumArtView.swift
-//  boringNotch
+//  Knotch
 //
 //  Full-screen expanded album art overlay shown when the thumbnail is tapped
 //  on the lock screen widget. Matches the iOS lock screen expanded player style.
