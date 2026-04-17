@@ -108,6 +108,7 @@
 		14FC6E502C7DED5600C7BEA5 /* DataTypes+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */; };
 		43130CB62F8F37EF00BA14A1 /* ExpandedAlbumArtView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43130CB52F8F37EE00BA14A1 /* ExpandedAlbumArtView.swift */; };
 		43130CB82F8F3D7500BA14A1 /* AlbumArtBackgroundWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43130CB72F8F3D7400BA14A1 /* AlbumArtBackgroundWindow.swift */; };
+		431EB9F92F91B17E0075616F /* lock-unlock.json in Resources */ = {isa = PBXBuildFile; fileRef = 431EB9F82F91B17E0075616F /* lock-unlock.json */; };
 		432A89E02F8A7C7500237ABF /* BottomRoundedRectangle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432A89DF2F8A7C7500237ABF /* BottomRoundedRectangle.swift */; };
 		432CB8EF2F8DC2FD00D5FE00 /* LiquidGlassMusicWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432CB8EE2F8DC2FB00D5FE00 /* LiquidGlassMusicWidget.swift */; };
 		432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */; };
@@ -286,6 +287,7 @@
 		14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DataTypes+Extensions.swift"; sourceTree = "<group>"; };
 		43130CB52F8F37EE00BA14A1 /* ExpandedAlbumArtView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedAlbumArtView.swift; sourceTree = "<group>"; };
 		43130CB72F8F3D7400BA14A1 /* AlbumArtBackgroundWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtBackgroundWindow.swift; sourceTree = "<group>"; };
+		431EB9F82F91B17E0075616F /* lock-unlock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "lock-unlock.json"; sourceTree = "<group>"; };
 		432A89DF2F8A7C7500237ABF /* BottomRoundedRectangle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomRoundedRectangle.swift; sourceTree = "<group>"; };
 		432CB8EE2F8DC2FB00D5FE00 /* LiquidGlassMusicWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassMusicWidget.swift; sourceTree = "<group>"; };
 		432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassWidgetWindow.swift; sourceTree = "<group>"; };
@@ -564,6 +566,7 @@
 				11F748502EC9AABA00F841DB /* BoringNotchXPCHelper */,
 				14CEF4132C5CAED300855D72 /* Products */,
 				14D031EC2C689DB70096E6A1 /* Frameworks */,
+				431EB9F82F91B17E0075616F /* lock-unlock.json */,
 			);
 			sourceTree = "<group>";
 		};
@@ -911,6 +914,7 @@
 				112B0EB82E30DD0F00562D6C /* MediaRemoteAdapterTestClient in Resources */,
 				112B0EB92E30DD0F00562D6C /* mediaremote-adapter.pl in Resources */,
 				B17266E12C6532560031BA0D /* Localizable.xcstrings in Resources */,
+				431EB9F92F91B17E0075616F /* lock-unlock.json in Resources */,
 				14A7E5972C65FD31008C1BE9 /* boring.m4a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -343,11 +343,6 @@ struct ContentView: View {
                     .onChange(of: vm.isScreenLocked) { _, newLocked in
                         if !newLocked {
                             isUnlockAnimating = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                                withAnimation(.spring(response: 0.40, dampingFraction: 0.80)) {
-                                    isUnlockAnimating = false
-                                }
-                            }
                         }
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)

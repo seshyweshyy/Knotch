@@ -8,37 +8,69 @@
 //
 
 import SwiftUI
+import Lottie
 
-// MARK: - Lock state icon
-
-/// Renders the SF-Symbol lock icon centered inside the closed notch pill.
-/// Animates between locked (lock.fill) and a brief unlocked flash (lock.open.fill)
-/// before fading out entirely, mirroring Alcove's behaviour.
 struct LockNotchOverlay: View {
     let isLocked: Bool
     @Binding var isUnlockAnimating: Bool
 
+    @State private var playForward: Bool = false
+
     var body: some View {
         Group {
             if isLocked || isUnlockAnimating {
-                Image(systemName: isUnlockAnimating ? "lock.open.fill" : "lock.fill")
-                    .font(.system(size: isUnlockAnimating ? 14 : 13, weight: .semibold))
-                    .foregroundStyle(
-                        isUnlockAnimating
-                            ? Color.white.opacity(0.85)
-                            : Color.white.opacity(0.75)
-                    )
-                    .scaleEffect(isUnlockAnimating ? 0.9 : 1.0)
+                LottieAnimationViewRepresentable(playForward: playForward) {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+                        isUnlockAnimating = false
+                    }
+                }
+                .frame(width: 32, height: 18)
+                .offset(x: -8)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.6).combined(with: .opacity),
-                            removal: .scale(scale: 0.6).combined(with: .opacity)
+                            insertion: .scale(scale: 0.7).combined(with: .opacity),
+                            removal:   .scale(scale: 0.7).combined(with: .opacity)
                         )
                     )
             }
         }
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isLocked)
-        .animation(.spring(response: 0.30, dampingFraction: 0.65), value: isUnlockAnimating)
+        .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isLocked)
+        .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isUnlockAnimating)
+        .onChange(of: isLocked) { _, locked in
+            playForward = !locked
+        }
+    }
+}
+
+// MARK: - NSViewRepresentable wrapper
+
+private struct LottieAnimationViewRepresentable: NSViewRepresentable {
+    let playForward: Bool
+    var onComplete: (() -> Void)? = nil
+
+    func makeNSView(context: Context) -> LottieAnimationView {
+        let view = LottieAnimationView(name: "lock-unlock")
+        view.contentMode = .scaleAspectFit
+        view.loopMode = .playOnce
+        view.animationSpeed = 1.4
+        view.wantsLayer = true
+        view.layer?.masksToBounds = false
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        return view
+    }
+
+    func updateNSView(_ nsView: LottieAnimationView, context: Context) {
+        nsView.frame = CGRect(origin: .zero, size: CGSize(width: 32, height: 18))
+        if playForward {
+            nsView.play(fromFrame: 0, toFrame: 90, loopMode: .playOnce) { finished in
+                if finished { onComplete?() }
+            }
+        } else {
+            nsView.play(fromFrame: 90, toFrame: 0, loopMode: .playOnce) { finished in
+                if finished { onComplete?() }
+            }
+        }
     }
 }
 
@@ -55,9 +87,16 @@ struct LockNotchOverlay: View {
             }
             .frame(width: 300, height: 80)
             .background(Color.gray.opacity(0.2))
-            .onTapGesture { locked.toggle() }
+            .onTapGesture {
+                locked.toggle()
+                isUnlockAnimating = !locked
+                if !locked {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        isUnlockAnimating = false
+                    }
+                }
+            }
         }
     }
     return PreviewWrapper()
 }
-
