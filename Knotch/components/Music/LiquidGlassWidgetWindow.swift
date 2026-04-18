@@ -71,7 +71,7 @@ private struct LiquidGlassWidgetRoot: View {
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .shadow(color: .black.opacity(0.6), radius: 60, x: 0, y: 20)
                     .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.5)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
                     .allowsHitTesting(true)
                     .transition(.scale(scale: 0.85).combined(with: .opacity))
             }
