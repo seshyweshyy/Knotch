@@ -4,15 +4,14 @@
 //
 
 import AppKit
-import Combine
-import CoreGraphics
 import SwiftUI
+import Combine
+import SkyLightWindow
+import IOKit.ps
 
-// MARK: - SkyLight transition window (lock screen only)
+// MARK: - Background Window (level 300)
 
-/// Used while the screen is locked to cover the wallpaper swap with a smooth fade.
-/// Level is mainMenu + 1 so it sits below the notch and widget (both at mainMenu + 3).
-private final class GradientTransitionWindow: BoringNotchSkyLightWindow {
+class AlbumArtBackgroundWindow: NSPanel {
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -20,47 +19,76 @@ private final class GradientTransitionWindow: BoringNotchSkyLightWindow {
         defer flag: Bool
     ) {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
-        level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 1)
-        isMovable = false
-        sharingType = .none
-        ignoresMouseEvents = true
-    }
-}
-
-// MARK: - Desktop cover window (used on unlock only)
-
-/// A regular (non-SkyLight) NSPanel shown on the desktop right after unlock.
-/// Covers the wallpaper restore so the gradient appears to fade out rather
-/// than abruptly swap. Screen-saver level ensures it appears above all apps.
-private final class GradientDesktopCoverWindow: NSPanel {
-    override init(
-        contentRect: NSRect,
-        styleMask: NSWindow.StyleMask,
-        backing: NSWindow.BackingStoreType,
-        defer flag: Bool
-    ) {
-        super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
-        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)))
         isOpaque = false
         backgroundColor = .clear
+        isMovable = false
         hasShadow = false
         isReleasedWhenClosed = false
-        ignoresMouseEvents = true
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces, .ignoresCycle]
         appearance = NSAppearance(named: .darkAqua)
+        sharingType = .none
     }
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
 }
 
-// MARK: - Shared gradient view
+// MARK: - Clock Overlay Window (SkyLight level 400)
 
-private struct StaticGradientView: View {
-    let image: NSImage
+class LockClockOverlayWindow: BoringNotchSkyLightWindow {
+    override init(
+        contentRect: NSRect,
+        styleMask: NSWindow.StyleMask,
+        backing: NSWindow.BackingStoreType,
+        defer flag: Bool
+    ) {
+        super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
+        isMovable = false
+        sharingType = .none
+    }
+}
+
+// MARK: - Background View
+
+private struct AlbumArtBackgroundView: View {
+    @ObservedObject var musicManager = MusicManager.shared
+    @State private var colors: [Color] = [.black, .gray, .black]
+
     var body: some View {
-        Image(nsImage: image)
-            .resizable()
+        GeometryReader { _ in
+            LinearGradient(
+                stops: [
+                    .init(color: colors[0], location: 0),
+                    .init(color: colors[safe: 1, fallback: colors[0]], location: 0.5),
+                    .init(color: colors[safe: 2, fallback: colors[0]], location: 1.0),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .overlay(Color.white.opacity(0.02))
             .ignoresSafeArea()
+            .overlay(
+                RadialGradient(
+                    colors: [colors[0].opacity(0.3), .clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 400
+                )
+            )
+        }
+        .onChange(of: musicManager.artFlipSignal) { _, signal in
+            signal.art.dominantColors(count: 3) { nsColors in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    colors = nsColors.map { Color(nsColor: $0).saturated(by: 1.4).darkened(by: 0.2) }
+                }
+            }
+        }
+        .onAppear {
+            musicManager.albumArt.dominantColors(count: 3) { nsColors in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    colors = nsColors.map { Color(nsColor: $0).saturated(by: 1.4).darkened(by: 0.2) }
+                }
+            }
+        }
     }
 }
 
@@ -75,339 +103,317 @@ extension Notification.Name {
 
 // MARK: - Controller
 
-final class AlbumArtBackgroundWindowController {
+class AlbumArtBackgroundWindowController {
     static let shared = AlbumArtBackgroundWindowController()
-    private init() {}
 
-    // Original wallpaper state — saved once, restored on collapse or unlock
-    private var savedWallpaperURL:     URL?
-    private var savedWallpaperOptions: [NSWorkspace.DesktopImageOptionKey: Any]?
-    private var savedWallpaperScreen:  NSScreen?
+    // Background gradient window
+    private var backgroundWindow: AlbumArtBackgroundWindow?
+    private var backgroundSpace: Int32 = 0
 
-    // Set synchronously the moment we decide to swap, so rapid re-entrant
-    // calls cannot overwrite savedWallpaperOptions with the gradient's options.
-    private var isWallpaperReplaced = false
+    // Lock screen overlay window
+    private var clockWindow: LockClockOverlayWindow?
+    private var bigTimeVC: NSViewController?
+    private var dateVC: NSViewController?
+    private var clockTimer: Timer?
+    private var statusVC: NSViewController?
+    private var batteryPercentLabel: NSTextField?
 
-    private var currentTempURL: URL?
-    private var lastRenderedColors: [NSColor] = []
+    typealias F_SLSMainConnectionID = @convention(c) () -> Int32
+    typealias F_SLSSpaceCreate = @convention(c) (Int32, Int32, Int32) -> Int32
+    typealias F_SLSSpaceSetAbsoluteLevel = @convention(c) (Int32, Int32, Int32) -> Int32
+    typealias F_SLSShowSpaces = @convention(c) (Int32, CFArray) -> Int32
+    typealias F_SLSSpaceAddWindowsAndRemoveFromSpaces = @convention(c) (Int32, Int32, CFArray, Int32) -> Int32
+    typealias F_SLSRemoveWindowsFromSpaces = @convention(c) (Int32, CFArray, CFArray) -> Int32
 
-    // Cancels the async 0.25s block inside hide() if hideForUnlock() fires first
-    private var pendingHideWorkItem: DispatchWorkItem?
+    private init() {
+        setupBackgroundSpace()
+        loadLUIClockControllers()
+    }
 
-    private var artChangeCancellable: AnyCancellable?
-    private var transitionWindow: GradientTransitionWindow?
-    private var desktopCoverWindow: GradientDesktopCoverWindow?
+    // MARK: - Setup
+
+    private func setupBackgroundSpace() {
+        let handler = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
+        let SLSMainConnectionID = unsafeBitCast(dlsym(handler, "SLSMainConnectionID"), to: F_SLSMainConnectionID.self)
+        let SLSSpaceCreate = unsafeBitCast(dlsym(handler, "SLSSpaceCreate"), to: F_SLSSpaceCreate.self)
+        let SLSSpaceSetAbsoluteLevel = unsafeBitCast(dlsym(handler, "SLSSpaceSetAbsoluteLevel"), to: F_SLSSpaceSetAbsoluteLevel.self)
+        let SLSShowSpaces = unsafeBitCast(dlsym(handler, "SLSShowSpaces"), to: F_SLSShowSpaces.self)
+
+        let connection = SLSMainConnectionID()
+        let space = SLSSpaceCreate(connection, 1, 0)
+        _ = SLSSpaceSetAbsoluteLevel(connection, space, 300)
+        _ = SLSShowSpaces(connection, [space] as CFArray)
+        backgroundSpace = space
+    }
+
+    private func loadLUIClockControllers() {
+        let bundleURL = URL(fileURLWithPath: "/System/Library/CoreServices/SecurityAgentPlugins/loginwindow.bundle")
+        guard let bundle = Bundle(url: bundleURL), bundle.load() else {
+            print("AlbumArtBackground: Failed to load loginwindow.bundle")
+            return
+        }
+        
+        if let cls = NSClassFromString("LUI2BigTimeViewController") as? NSObject.Type {
+            let vc = cls.init() as? NSViewController
+            vc?.perform(NSSelectorFromString("viewDidLoad"))
+            bigTimeVC = vc
+        }
+
+        if let cls = NSClassFromString("LUI2DateViewController") as? NSObject.Type {
+            let vc = cls.init() as? NSViewController
+            vc?.perform(NSSelectorFromString("viewDidLoad"))
+            dateVC = vc
+        }
+        
+        if let cls = NSClassFromString("LUI2StatusViewController") as? NSObject.Type {
+            let vc = cls.init() as? NSViewController
+            vc?.perform(NSSelectorFromString("viewDidLoad"))
+            // dump its methods
+            var methodCount: UInt32 = 0
+            let methods = class_copyMethodList(cls, &methodCount)
+            for i in 0..<Int(methodCount) {
+                if let method = methods?[i] {
+                    print("LUI2StatusViewController method: \(NSStringFromSelector(method_getName(method)))")
+                }
+            }
+            free(methods)
+            print("LUI2StatusViewController view: \(String(describing: vc?.view))")
+        }
+        
+        if let cls = NSClassFromString("LUI2StatusViewController") as? NSObject.Type {
+            let vc = cls.init() as? NSViewController
+            vc?.perform(NSSelectorFromString("viewDidLoad"))
+            vc?.perform(NSSelectorFromString("resume"))
+            statusVC = vc
+            
+            let batterySelector = NSSelectorFromString("batteryViewController")
+            if let batteryVC = vc?.perform(batterySelector)?.takeUnretainedValue() as? NSViewController {
+                batteryVC.perform(NSSelectorFromString("viewDidLoad"))
+                batteryVC.perform(NSSelectorFromString("resume"))
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    batteryVC.perform(NSSelectorFromString("_updateViews"))
+                    if let textField = batteryVC.view.subviews.first(where: { $0 is NSTextField }) as? NSTextField {
+                        let snapshot = IOPSCopyPowerSourcesInfo().takeRetainedValue()
+                        let sources = IOPSCopyPowerSourcesList(snapshot).takeRetainedValue() as Array
+                        if let source = sources.first {
+                            let desc = IOPSGetPowerSourceDescription(snapshot, source).takeUnretainedValue() as! [String: Any]
+                            if let capacity = desc[kIOPSCurrentCapacityKey] as? Int {
+                                textField.stringValue = "\(capacity)%"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clock settings intentionally omitted — LUI2BigTimeViewController uses system defaults
+    }
 
     // MARK: - Public API
 
-    func prepare(on screen: NSScreen) {}
-    func updateScreen(_ screen: NSScreen) {}
-
-    /// Called when isExpanded becomes true (on the lock screen).
-    func show() {
-        guard let screen = NSScreen.main else { return }
-
-        if !isWallpaperReplaced {
-            savedWallpaperURL     = NSWorkspace.shared.desktopImageURL(for: screen)
-            savedWallpaperOptions = NSWorkspace.shared.desktopImageOptions(for: screen)
-            savedWallpaperScreen  = screen
-            isWallpaperReplaced   = true   // lock in immediately — before any async work
-        }
-
-        if artChangeCancellable == nil {
-            artChangeCancellable = MusicManager.shared.$artFlipSignal
-                .dropFirst()
-                .sink { [weak self] _ in
-                    self?.updateWallpaperForCurrentSong()
-                }
-        }
-
-        applyGradient(for: MusicManager.shared.albumArt, on: screen, animated: true)
-    }
-
-    /// Called when isExpanded becomes false normally (user collapses on lock screen).
-    /// Uses the SkyLight transition window to fade gracefully.
-    func hide() {
-        artChangeCancellable = nil
-
-        guard isWallpaperReplaced,
-              let url    = savedWallpaperURL,
-              let screen = savedWallpaperScreen ?? NSScreen.main
-        else {
-            isWallpaperReplaced = false
-            return
-        }
-
-        if let image = renderGradient(colors: lastRenderedColors, size: screen.frame.size) {
-            presentTransitionWindow(image: image, on: screen)
-        }
-
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            do {
-                try NSWorkspace.shared.setDesktopImageURL(
-                    url,
-                    for: screen,
-                    options: self.savedWallpaperOptions ?? [:]
-                )
-            } catch {}
-
-            self.isWallpaperReplaced   = false
-            self.savedWallpaperURL     = nil
-            self.savedWallpaperOptions = nil
-            self.savedWallpaperScreen  = nil
-            self.lastRenderedColors    = []
-
-            if let tmp = self.currentTempURL {
-                try? FileManager.default.removeItem(at: tmp)
-                self.currentTempURL = nil
-            }
-
-            self.dismissTransitionWindow(animated: true)
-        }
-        pendingHideWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
-    }
-
-    /// Called exclusively from KnotchApp.onScreenUnlocked.
-    /// Cancels any in-progress hide(), restores the wallpaper immediately,
-    /// then covers the desktop with a gradient panel that fades out — giving
-    /// the "collapse first" visual without being able to block macOS's unlock.
-    func hideForUnlock() {
-        artChangeCancellable = nil
-
-        // Cancel any pending delayed restore from a concurrent hide() call
-        pendingHideWorkItem?.cancel()
-        pendingHideWorkItem = nil
-
-        // SkyLight transition window is no longer visible on the desktop — dismiss immediately
-        dismissTransitionWindow(animated: false)
-
-        guard isWallpaperReplaced,
-              let url    = savedWallpaperURL,
-              let screen = savedWallpaperScreen ?? NSScreen.main
-        else {
-            isWallpaperReplaced = false
-            return
-        }
-
-        // Show the desktop cover immediately so the wallpaper restore is invisible
-        if let image = renderGradient(colors: lastRenderedColors, size: screen.frame.size) {
-            showDesktopCover(image: image, on: screen)
-        }
-
-        // Restore wallpaper synchronously — the cover hides the swap
-        do {
-            try NSWorkspace.shared.setDesktopImageURL(
-                url,
-                for: screen,
-                options: savedWallpaperOptions ?? [:]
-            )
-        } catch {}
-
-        isWallpaperReplaced   = false
-        savedWallpaperURL     = nil
-        savedWallpaperOptions = nil
-        savedWallpaperScreen  = nil
-        lastRenderedColors    = []
-
-        if let tmp = currentTempURL {
-            try? FileManager.default.removeItem(at: tmp)
-            currentTempURL = nil
-        }
-
-        // Small pause then fade out — gives the impression of the gradient dissolving away
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            self.fadeOutDesktopCover()
-        }
-    }
-
-    // MARK: - Private: gradient update on song change
-
-    private func updateWallpaperForCurrentSong() {
-        guard isWallpaperReplaced, let screen = savedWallpaperScreen ?? NSScreen.main else { return }
-        applyGradient(for: MusicManager.shared.albumArt, on: screen, animated: false)
-    }
-
-    // MARK: - Private: core gradient apply
-
-    private func applyGradient(for art: NSImage, on screen: NSScreen, animated: Bool) {
-        art.dominantColors(count: 3) { [weak self] nsColors in
-            guard let self else { return }
-
-            let adjusted = nsColors.map { c -> NSColor in
-                let srgb = c.usingColorSpace(.sRGB) ?? c
-                var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                srgb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-                return NSColor(
-                    hue: h,
-                    saturation: min(s * 1.4, 1.0),
-                    brightness: max(b - 0.2, 0.0),
-                    alpha: a
-                )
-            }
-            self.lastRenderedColors = adjusted
-
-            guard let image   = self.renderGradient(colors: adjusted, size: screen.frame.size),
-                  let tempURL = self.writeTempImage(image)
-            else { return }
-
-            let swap = {
-                if let old = self.currentTempURL { try? FileManager.default.removeItem(at: old) }
-                self.currentTempURL = tempURL
-
-                do {
-                    try NSWorkspace.shared.setDesktopImageURL(
-                        tempURL,
-                        for: screen,
-                        options: [.imageScaling: NSImageScaling.scaleAxesIndependently.rawValue]
-                    )
-                } catch {
-                    try? FileManager.default.removeItem(at: tempURL)
-                    self.currentTempURL = nil
-                    if animated { self.dismissTransitionWindow(animated: false) }
-                }
-            }
-
-            if animated {
-                self.presentTransitionWindow(image: image, on: screen)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    swap()
-                    self.dismissTransitionWindow(animated: true)
-                }
-            } else {
-                swap()
-            }
-        }
-    }
-
-    // MARK: - Private: SkyLight transition window (lock screen)
-
-    private func presentTransitionWindow(image: NSImage, on screen: NSScreen) {
-        let win: GradientTransitionWindow
-        if let existing = transitionWindow {
-            win = existing
-        } else {
-            win = GradientTransitionWindow(
+    func prepare(on screen: NSScreen) {
+        // Background window
+        if backgroundWindow == nil {
+            let win = AlbumArtBackgroundWindow(
                 contentRect: screen.frame,
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
-            transitionWindow = win
+            win.contentView = NSHostingView(rootView: AlbumArtBackgroundView())
+            backgroundWindow = win
         }
-        win.setFrame(screen.frame, display: false)
-        win.contentView = NSHostingView(rootView: StaticGradientView(image: image))
-        win.alphaValue  = 0
-        win.enableSkyLight()
-        win.orderFrontRegardless()
+        backgroundWindow?.setFrame(screen.frame, display: false)
+
+        // Clock overlay window
+        if clockWindow == nil {
+            let win = LockClockOverlayWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            win.contentView = NSView(frame: screen.frame)
+            win.contentView?.wantsLayer = true
+            clockWindow = win
+        }
+        clockWindow?.setFrame(screen.frame, display: false)
+        layoutClockViews(for: screen)
+    }
+
+    private func layoutClockViews(for screen: NSScreen) {
+        guard let contentView = clockWindow?.contentView else { return }
+
+        // Remove existing clock subviews
+        contentView.subviews.forEach { $0.removeFromSuperview() }
+
+        let screenHeight = screen.frame.height
+        let screenWidth = screen.frame.width
+
+        // Date view — positioned above clock, ~12% from top
+        if let dateView = dateVC?.view {
+            dateView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(dateView)
+            NSLayoutConstraint.activate([
+                dateView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+                dateView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: screenHeight * 0.09),
+                dateView.widthAnchor.constraint(equalToConstant: screenWidth * 0.6),
+                dateView.heightAnchor.constraint(equalToConstant: 30),
+            ])
+        }
+
+        // Clock view — positioned below date, ~15% from top
+        if let clockView = bigTimeVC?.view {
+            clockView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(clockView)
+            NSLayoutConstraint.activate([
+                clockView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+                clockView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: screenHeight * 0.105),
+                clockView.widthAnchor.constraint(equalToConstant: screenWidth * 0.7),
+                clockView.heightAnchor.constraint(equalToConstant: 160),
+            ])
+        }
+        
+        if let statusView = statusVC?.view {
+            statusView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(statusView)
+            NSLayoutConstraint.activate([
+                statusView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+                statusView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 1.1),
+                statusView.heightAnchor.constraint(equalToConstant: 22),
+            ])
+        }
+        
+        // Battery percentage label
+        let label = NSTextField(labelWithString: "")
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.isBezeled = false
+        label.drawsBackground = false
+        contentView.addSubview(label)
+        if let statusView = statusVC?.view {
+            NSLayoutConstraint.activate([
+                label.trailingAnchor.constraint(equalTo: statusView.leadingAnchor, constant: 0),
+                label.centerYAnchor.constraint(equalTo: statusView.centerYAnchor, constant: 3),
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+                label.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
+            ])
+        }
+        batteryPercentLabel = label
+        updateBatteryLabel()
+    }
+    
+    private func updateBatteryLabel() {
+        let snapshot = IOPSCopyPowerSourcesInfo().takeRetainedValue()
+        let sources = IOPSCopyPowerSourcesList(snapshot).takeRetainedValue() as Array
+        if let source = sources.first {
+            let desc = IOPSGetPowerSourceDescription(snapshot, source).takeUnretainedValue() as! [String: Any]
+            if let capacity = desc[kIOPSCurrentCapacityKey] as? Int {
+                batteryPercentLabel?.stringValue = "\(capacity)%"
+            }
+        }
+    }
+
+    func show() {
+        guard let bgWin = backgroundWindow, let clkWin = clockWindow else { return }
+        print("AlbumArtBackground: show() called — backgroundWindow=\(String(describing: backgroundWindow)) clockWindow=\(String(describing: clockWindow))")
+        
+        let handler = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
+        let SLSMainConnectionID = unsafeBitCast(dlsym(handler, "SLSMainConnectionID"), to: F_SLSMainConnectionID.self)
+        let SLSSpaceAddWindowsAndRemoveFromSpaces = unsafeBitCast(dlsym(handler, "SLSSpaceAddWindowsAndRemoveFromSpaces"), to: F_SLSSpaceAddWindowsAndRemoveFromSpaces.self)
+
+        let connection = SLSMainConnectionID()
+
+        bgWin.alphaValue = 0
+        bgWin.orderFrontRegardless()
+        _ = SLSSpaceAddWindowsAndRemoveFromSpaces(connection, SkyLightOperator.shared.space, [bgWin.windowNumber] as CFArray, 7)
+        bgWin.order(.below, relativeTo: clkWin.windowNumber)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                bgWin.animator().alphaValue = 1
+            }
+        }
+
+        // Show clock overlay via SkyLight (level 400)
+        clkWin.alphaValue = 0
+        clkWin.enableSkyLight()
+        clkWin.orderFrontRegardless()
+
+        // Start clock timer — delay first update to let view fully initialize
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.bigTimeVC?.perform(NSSelectorFromString("_updateTime"))
+            self?.updateBatteryLabel()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.bigTimeVC?.perform(NSSelectorFromString("_updateTime"))
+        }
 
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration       = 0.3
+            ctx.duration = 0.25
             ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            win.animator().alphaValue = 1
+            clkWin.animator().alphaValue = 1
         }
     }
 
-    private func dismissTransitionWindow(animated: Bool) {
-        guard let win = transitionWindow else { return }
-        if animated {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration       = 0.4
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                win.animator().alphaValue = 0
-            }, completionHandler: {
-                win.disableSkyLight()
-                win.orderOut(nil)
-            })
-        } else {
-            win.alphaValue = 0
-            win.disableSkyLight()
-            win.orderOut(nil)
-        }
-    }
+    func hide() {
+        guard let bgWin = backgroundWindow, let clkWin = clockWindow else { return }
 
-    // MARK: - Private: desktop cover window (unlock path)
+        clockTimer?.invalidate()
+        clockTimer = nil
 
-    private func showDesktopCover(image: NSImage, on screen: NSScreen) {
-        let win = GradientDesktopCoverWindow(
-            contentRect: screen.frame,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        win.contentView = NSHostingView(rootView: StaticGradientView(image: image))
-        win.orderFrontRegardless()
-        desktopCoverWindow = win
-    }
+        let handler = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
+        let SLSMainConnectionID = unsafeBitCast(dlsym(handler, "SLSMainConnectionID"), to: F_SLSMainConnectionID.self)
+        let SLSRemoveWindowsFromSpaces = unsafeBitCast(dlsym(handler, "SLSRemoveWindowsFromSpaces"), to: F_SLSRemoveWindowsFromSpaces.self)
 
-    private func fadeOutDesktopCover() {
-        guard let win = desktopCoverWindow else { return }
+        let connection = SLSMainConnectionID()
+
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration       = 0.5
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            win.animator().alphaValue = 0
+            ctx.duration = 0.4
+            bgWin.animator().alphaValue = 0
+            clkWin.animator().alphaValue = 0
         }, completionHandler: {
-            win.orderOut(nil)
-            self.desktopCoverWindow = nil
+            _ = SLSRemoveWindowsFromSpaces(connection, [bgWin.windowNumber] as CFArray, [SkyLightOperator.shared.space] as CFArray)
+            bgWin.orderOut(nil)
+            clkWin.disableSkyLight()
+            clkWin.orderOut(nil)
         })
     }
 
-    // MARK: - Private: image rendering
+    func updateScreen(_ screen: NSScreen) {
+        backgroundWindow?.setFrame(screen.frame, display: true)
+        clockWindow?.setFrame(screen.frame, display: true)
+        layoutClockViews(for: screen)
+    }
+}
 
-    private func renderGradient(colors: [NSColor], size: CGSize) -> NSImage? {
-        let w = max(1, Int(size.width))
-        let h = max(1, Int(size.height))
+// MARK: - Array safe subscript
+private extension Array {
+    subscript(safe index: Int, fallback fallback: Element) -> Element {
+        indices.contains(index) ? self[index] : fallback
+    }
+}
 
-        guard let ctx = CGContext(
-            data: nil, width: w, height: h,
-            bitsPerComponent: 8, bytesPerRow: w * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-
-        let fullRect = CGRect(x: 0, y: 0, width: w, height: h)
-        ctx.setFillColor(NSColor.black.cgColor)
-        ctx.fill(fullRect)
-
-        if !colors.isEmpty {
-            let cgColors = colors.map(\.cgColor) as CFArray
-            var locations: [CGFloat]
-            switch colors.count {
-            case 1:  locations = [0.0]
-            case 2:  locations = [0.0, 1.0]
-            default: locations = [0.0, 0.5, 1.0]
-            }
-            if let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: cgColors,
-                locations: &locations
-            ) {
-                ctx.drawLinearGradient(
-                    gradient,
-                    start: CGPoint(x: 0, y: CGFloat(h)),
-                    end:   CGPoint(x: CGFloat(w), y: 0),
-                    options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
-                )
-            }
-        }
-
-        ctx.setFillColor(NSColor.white.withAlphaComponent(0.02).cgColor)
-        ctx.fill(fullRect)
-
-        guard let cgImage = ctx.makeImage() else { return nil }
-        return NSImage(cgImage: cgImage, size: size)
+// MARK: - Color helpers
+private extension Color {
+    func saturated(by factor: CGFloat) -> Color {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? NSColor(self)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return Color(hue: h, saturation: min(s * factor, 1), brightness: b, opacity: a)
     }
 
-    private func writeTempImage(_ image: NSImage) -> URL? {
-        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(UUID().uuidString).png")
-        guard let dest = CGImageDestinationCreateWithURL(
-            url as CFURL, "public.png" as CFString, 1, nil
-        ) else { return nil }
-        CGImageDestinationAddImage(dest, cg, nil)
-        guard CGImageDestinationFinalize(dest) else { return nil }
-        return url
+    func darkened(by amount: CGFloat) -> Color {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? NSColor(self)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return Color(hue: h, saturation: s, brightness: max(b - amount, 0), opacity: a)
     }
 }

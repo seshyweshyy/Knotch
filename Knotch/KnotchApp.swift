@@ -113,7 +113,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         broadcastLockState(false)
         disableSkyLightOnAllWindows()
         LiquidGlassWidgetWindowController.shared.hide()
-        AlbumArtBackgroundWindowController.shared.hideForUnlock()
     }
     
     private func broadcastLockState(_ locked: Bool) {
