@@ -117,6 +117,7 @@ class AlbumArtBackgroundWindowController {
     private var clockTimer: Timer?
     private var statusVC: NSViewController?
     private var batteryPercentLabel: NSTextField?
+    private var clockLayoutConstraints: [NSLayoutConstraint] = []
 
     typealias F_SLSMainConnectionID = @convention(c) () -> Int32
     typealias F_SLSSpaceCreate = @convention(c) (Int32, Int32, Int32) -> Int32
@@ -155,6 +156,7 @@ class AlbumArtBackgroundWindowController {
         if let cls = NSClassFromString("LUI2BigTimeViewController") as? NSObject.Type {
             let vc = cls.init() as? NSViewController
             vc?.perform(NSSelectorFromString("viewDidLoad"))
+            vc?.perform(NSSelectorFromString("_updateTime"))  // populate layers first
             bigTimeVC = vc
         }
 
@@ -229,66 +231,79 @@ class AlbumArtBackgroundWindowController {
     private func layoutClockViews(for screen: NSScreen) {
         guard let contentView = clockWindow?.contentView else { return }
 
-        // Remove existing clock subviews
-        contentView.subviews.forEach { $0.removeFromSuperview() }
-
         let screenHeight = screen.frame.height
         let screenWidth = screen.frame.width
 
-        // Date view — positioned above clock, ~12% from top
+        // Deactivate previously installed constraints (they live on the parent/contentView)
+        NSLayoutConstraint.deactivate(clockLayoutConstraints)
+        clockLayoutConstraints = []
+
+        var newConstraints: [NSLayoutConstraint] = []
+
         if let dateView = dateVC?.view {
             dateView.translatesAutoresizingMaskIntoConstraints = false
-            contentView.addSubview(dateView)
-            NSLayoutConstraint.activate([
+            if dateView.superview == nil {
+                contentView.addSubview(dateView)
+            }
+            newConstraints += [
                 dateView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
                 dateView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: screenHeight * 0.09),
                 dateView.widthAnchor.constraint(equalToConstant: screenWidth * 0.6),
                 dateView.heightAnchor.constraint(equalToConstant: 30),
-            ])
+            ]
         }
 
-        // Clock view — positioned below date, ~15% from top
         if let clockView = bigTimeVC?.view {
             clockView.translatesAutoresizingMaskIntoConstraints = false
-            contentView.addSubview(clockView)
-            NSLayoutConstraint.activate([
+            if clockView.superview == nil {
+                contentView.addSubview(clockView)
+            }
+            newConstraints += [
                 clockView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
                 clockView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: screenHeight * 0.105),
                 clockView.widthAnchor.constraint(equalToConstant: screenWidth * 0.7),
                 clockView.heightAnchor.constraint(equalToConstant: 160),
-            ])
+            ]
         }
-        
+
         if let statusView = statusVC?.view {
             statusView.translatesAutoresizingMaskIntoConstraints = false
-            contentView.addSubview(statusView)
-            NSLayoutConstraint.activate([
+            if statusView.superview == nil {
+                contentView.addSubview(statusView)
+            }
+            newConstraints += [
                 statusView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
                 statusView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 1.1),
                 statusView.heightAnchor.constraint(equalToConstant: 22),
-            ])
+            ]
         }
-        
-        // Battery percentage label
-        let label = NSTextField(labelWithString: "")
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 13, weight: .medium)
-        label.isBezeled = false
-        label.drawsBackground = false
-        contentView.addSubview(label)
-        if let statusView = statusVC?.view {
-            NSLayoutConstraint.activate([
-                label.trailingAnchor.constraint(equalTo: statusView.leadingAnchor, constant: 0),
-                label.centerYAnchor.constraint(equalTo: statusView.centerYAnchor, constant: 3),
-            ])
-        } else {
-            NSLayoutConstraint.activate([
-                label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
-                label.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
-            ])
+
+        // Battery label
+        if batteryPercentLabel == nil {
+            let label = NSTextField(labelWithString: "")
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.textColor = .white
+            label.font = .systemFont(ofSize: 13, weight: .medium)
+            label.isBezeled = false
+            label.drawsBackground = false
+            contentView.addSubview(label)
+            batteryPercentLabel = label
+
+            if let statusView = statusVC?.view {
+                newConstraints += [
+                    label.trailingAnchor.constraint(equalTo: statusView.leadingAnchor, constant: 0),
+                    label.centerYAnchor.constraint(equalTo: statusView.centerYAnchor, constant: 3),
+                ]
+            } else {
+                newConstraints += [
+                    label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+                    label.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
+                ]
+            }
         }
-        batteryPercentLabel = label
+
+        NSLayoutConstraint.activate(newConstraints)
+        clockLayoutConstraints = newConstraints
         updateBatteryLabel()
     }
     
@@ -329,14 +344,15 @@ class AlbumArtBackgroundWindowController {
         clkWin.alphaValue = 0
         clkWin.enableSkyLight()
         clkWin.orderFrontRegardless()
+        
+        bigTimeVC?.perform(NSSelectorFromString("_updateTime"))
+        suppressDuplicateBackingLayers()
 
-        // Start clock timer — delay first update to let view fully initialize
+        // Start clock timer
         clockTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.bigTimeVC?.perform(NSSelectorFromString("_updateTime"))
             self?.updateBatteryLabel()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.bigTimeVC?.perform(NSSelectorFromString("_updateTime"))
+            self?.suppressDuplicateBackingLayers()
         }
 
         NSAnimationContext.runAnimationGroup { ctx in
@@ -374,6 +390,14 @@ class AlbumArtBackgroundWindowController {
         backgroundWindow?.setFrame(screen.frame, display: true)
         clockWindow?.setFrame(screen.frame, display: true)
         layoutClockViews(for: screen)
+    }
+    
+    private func suppressDuplicateBackingLayers() {
+        guard let rootLayer = bigTimeVC?.view.layer else { return }
+        let backingLayers = rootLayer.sublayers ?? []
+        for (i, layer) in backingLayers.enumerated() {
+            layer.isHidden = i < backingLayers.count - 1
+        }
     }
 }
 
