@@ -16,9 +16,6 @@ import SwiftUI
 import Defaults
 
 class LiquidGlassWidgetWindow: BoringNotchSkyLightWindow {
-    // configure() is no longer needed — BoringNotchSkyLightWindow already
-    // sets level, appearance, collectionBehavior, backgroundColor etc.
-    // Just override the things that differ:
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -28,6 +25,10 @@ class LiquidGlassWidgetWindow: BoringNotchSkyLightWindow {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
         isMovable = false
         sharingType = .none
+    }
+
+    func setClickThrough(_ passThrough: Bool) {
+        ignoresMouseEvents = passThrough
     }
 }
 
@@ -42,38 +43,47 @@ private struct LiquidGlassWidgetRoot: View {
 
     var body: some View {
         GeometryReader { geo in
-            Color.clear
-                .contentShape(Rectangle())
-                .allowsHitTesting(false)
+            ZStack {
+                // Layer 0: full-screen dismiss tap target (only active when expanded)
+                Color.black.opacity(isExpanded ? 0.001 : 0)
+                    .contentShape(Rectangle())
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .allowsHitTesting(isExpanded)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                            isExpanded = false
+                        }
+                    }
 
-            // Widget pinned to bottom-centre, moves down when expanded
-            VStack {
-                Spacer()
-                LiquidGlassMusicWidget(isExpanded: $isExpanded, artNamespace: artNamespace)
-                    .compositingGroup()
-                    .shadow(color: .black.opacity(isExpanded ? 0.5 : 0), radius: isExpanded ? 60 : 0, x: 0, y: isExpanded ? 20 : 0)
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
-                            removal:   .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity)
+                // Layer 1: widget pinned to bottom-centre
+                VStack {
+                    Spacer()
+                    LiquidGlassMusicWidget(isExpanded: $isExpanded, artNamespace: artNamespace)
+                        .compositingGroup()
+                        .shadow(color: .black.opacity(isExpanded ? 0.5 : 0), radius: isExpanded ? 60 : 0, x: 0, y: isExpanded ? 20 : 0)
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
+                                removal:   .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity)
+                            )
                         )
-                    )
-                    .allowsHitTesting(true)
-                Spacer().frame(height: isExpanded ? 115 : 210)
-            }
-            .frame(width: geo.size.width)
+                        .allowsHitTesting(true)
+                    Spacer().frame(height: isExpanded ? 115 : 210)
+                }
+                .frame(width: geo.size.width)
 
-            if isExpanded {
-                // Expanded art — centered horizontally, upper-mid vertically, detached from widget
-                let artSize = min(geo.size.width, geo.size.height) * 0.42
-                ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
-                    .frame(width: artSize, height: artSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: .black.opacity(0.6), radius: 60, x: 0, y: 20)
-                    .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
-                    .allowsHitTesting(true)
-                    .transition(.scale(scale: 0.85).combined(with: .opacity))
+                // Layer 2: expanded album art
+                if isExpanded {
+                    let artSize = min(geo.size.width, geo.size.height) * 0.42
+                    ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
+                        .frame(width: artSize, height: artSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .shadow(color: .black.opacity(0.6), radius: 60, x: 0, y: 20)
+                        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
+                        .allowsHitTesting(true)
+                        .transition(.scale(scale: 0.85).combined(with: .opacity))
+                }
             }
         }
         .ignoresSafeArea()
@@ -134,6 +144,10 @@ class LiquidGlassWidgetWindowController {
         guard let win = window else { return }
         win.disableSkyLight()          // ← inherited from BoringNotchSkyLightWindow
         win.orderOut(nil)
+    }
+
+    func setClickThrough(_ passThrough: Bool) {
+        window?.setClickThrough(passThrough)
     }
 
     func updateScreen(_ screen: NSScreen) {

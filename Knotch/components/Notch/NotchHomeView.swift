@@ -71,6 +71,7 @@ struct AlbumArtView: View {
                 ZStack(alignment:.bottomTrailing) {
                     albumArtImage
                     appIconOverlay
+                        .allowsHitTesting(false)
                 }
             }
             .buttonStyle(PlainButtonStyle())
@@ -86,6 +87,7 @@ struct AlbumArtView: View {
             .foregroundColor(Color.black)
             .opacity(musicManager.isPlaying ? 0 : 0.8)
             .blur(radius: 50)
+            .allowsHitTesting(false)
     }
                 
 
