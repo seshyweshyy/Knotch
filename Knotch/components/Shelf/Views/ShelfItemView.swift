@@ -20,6 +20,8 @@ struct ShelfItemView: View {
     @State private var showStack = false
     @State private var cachedPreviewImage: NSImage?
     @State private var debouncedDropTarget = false
+    @State private var isHovered = false
+    @State private var isItemHovered = false
 
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
@@ -54,6 +56,11 @@ struct ShelfItemView: View {
                     onRightClick: viewModel.handleRightClick,
                     onClick: { event, nsview in
                         viewModel.handleClick(event: event, view: nsview)
+                    },
+                    onHover: { hovering in
+                        withAnimation(.spring(duration: 0.2)) {
+                            isItemHovered = hovering
+                        }
                     }
                 )
             } else {
@@ -95,12 +102,30 @@ struct ShelfItemView: View {
     // MARK: - View Components
 
     private var iconView: some View {
-        Image(nsImage: viewModel.thumbnail ?? item.icon)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+        ZStack(alignment: .topLeading) {
+            Image(nsImage: viewModel.thumbnail ?? item.icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+
+            if isItemHovered {
+                Button {
+                    ShelfActionService.remove(item)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.7))
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -6, y: -6)
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
+                .zIndex(999)
+            }
+        }
+        .animation(.spring(duration: 0.2), value: isItemHovered)
     }
 
     private var textView: some View {
@@ -176,6 +201,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
     @ViewBuilder let dragPreviewContent: () -> Content
     let onRightClick: (NSEvent, NSView) -> Void
     let onClick: (NSEvent, NSView) -> Void
+    let onHover: (Bool) -> Void
     
     func makeNSView(context: Context) -> DraggableClickView {
         let view = DraggableClickView()
@@ -184,6 +210,9 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         view.dragPreviewImage = cachedPreviewImage ?? renderDragPreview()
         view.onRightClick = onRightClick
         view.onClick = onClick
+        view.onHover = onHover
+        view.wantsLayer = true
+        view.autoresizingMask = [.width, .height]
         return view
     }
     
@@ -196,6 +225,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         }
         nsView.onRightClick = onRightClick
         nsView.onClick = onClick
+        nsView.onHover = onHover
     }
     
     private func renderDragPreview() -> NSImage {
@@ -217,19 +247,59 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         var dragPreviewImage: NSImage?
         var onRightClick: ((NSEvent, NSView) -> Void)?
         var onClick: ((NSEvent, NSView) -> Void)?
+        var onHover: ((Bool) -> Void)?
 
         private var mouseDownEvent: NSEvent?
         private let dragThreshold: CGFloat = 3.0
         private var draggedURLs: [URL] = []
         private var draggedItems: [ShelfItem] = []
         
+        override func layout() {
+            super.layout()
+            updateTrackingAreas()
+        }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach { removeTrackingArea($0) }
+            guard !bounds.isEmpty else { return }
+            addTrackingArea(NSTrackingArea(
+                rect: bounds,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            ))
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            onHover?(true)
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            onHover?(false)
+        }
+
         override func rightMouseDown(with event: NSEvent) {
             onRightClick?(event, self)
         }
         
         override func mouseDown(with event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            if removeButtonRect.contains(point) {
+                if let item = item {
+                    DispatchQueue.main.async {
+                        ShelfActionService.remove(item)
+                    }
+                }
+                return
+            }
             mouseDownEvent = event
             onClick?(event, self)
+        }
+
+        private var removeButtonRect: CGRect {
+            let iconLeft = (bounds.width - 56) / 2
+            return CGRect(x: iconLeft - 8, y: bounds.maxY - 22, width: 28, height: 28)
         }
         
         override func mouseDragged(with event: NSEvent) {

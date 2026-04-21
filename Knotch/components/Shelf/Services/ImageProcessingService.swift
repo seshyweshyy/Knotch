@@ -11,6 +11,7 @@ import CoreImage
 import CoreGraphics
 import Vision
 import PDFKit
+import ZIPFoundation
 import UniformTypeIdentifiers
 import ImageIO
 
@@ -204,37 +205,37 @@ final class ImageProcessingService {
     
     private func scaleImage(_ image: NSImage, maxDimension: CGFloat) -> NSImage {
         guard maxDimension > 0 else { return image }
-
+        
         guard let srcCG = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return image
         }
-
+        
         let srcMax = max(srcCG.width, srcCG.height)
         if CGFloat(srcMax) <= maxDimension {
             return image // no downscaling needed
         }
-
+        
         let scale = maxDimension / CGFloat(srcMax)
-
+        
         let ciImage = CIImage(cgImage: srcCG)
         let lanczos = CIFilter.lanczosScaleTransform()
         lanczos.inputImage = ciImage
         lanczos.scale = Float(scale)
         lanczos.aspectRatio = 1.0
-
+        
         guard let output = lanczos.outputImage else {
             return image
         }
-
+        
         // Preserve the source color space for exact color matching
         let colorSpace = srcCG.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
         let ciContext = CIContext(options: [.workingColorSpace: colorSpace])
-
+        
         // Render using the CIContext with matching color space
         guard let dstCG = ciContext.createCGImage(output, from: output.extent, format: .RGBA8, colorSpace: colorSpace) else {
             return image
         }
-
+        
         return NSImage(cgImage: dstCG, size: NSSize(width: dstCG.width, height: dstCG.height))
     }
     
@@ -289,6 +290,230 @@ final class ImageProcessingService {
         }
         return contentType.conforms(to: .image)
     }
+    
+    // MARK: - PDF to Text
+    
+    /// Extracts all text from a PDF and saves as a .txt file
+    func extractTextFromPDF(at url: URL) async throws -> URL {
+        guard let document = PDFDocument(url: url) else {
+            throw ImageProcessingError.pdfReadFailed
+        }
+        
+        var pages: [String] = []
+        for i in 0..<document.pageCount {
+            guard let page = document.page(at: i) else { continue }
+            let text = page.string ?? ""
+            if !text.isEmpty {
+                pages.append("--- Page \(i + 1) ---\n\(text)")
+            }
+        }
+        
+        guard !pages.isEmpty else {
+            throw ImageProcessingError.pdfNoTextContent
+        }
+        
+        let fullText = pages.joined(separator: "\n\n")
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let fileName = "\(baseName).txt"
+        
+        guard let tempURL = await TemporaryFileStorageService.shared.createTempFile(
+            for: .data(fullText.data(using: .utf8)!, suggestedName: fileName)
+        ) else {
+            throw ImageProcessingError.saveFailed
+        }
+        
+        return tempURL
+    }
+    
+    // MARK: - PDF to DOCX
+    
+    /// Converts a text-based PDF to .docx using Open XML format (no dependencies)
+    func convertPDFtoDOCX(at url: URL) async throws -> URL {
+        guard let document = PDFDocument(url: url) else {
+            throw ImageProcessingError.pdfReadFailed
+        }
+        
+        struct PageContent {
+            let number: Int
+            let text: String
+        }
+        
+        var pages: [PageContent] = []
+        for i in 0..<document.pageCount {
+            guard let page = document.page(at: i) else { continue }
+            
+            // Prefer native text — fast and accurate for text-based PDFs
+            let nativeText = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !nativeText.isEmpty {
+                pages.append(PageContent(number: i + 1, text: nativeText))
+                continue
+            }
+            
+            // Fallback: rasterize the page and OCR it with Vision
+            let pageRect = page.bounds(for: .mediaBox)
+            let scale: CGFloat = 2.0 // 144 dpi — good OCR quality without being huge
+            let renderSize = CGSize(width: pageRect.width * scale, height: pageRect.height * scale)
+            
+            guard let context = CGContext(
+                data: nil,
+                width: Int(renderSize.width),
+                height: Int(renderSize.height),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { continue }
+            
+            context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+            context.fill(CGRect(origin: .zero, size: renderSize))
+            context.scaleBy(x: scale, y: scale)
+            page.draw(with: .mediaBox, to: context)
+            
+            guard let cgImage = context.makeImage() else { continue }
+            
+            let ocrText = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                let request = VNRecognizeTextRequest { req, err in
+                    if let err {
+                        continuation.resume(throwing: err)
+                        return
+                    }
+                    let recognized = (req.results as? [VNRecognizedTextObservation] ?? [])
+                        .compactMap { $0.topCandidates(1).first?.string }
+                        .joined(separator: "\n")
+                    continuation.resume(returning: recognized)
+                }
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
+                
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            
+            let trimmedOCR = ocrText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedOCR.isEmpty {
+                pages.append(PageContent(number: i + 1, text: trimmedOCR))
+            }
+        }
+        
+        guard !pages.isEmpty else {
+            throw ImageProcessingError.pdfNoTextContent
+        }
+        
+        let baseName = url.deletingPathExtension().lastPathComponent
+        
+        // Build the DOCX Open XML package in a temp directory
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let docxDir = tempDir.appendingPathComponent("docx", isDirectory: true)
+        
+        let wordDir   = docxDir.appendingPathComponent("word", isDirectory: true)
+        let relsDir   = docxDir.appendingPathComponent("_rels", isDirectory: true)
+        let wordRels  = wordDir.appendingPathComponent("_rels", isDirectory: true)
+        
+        try FileManager.default.createDirectory(at: wordRels, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: relsDir,  withIntermediateDirectories: true)
+        
+        // [Content_Types].xml
+        let contentTypes = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+      <Default Extension="xml"  ContentType="application/xml"/>
+      <Override PartName="/word/document.xml"
+        ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+    </Types>
+    """
+        try contentTypes.data(using: .utf8)!
+            .write(to: docxDir.appendingPathComponent("[Content_Types].xml"))
+        
+        // _rels/.rels
+        let dotRels = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1"
+        Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+        Target="word/document.xml"/>
+    </Relationships>
+    """
+        try dotRels.data(using: .utf8)!
+            .write(to: relsDir.appendingPathComponent(".rels"))
+        
+        // word/_rels/document.xml.rels
+        let docRels = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    </Relationships>
+    """
+        try docRels.data(using: .utf8)!
+            .write(to: wordRels.appendingPathComponent("document.xml.rels"))
+        
+        // word/document.xml — one paragraph per line, page breaks between pages
+        let ns = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\""
+        var bodyXML = ""
+        
+        for (idx, page) in pages.enumerated() {
+            // Page break before every page except the first
+            if idx > 0 {
+                bodyXML += """
+            <w:p>
+              <w:r>
+                <w:br w:type="page"/>
+              </w:r>
+            </w:p>
+            """
+            }
+            
+            let lines = page.text.components(separatedBy: .newlines)
+            for line in lines {
+                let escaped = line
+                    .replacingOccurrences(of: "&",  with: "&amp;")
+                    .replacingOccurrences(of: "<",  with: "&lt;")
+                    .replacingOccurrences(of: ">",  with: "&gt;")
+                    .replacingOccurrences(of: "\"", with: "&quot;")
+                    .replacingOccurrences(of: "'",  with: "&apos;")
+                
+                let trimmed = escaped.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    bodyXML += "<w:p/>\n"
+                } else {
+                    bodyXML += """
+                <w:p>
+                  <w:r><w:t xml:space="preserve">\(trimmed)</w:t></w:r>
+                </w:p>
+                """
+                }
+            }
+        }
+        
+        let documentXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document \(ns)>
+      <w:body>
+    \(bodyXML)
+      </w:body>
+    </w:document>
+    """
+        try documentXML.data(using: .utf8)!
+            .write(to: wordDir.appendingPathComponent("document.xml"))
+        
+        // ZIP the docx directory into a .docx file
+        let outputURL = tempDir.appendingPathComponent("\(baseName).docx")
+        try FileManager.default.zipItem(at: docxDir, to: outputURL, shouldKeepParent: false)
+        
+        return outputURL
+    }
+    // MARK: - Helpers
+    
+    func isPDFFile(_ url: URL) -> Bool {
+        guard let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
+            return false
+        }
+        return contentType.conforms(to: .pdf)
+    }
 }
 
 // MARK: - Errors
@@ -298,6 +523,8 @@ enum ImageProcessingError: LocalizedError {
     case backgroundRemovalFailed
     case conversionFailed
     case pdfCreationFailed
+    case pdfReadFailed
+    case pdfNoTextContent
     case noImagesProvided
     case saveFailed
     
@@ -315,6 +542,10 @@ enum ImageProcessingError: LocalizedError {
             return "No images were provided"
         case .saveFailed:
             return "Failed to save processed file"
+        case .pdfReadFailed:
+            return "Could not open the PDF file"
+        case .pdfNoTextContent:
+            return "This PDF contains no extractable text or recognizable content."
         }
     }
 }

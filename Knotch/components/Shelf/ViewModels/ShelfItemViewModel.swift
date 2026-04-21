@@ -349,6 +349,19 @@ final class ShelfItemViewModel: ObservableObject {
             menu.addItem(NSMenuItem.separator())
         }
 
+        // PDF Actions submenu
+        let pdfURLs = selectedFileURLs.filter { ImageProcessingService.shared.isPDFFile($0) }
+        if pdfURLs.count == 1 {
+            menu.addItem(NSMenuItem.separator())
+            let pdfActions = NSMenuItem(title: "PDF Actions", action: nil, keyEquivalent: "")
+            let pdfSubmenu = NSMenu()
+            pdfSubmenu.addItem(NSMenuItem(title: "Extract Text", action: nil, keyEquivalent: ""))
+            pdfSubmenu.addItem(NSMenuItem(title: "Convert to DOCX", action: nil, keyEquivalent: ""))
+            pdfActions.submenu = pdfSubmenu
+            menu.addItem(pdfActions)
+            menu.addItem(NSMenuItem.separator())
+        }
+
         // Add compression option for files/folders (single or multiple)
         if !selectedFileURLs.isEmpty {
             let compressItem = NSMenuItem(title: "Compress", action: nil, keyEquivalent: "")
@@ -553,6 +566,12 @@ final class ShelfItemViewModel: ObservableObject {
                 
             case "Create PDF":
                 handleCreatePDF()
+
+            case "Extract Text":
+                handlePDFExtractText()
+
+            case "Convert to DOCX":
+                handlePDFtoDOCX()
             
             case "Compress":
                 let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
@@ -901,6 +920,42 @@ final class ShelfItemViewModel: ObservableObject {
             }
         }
         
+        @MainActor
+        private func handlePDFExtractText() {
+            guard let pdfURL = item.fileURL else { return }
+            Task {
+                do {
+                    let resultURL = try await pdfURL.accessSecurityScopedResource { url in
+                        try await ImageProcessingService.shared.extractTextFromPDF(at: url)
+                    }
+                    if let bookmark = try? Bookmark(url: resultURL) {
+                        let newItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
+                        ShelfStateViewModel.shared.add([newItem])
+                    }
+                } catch {
+                    await showErrorAlert(title: "Text Extraction Failed", message: error.localizedDescription)
+                }
+            }
+        }
+
+        @MainActor
+        private func handlePDFtoDOCX() {
+            guard let pdfURL = item.fileURL else { return }
+            Task {
+                do {
+                    let resultURL = try await pdfURL.accessSecurityScopedResource { url in
+                        try await ImageProcessingService.shared.convertPDFtoDOCX(at: url)
+                    }
+                    if let bookmark = try? Bookmark(url: resultURL) {
+                        let newItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
+                        ShelfStateViewModel.shared.add([newItem])
+                    }
+                } catch {
+                    await showErrorAlert(title: "DOCX Conversion Failed", message: error.localizedDescription)
+                }
+            }
+        }
+
         @MainActor
         private func showErrorAlert(title: String, message: String) {
             let alert = NSAlert()
