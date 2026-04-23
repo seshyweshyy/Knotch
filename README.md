@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a><img src="https://github.com/user-attachments/assets/e0c2c051-2776-42dc-8720-461b785f0704" alt="Knotch" width="150"></a>
+  <a href="https://knotch.seshyweshyy.com"><img src="https://github.com/user-attachments/assets/1244e94f-c3e0-4b13-a7d4-7519f2fe023f" alt="Knotch" width="150"></a>
   <br>
   Knotch
   <br>
@@ -66,11 +66,11 @@
 
 ## Installation
 
-### Option 1: Download Manually
+### Download Manually
 
-<a href="https://github.com/TheBoredTeam/boring.notch/releases/latest/download/Knotch.dmg"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
+<a href="https://github.com/seshyweshyy/knotchapp/releases/latest/download/Knotch.zip"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
 
-Open the `.dmg` and move **Knotch** to your `/Applications` folder.
+Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 
 > [!IMPORTANT]
 > Knotch is not yet notarized. macOS will block it on first launch. Run this once to clear the quarantine flag, then open normally:
@@ -78,27 +78,6 @@ Open the `.dmg` and move **Knotch** to your `/Applications` folder.
 > xattr -dr com.apple.quarantine /Applications/Knotch.app
 > ```
 > Alternatively: open the app, dismiss the warning, then go to **System Settings → Privacy & Security** and click **Open Anyway**. (This method doesn't work for all users.)
-
-### Option 2: Homebrew
-
-```bash
-brew install --cask TheBoredTeam/boring-notch/boring-notch
-```
-Homebrew handles the quarantine bypass automatically.
-
----
-
-## Building from Source
-
-**Prerequisites:** macOS 14+, Xcode 16+
-
-```bash
-git clone https://github.com/TheBoredTeam/boring.notch.git
-cd boring.notch
-open Knotch.xcodeproj
-```
-
-Then press `Cmd + R` to build and run.
 
 ---
 
@@ -113,10 +92,10 @@ Then press `Cmd + R` to build and run.
 - [x] Notch sizing & multi-display support 🖥️
 - [x] System HUD replacement (volume, brightness, backlight) 🎚️
 - [x] Lock screen widgets 🔒
-- [x] Download progress indicator 🌍
+- [x] Customizable layout options 🛠️
+- [ ] Download progress indicator 🌍
 - [ ] Bluetooth live activity (connect/disconnect) 🎧
 - [ ] Weather widget ⛅
-- [ ] Customizable layout options 🛠️
 - [ ] Extension system 🧩
 - [ ] Notifications *(under consideration)* 🔔
 
@@ -124,9 +103,7 @@ Then press `Cmd + R` to build and run.
 
 ## Acknowledgments
 
+- **[Boring.Notch](https://github.com/TheBoredTeam/boring.notch)** - main source code
 - **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** — enabled Now Playing support on macOS 15.4+
 - **[NotchDrop](https://github.com/Lakr233/NotchDrop)** — foundation for the Shelf feature
-- Icon design: [@maxtron95](https://github.com/maxtron95)
 - Website: [@seshyweshyy](https://github.com/seshyweshyy)
-
-For full third-party licenses see [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md).
