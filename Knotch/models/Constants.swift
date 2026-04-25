@@ -68,6 +68,11 @@ enum OptionKeyAction: String, CaseIterable, Identifiable, Defaults.Serializable 
     var id: String { self.rawValue }
 }
 
+enum BluetoothHUDIconStyle: String, Defaults.Serializable, CaseIterable {
+    case symbol = "Symbol"
+    case threeDimensional = "3D"
+}
+
 extension Defaults.Keys {
     // MARK: General
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
@@ -158,6 +163,7 @@ extension Defaults.Keys {
     
     // MARK: HUD
     static let hudReplacement = Key<Bool>("hudReplacement", default: false)
+    static let bluetoothHUDIconStyle = Key<BluetoothHUDIconStyle>("bluetoothHUDIconStyle", default: .threeDimensional)
     static let inlineHUD = Key<Bool>("inlineHUD", default: false)
     static let enableGradient = Key<Bool>("enableGradient", default: false)
     static let systemEventIndicatorShadow = Key<Bool>("systemEventIndicatorShadow", default: false)

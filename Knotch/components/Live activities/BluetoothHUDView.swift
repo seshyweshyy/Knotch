@@ -5,6 +5,7 @@
 
 import AVKit
 import SwiftUI
+import Defaults
 
 /// Three-phase Bluetooth connection HUD, mimicking the iOS Dynamic Island style.
 ///
@@ -23,6 +24,7 @@ struct BluetoothHUDView: View {
         didSet { isExpanded = phase == .expanded }
     }
     @State private var player: AVPlayer? = nil
+    @Default(.bluetoothHUDIconStyle) private var iconStyle: BluetoothHUDIconStyle
     @EnvironmentObject var vm: KnotchViewModel
 
     // Expanded width of the notch pill for this HUD
@@ -51,9 +53,9 @@ struct BluetoothHUDView: View {
 
                     // RIGHT: battery ring
                     HStack(spacing: 4) {
-                        BatteryRingView(fraction: batteryFraction, lineWidth: 2.5)
-                            .frame(width: 16, height: 16)
                         if batteryFraction >= 0 {
+                            BatteryRingView(fraction: batteryFraction, lineWidth: 2.5)
+                                .frame(width: 16, height: 16)
                             Text("\(Int(batteryFraction * 100))%")
                                 .font(.caption)
                                 .fontWeight(.medium)
@@ -88,10 +90,12 @@ struct BluetoothHUDView: View {
 
                     Spacer()
 
-                    BatteryRingView(fraction: batteryFraction, lineWidth: 3)
-                        .frame(width: 25, height: 25)
-                        .padding(.trailing, 10)
-                        .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    if batteryFraction >= 0 {
+                        BatteryRingView(fraction: batteryFraction, lineWidth: 3)
+                            .frame(width: 25, height: 25)
+                            .padding(.trailing, 10)
+                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    }
                 }
                 .frame(width: expandedWidth, height: 44)
                 .padding(.top, vm.effectiveClosedNotchHeight)
@@ -113,13 +117,20 @@ struct BluetoothHUDView: View {
 
     @ViewBuilder
     private var deviceIcon: some View {
-        if let player {
-            VideoPlayer(player: player)
-                .disabled(true)   // no controls
-                .aspectRatio(contentMode: .fit)
-        } else {
+        switch iconStyle {
+        case .threeDimensional:
+            if let player {
+                VideoPlayer(player: player)
+                    .disabled(true)
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Image(systemName: sfSymbolForIcon(icon))
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white)
+            }
+        case .symbol:
             Image(systemName: sfSymbolForIcon(icon))
-                .font(.system(size: 26))
+                .font(.system(size: 18))
                 .foregroundStyle(.white)
         }
     }
@@ -127,6 +138,7 @@ struct BluetoothHUDView: View {
     // MARK: - Player setup
 
     private func setupPlayer() {
+        guard iconStyle == .threeDimensional else { return }
         let movName = movFileName(for: icon)
         guard let url = Bundle.main.url(forResource: movName, withExtension: "mov") else { return }
         let p = AVPlayer(url: url)
