@@ -11,10 +11,10 @@
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
-    <key>SUPublicEDKey</key>
-    <string>NfT6BbaZWutp9rg2XfAbT3XoBl9ooB9XYJjmDS+4MQk=</string>
+	<key>SUPublicEDKey</key>
+	<string>NfT6BbaZWutp9rg2XfAbT3XoBl9ooB9XYJjmDS+4MQk=</string>
     <key>SUFeedURL</key>
-    <string>https://seshyweshyy.github.io/knotchapp/appcast.xml</string>
+    <string>https://seshyweshyy.github.io/Knotch/updater/appcast.xml</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict/>
