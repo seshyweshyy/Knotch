@@ -111,4 +111,4 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 - **[Boring.Notch](https://github.com/TheBoredTeam/boring.notch)** - main source code
 - **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** — enabled Now Playing support on macOS 15.4+
 - **[NotchDrop](https://github.com/Lakr233/NotchDrop)** — foundation for the Shelf feature
-- Website: [@seshyweshyy](https://github.com/seshyweshyy)
+- Website: [Knotch](https://knotch.seshyweshyy.com)
