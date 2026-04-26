@@ -50,7 +50,7 @@ jobs:
               --ed-key-file - \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name || inputs.tag }}/" \
               --link "https://github.com/${{ github.repository }}" \
-              --output updater/appcast.xml \
+              -o updater/appcast.xml \
               updater/releases
 
       - name: Commit and push appcast
