@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  <b>Knotch</b> is my personal fork of <a href="https://github.com/TheBoredTeam/boring.notch">boring.notch</a>, reworked to look and feel like it ships with macOS. I focus on the little details that separate something that fits from something that just works.
+  <b>Knotch</b> is my personal adaptation of <a href="https://github.com/TheBoredTeam/boring.notch">boring.notch</a>, reworked to look and feel like it ships with macOS. I focus on the little details that separate something that fits from something that just works.
 </p>
 
 <p align="center">
