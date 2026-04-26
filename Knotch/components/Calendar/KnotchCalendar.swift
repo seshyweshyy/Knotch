@@ -196,6 +196,9 @@ struct CalendarView: View {
                         .fontWeight(.light)
                         .foregroundColor(Color(white: 0.65))
                 }
+                .onTapGesture {
+                    NSWorkspace.shared.open(URL(string: "ical://")!)
+                }
 
                 ZStack(alignment: .top) {
                     WheelPicker(selectedDate: $selectedDate, config: Config())

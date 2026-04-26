@@ -93,9 +93,13 @@ private struct LiquidGlassWidgetRoot: View {
                 if expanded {
                     AlbumArtBackgroundWindowController.shared.show()
                     NotificationCenter.default.post(name: .lockScreenProfileShouldHide, object: nil)
+                    if Defaults[.keepAwakeOnExpandedArt] {
+                        DisplaySleepPreventer.shared.acquire()
+                    }
                 } else {
                     AlbumArtBackgroundWindowController.shared.hide()
                     NotificationCenter.default.post(name: .lockScreenProfileShouldShow, object: nil)
+                    DisplaySleepPreventer.shared.release()
                 }
             }
             .onReceive(

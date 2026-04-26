@@ -381,6 +381,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Full screen behavior", keywords: ["full screen", "hide", "behavior"], highlightID: "Media-Full screen behavior"),
             SettingsSearchEntry(tabID: "Media", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "Media-Show album art"),
             SettingsSearchEntry(tabID: "Media", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "Media-Expanded album art"),
+            SettingsSearchEntry(tabID: "Media", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "Media-Keep awake expanded art"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
             // Calendar
             SettingsSearchEntry(tabID: "Calendar", title: "Show calendar", keywords: ["calendar", "notch"], highlightID: "Calendar-Show calendar in notch"),
@@ -1166,8 +1167,16 @@ struct Media: View {
                 }
                 .disabled(!Defaults[.lockScreenMusicWidget])
                 .settingsHighlight(id: "Media-Expanded album art")
+
+                Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
+                    Text("Keep screen awake when art is expanded")
+                }
+                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
+                .settingsHighlight(id: "Media-Keep awake expanded art")
             } header: {
                 Text("Lock screen")
+            } footer: {
+                Text("Keeping the screen awake while album art is expanded may increase battery usage.")
             }
 
             Section {
