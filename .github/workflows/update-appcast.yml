@@ -1,0 +1,55 @@
+name: Update Appcast
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-appcast:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Download Sparkle tools
+        run: |
+          SPARKLE_VERSION="2.7.5"
+          curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            -o sparkle.tar.xz
+          mkdir -p sparkle_tools
+          tar -xf sparkle.tar.xz -C sparkle_tools
+          echo "GENERATE_APPCAST=sparkle_tools/bin/generate_appcast" >> $GITHUB_ENV
+
+      - name: Download release asset
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          mkdir -p updater/releases
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "*.zip" \
+            --dir updater/releases \
+            --repo ${{ github.repository }}
+
+      - name: Generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          echo "$SPARKLE_PRIVATE_KEY" | \
+            ${{ env.GENERATE_APPCAST }} \
+              --ed-key-file - \
+              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/" \
+              --link "https://github.com/${{ github.repository }}" \
+              --output updater/appcast.xml \
+              updater/releases
+
+      - name: Commit and push appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add updater/appcast.xml
+          git diff --cached --quiet || git commit -m "chore: update appcast for ${{ github.event.release.tag_name }}"
+          git push

@@ -7,16 +7,14 @@
 </h1>
 
 <p align="center">
-  Make your MacBook's notch actually do something.
+  <b>Knotch</b> is my personal fork of <a href="https://github.com/TheBoredTeam/boring.notch">boring.notch</a>, reworked to look and feel like it ships with macOS. I focus on the little details that separate something that fits from something that just works.
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/657cf681-9098-4b21-aa07-a21880023ce9" alt="Demo GIF" />
+  <img src="https://github.com/user-attachments/assets/4f197948-8cec-4dfc-9127-df7380cb9e5a" alt="Demo GIF" />
 </p>
 
 ---
-
-**Knotch** is a fork of [Boring.Notch](https://github.com/TheBoredTeam/boring.notch) that transforms the MacBook notch into a live, interactive hub — music controls, album art, system HUD replacements, lock screen widgets, a drag-and-drop shelf, calendar, and more.
 
 ## Images
 <div align="center">
