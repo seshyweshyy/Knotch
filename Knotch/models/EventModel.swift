@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Defaults
 
 struct EventModel: Equatable, Identifiable {
     let id: String
@@ -83,15 +84,38 @@ extension EventModel {
     var isMeeting: Bool { !participants.isEmpty }
 
     func calendarAppURL() -> URL? {
+        let app = Defaults[.calendarApp]
 
-        guard let id = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let encodedID = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }
 
-        guard !type.isReminder else {
-            return URL(string: "x-apple-reminderkit://remcdreminder/\(id)")
+        // Reminders always open in Reminders.app — no third-party support
+        if type.isReminder {
+            return URL(string: "x-apple-reminderkit://remcdreminder/\(encodedID)")
         }
 
+        switch app {
+        case .fantastical:
+            // Fantastical deep-link: opens the event by EKEvent identifier
+            return URL(string: "x-fantastical3://show/event/\(encodedID)")
+
+        case .busyCal:
+            // BusyCal opens via the calshow:// scheme with the event start timestamp
+            let timestamp = start.timeIntervalSinceReferenceDate
+            return URL(string: "busycalevent://\(encodedID)")
+                ?? URL(string: "calshow:\(timestamp)")
+
+        case .notionCal:
+            // Notion Calendar uses the same ical:// scheme under the hood
+            return appleCalendarURL(encodedID: encodedID)
+
+        case .apple:
+            return appleCalendarURL(encodedID: encodedID)
+        }
+    }
+
+    private func appleCalendarURL(encodedID: String) -> URL? {
         let date: String
         if hasRecurrenceRules {
             let formatter = DateFormatter()
@@ -99,15 +123,12 @@ extension EventModel {
             if !isAllDay {
                 formatter.timeZone = .init(secondsFromGMT: 0)
             }
-            if let formattedDate = formatter.string(for: start) {
-                date = "/\(formattedDate)"
-            } else {
-                return nil
-            }
+            guard let formattedDate = formatter.string(for: start) else { return nil }
+            date = "/\(formattedDate)"
         } else {
-            date =  ""
+            date = ""
         }
-        return URL(string: "ical://ekevent\(date)/\(id)?method=show&options=more")
+        return URL(string: "ical://ekevent\(date)/\(encodedID)?method=show&options=more")
     }
 }
 

@@ -1216,6 +1216,7 @@ struct CalendarSettings: View {
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.hideAllDayEvents) var hideAllDayEvents
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
+    @Default(.calendarApp) var calendarApp
 
     var body: some View {
         Form {
@@ -1239,6 +1240,41 @@ struct CalendarSettings: View {
                 Text("Always show full event titles")
             }
             .settingsHighlight(id: "Calendar-Always show full event titles")
+            HStack {
+                Text("Open events in")
+                Spacer()
+                Menu {
+                    ForEach(CalendarApp.allCases.filter { $0.isInstalled }) { app in
+                        Button {
+                            calendarApp = app
+                        } label: {
+                            Label {
+                                Text(calendarApp.rawValue)
+                            } icon: {
+                                if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: calendarApp.bundleIdentifier),
+                                   let icon = NSWorkspace.shared.icon(forFile: appURL.path) as NSImage? {
+                                    Image(nsImage: icon)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 16, height: 16)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label {
+                        Text(calendarApp.rawValue)
+                    } icon: {
+                        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: calendarApp.bundleIdentifier),
+                           let icon = NSWorkspace.shared.icon(forFile: appURL.path) as NSImage? {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                        }
+                    }
+                }
+            }
+            .disabled(!showCalendar)
             Section(header: Text("Calendars")) {
                 if calendarManager.calendarAuthorizationStatus != .fullAccess {
                     Text("Calendar access is denied. Please enable it in System Settings.")

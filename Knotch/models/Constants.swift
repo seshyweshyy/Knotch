@@ -30,6 +30,32 @@ enum CalendarSelectionState: Codable, Defaults.Serializable {
     case selected(Set<String>)
 }
 
+enum CalendarApp: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case apple       = "Apple Calendar"
+    case fantastical = "Fantastical"
+    case busyCal     = "BusyCal"
+    case notionCal   = "Notion Calendar"
+
+    var id: String { rawValue }
+
+    var bundleIdentifier: String {
+        switch self {
+        case .apple:       return "com.apple.iCal"
+        case .fantastical: return "com.flexibits.fantastical2.mac"
+        case .busyCal:     return "com.busymac.busycal3"
+        case .notionCal:   return "notion.id"
+        }
+    }
+
+    var isInstalled: Bool {
+        switch self {
+        case .apple:       return true
+        case .fantastical, .busyCal, .notionCal:
+            return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) != nil
+        }
+    }
+}
+
 enum HideNotchOption: String, Defaults.Serializable {
     case always
     case nowPlayingOnly
@@ -110,6 +136,7 @@ extension Defaults.Keys {
     
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)
+    static let calendarApp = Key<CalendarApp>("calendarApp", default: .apple)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",

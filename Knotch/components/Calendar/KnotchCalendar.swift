@@ -88,7 +88,22 @@ struct WheelPicker: View {
         date: Date, isSelected: Bool, id: Int, onClick: @escaping () -> Void
     ) -> some View {
         let isToday = Calendar.current.isDateInToday(date)
-        return Button(action: onClick) {
+        return Button {
+            if isSelected {
+                let scheme: String
+                switch Defaults[.calendarApp] {
+                case .fantastical:  scheme = "x-fantastical3://"
+                case .busyCal:      scheme = "busycal://"
+                case .notionCal:    scheme = "notion://"
+                case .apple:        scheme = "ical://"
+                }
+                if let url = URL(string: scheme) {
+                    NSWorkspace.shared.open(url)
+                }
+            } else {
+                onClick()
+            }
+        } label: {
             VStack(spacing: 8) {
                 dayText(date: dateToString(for: date), isToday: isToday, isSelected: isSelected)
                 dateCircle(date: date, isToday: isToday, isSelected: isSelected)
@@ -186,19 +201,30 @@ struct CalendarView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading) {
-                    Text(selectedDate.formatted(.dateTime.month(.abbreviated)))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    Text(selectedDate.formatted(.dateTime.year()))
-                        .font(.title3)
-                        .fontWeight(.light)
-                        .foregroundColor(Color(white: 0.65))
+                Button {
+                    let scheme: String
+                    switch Defaults[.calendarApp] {
+                    case .fantastical:  scheme = "x-fantastical3://"
+                    case .busyCal:      scheme = "busycal://"
+                    case .notionCal:    scheme = "notion://"
+                    case .apple:        scheme = "ical://"
+                    }
+                    if let url = URL(string: scheme) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    VStack(alignment: .leading) {
+                        Text(selectedDate.formatted(.dateTime.month(.abbreviated)))
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                        Text(selectedDate.formatted(.dateTime.year()))
+                            .font(.title3)
+                            .fontWeight(.light)
+                            .foregroundColor(Color(white: 0.65))
+                    }
                 }
-                .onTapGesture {
-                    NSWorkspace.shared.open(URL(string: "ical://")!)
-                }
+                .buttonStyle(CalendarHeaderButtonStyle())
 
                 ZStack(alignment: .top) {
                     WheelPicker(selectedDate: $selectedDate, config: Config())
@@ -483,6 +509,14 @@ struct ReminderToggle: View {
         .buttonStyle(PlainButtonStyle())
         .padding(0)
         .accessibilityLabel(isOn ? "Mark as incomplete" : "Mark as complete")
+    }
+}
+
+private struct CalendarHeaderButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.5 : 1.0)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
