@@ -3,25 +3,32 @@ name: Update Appcast
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to process (e.g. v1.1.0)'
+        required: true
 
 jobs:
   update-appcast:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout gh-pages branch
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          ref: gh-pages
+          ref: main
           token: ${{ secrets.GH_PAT }}
 
       - name: Download Sparkle tools
         run: |
-          SPARKLE_VERSION="2.7.5"
+          SPARKLE_VERSION="2.8.0"
           curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
             -o sparkle.tar.xz
-          mkdir -p sparkle_tools
-          tar -xf sparkle.tar.xz -C sparkle_tools
+          file sparkle.tar.xz
+          tar -xf sparkle.tar.xz -C .
+          mkdir -p sparkle_tools/bin
+          cp bin/generate_appcast sparkle_tools/bin/
           echo "GENERATE_APPCAST=sparkle_tools/bin/generate_appcast" >> $GITHUB_ENV
 
       - name: Download release asset
@@ -29,7 +36,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           mkdir -p updater/releases
-          gh release download "${{ github.event.release.tag_name }}" \
+          gh release download "${{ github.event.release.tag_name || inputs.tag }}" \
             --pattern "*.zip" \
             --dir updater/releases \
             --repo ${{ github.repository }}
@@ -41,9 +48,9 @@ jobs:
           echo "$SPARKLE_PRIVATE_KEY" | \
             ${{ env.GENERATE_APPCAST }} \
               --ed-key-file - \
-              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/" \
+              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name || inputs.tag }}/" \
               --link "https://github.com/${{ github.repository }}" \
-              --output updater/appcast.xml \
+              -o updater/appcast.xml \
               updater/releases
 
       - name: Commit and push appcast
@@ -51,5 +58,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add updater/appcast.xml
-          git diff --cached --quiet || git commit -m "chore: update appcast for ${{ github.event.release.tag_name }}"
-          git push
+          git diff --cached --quiet || git commit -m "chore: update appcast for ${{ github.event.release.tag_name || inputs.tag }}"
+          git push origin main
