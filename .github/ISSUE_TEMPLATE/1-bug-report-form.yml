@@ -30,9 +30,9 @@ body:
   - type: dropdown
     id: version
     attributes:
-      label: Boring Notch Version
+      label: Knotch Version
       description: >-
-        What version of our software are you running? (Go to ✦ in the menu bar >
+        What version of our software are you running? (Go to K in the menu bar >
         Settings > About)
       options:
         - Select a version
