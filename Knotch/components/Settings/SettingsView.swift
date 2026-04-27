@@ -538,7 +538,21 @@ struct SettingsView: View {
             // MARK: Detail
             VStack(spacing: 0) {
                 if let tab = knotchTabs.first(where: { $0.id == selectedTab }) {
-                    SettingsDetailHeader(tab: tab)
+                    ZStack(alignment: .trailing) {
+                        SettingsDetailHeader(tab: tab)
+                        if selectedTab == "General" {
+                            Button(role: .destructive) {
+                                NSApp.terminate(nil)
+                            } label: {
+                                Label("Quit Knotch", systemImage: "power")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .padding(.trailing, 20)
+                            .tint(Color(nsColor: .black))
+                        }
+                    }
                 }
                 Group {
                     switch selectedTab {
@@ -712,12 +726,6 @@ struct GeneralSettings: View {
 
             NotchBehaviour()
             gestureControls()
-        }
-        .toolbar {
-            Button("Quit app") {
-                NSApp.terminate(self)
-            }
-            .controlSize(.extraLarge)
         }
         .accentColor(.effectiveAccent)
         .onChange(of: openNotchOnHover) {
