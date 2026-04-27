@@ -99,7 +99,7 @@
 		14D570C62C5F38210011E668 /* KnotchHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570C52C5F38210011E668 /* KnotchHeader.swift */; };
 		14D570C92C5F38890011E668 /* KnotchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570C82C5F38890011E668 /* KnotchViewModel.swift */; };
 		14D570CB2C5F4B2C0011E668 /* BatteryStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570CA2C5F4B2C0011E668 /* BatteryStatusViewModel.swift */; };
-		14D570CD2C5F4BB70011E668 /* BoringBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570CC2C5F4BB70011E668 /* BoringBattery.swift */; };
+		14D570CD2C5F4BB70011E668 /* BatteryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570CC2C5F4BB70011E668 /* BatteryView.swift */; };
 		14D570D22C5F6C6A0011E668 /* KnotchExtrasMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D570D12C5F6C6A0011E668 /* KnotchExtrasMenu.swift */; };
 		14E9FEAA2C70BF610062E83F /* DownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E9FEA92C70BF610062E83F /* DownloadView.swift */; };
 		14E9FEAE2C7325770062E83F /* Button+Bouncing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */; };
@@ -290,7 +290,7 @@
 		14D570C52C5F38210011E668 /* KnotchHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchHeader.swift; sourceTree = "<group>"; };
 		14D570C82C5F38890011E668 /* KnotchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchViewModel.swift; sourceTree = "<group>"; };
 		14D570CA2C5F4B2C0011E668 /* BatteryStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryStatusViewModel.swift; sourceTree = "<group>"; };
-		14D570CC2C5F4BB70011E668 /* BoringBattery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoringBattery.swift; sourceTree = "<group>"; };
+		14D570CC2C5F4BB70011E668 /* BatteryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryView.swift; sourceTree = "<group>"; };
 		14D570D12C5F6C6A0011E668 /* KnotchExtrasMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchExtrasMenu.swift; sourceTree = "<group>"; };
 		14E9FEA92C70BF610062E83F /* DownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadView.swift; sourceTree = "<group>"; };
 		14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Button+Bouncing.swift"; sourceTree = "<group>"; };
@@ -810,7 +810,7 @@
 			children = (
 				430263932F9AE7FA00F9722E /* BluetoothHUDView.swift */,
 				115C12EB2ED3D003009754CA /* OpenNotchHUD.swift */,
-				14D570CC2C5F4BB70011E668 /* BoringBattery.swift */,
+				14D570CC2C5F4BB70011E668 /* BatteryView.swift */,
 				B1C974332C642B6D0000E707 /* MarqueeTextView.swift */,
 				B1D365CD2C6A979C0047BDBC /* LiveActivityModifier.swift */,
 				B1D365CF2C6A9A6C0047BDBC /* SystemEventIndicatorModifier.swift */,
@@ -1071,7 +1071,7 @@
 				14D570C62C5F38210011E668 /* KnotchHeader.swift in Sources */,
 				B17266E32C65F7FB0031BA0D /* WhatsNewView.swift in Sources */,
 				14C08BB62C8DE42D000F8AA0 /* CalendarManager.swift in Sources */,
-				14D570CD2C5F4BB70011E668 /* BoringBattery.swift in Sources */,
+				14D570CD2C5F4BB70011E668 /* BatteryView.swift in Sources */,
 				B10F84A32C6C9596009F3026 /* TestView.swift in Sources */,
 				1443E7F32C609DCE0027C1FC /* matters.swift in Sources */,
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
