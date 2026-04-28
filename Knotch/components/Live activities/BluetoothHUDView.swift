@@ -3,7 +3,6 @@
 //  Knotch
 //
 
-import AVKit
 import SwiftUI
 import Defaults
 
@@ -22,7 +21,6 @@ struct BluetoothHUDView: View {
     
     @State private var phase: Phase = .compact
     @State private var phaseTask: Task<Void, Never>? = nil
-    @State private var player: AVPlayer? = nil
     @Default(.bluetoothHUDIconStyle) private var iconStyle: BluetoothHUDIconStyle
     @EnvironmentObject var vm: KnotchViewModel
     
@@ -107,11 +105,9 @@ struct BluetoothHUDView: View {
             isExpanded = newPhase == .expanded
         }
         .onAppear {
-            setupPlayer()
             startPhaseSequence()
         }
         .onDisappear {
-            player?.pause()
             phaseTask?.cancel()
         }
     }
@@ -122,9 +118,8 @@ struct BluetoothHUDView: View {
     private var deviceIcon: some View {
         switch iconStyle {
         case .threeDimensional:
-            if let player {
-                VideoPlayer(player: player)
-                    .disabled(true)
+            if let url = Bundle.main.url(forResource: movFileName(for: icon), withExtension: "mov") {
+                LoopingVideoView(url: url)
                     .aspectRatio(contentMode: .fit)
             } else {
                 Image(systemName: sfSymbolForIcon(icon))
@@ -139,16 +134,6 @@ struct BluetoothHUDView: View {
     }
     
     // MARK: - Player setup
-    
-    private func setupPlayer() {
-        guard iconStyle == .threeDimensional else { return }
-        let movName = movFileName(for: icon)
-        guard let url = Bundle.main.url(forResource: movName, withExtension: "mov") else { return }
-        let p = AVPlayer(url: url)
-        p.isMuted = true
-        p.play()
-        self.player = p
-    }
     
     // Map iconName → .mov resource name
     private func movFileName(for icon: String) -> String {
