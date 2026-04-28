@@ -3,6 +3,15 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.2.1</title>
+            <pubDate>Tue, 28 Apr 2026 02:36:00 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.2.1/Knotch.v1.2.1.zip" length="13230504" type="application/octet-stream" sparkle:edSignature="Y9pVft3a080yxv+NWClvRo7sjxcPyGvgxQIhtgOb2s8D5wylFM2Qbk0WlzhqYEcCKYdDBIkhmIPj/aZCFPx2Cw=="/>
+        </item>
+        <item>
             <title>1.2.0</title>
             <pubDate>Mon, 27 Apr 2026 01:48:16 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -19,14 +28,6 @@
             <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.1.0/Knotch.zip" length="13210319" type="application/octet-stream" sparkle:edSignature="HVKxLRYTdbqB5wT4y4ys8ysPMG7akz/cCCmwMrJoQLI4HLstkJOlNTU3Lc9JZpjpqs+40JhVUaOnhlE28hn7DQ=="/>
-        </item>
-        <item>
-            <title>1.0.0</title>
-            <pubDate>Sat, 25 Apr 2026 20:09:09 +1000</pubDate>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.0.0/Knotch.zip" length="13182271" type="application/octet-stream" sparkle:edSignature="ZyYryHmgdu8oH3ygHT28PvTqAA/MikfYBsKGysbG4SWC2Jcgw4sXP+cMlUeS5Nl8ePhYhpe0qcu2/LWpttSPAg=="/>
         </item>
     </channel>
 </rss>
