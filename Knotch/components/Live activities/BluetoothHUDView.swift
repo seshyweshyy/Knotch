@@ -17,20 +17,19 @@ struct BluetoothHUDView: View {
     let deviceName: String
     let batteryFraction: CGFloat  // 0.0–1.0, or -1 if unknown
     @Binding var isExpanded: Bool  // true only during .expanded phase
-
+    
     private enum Phase { case compact, expanded, collapsing }
-
-    @State private var phase: Phase = .compact {
-        didSet { isExpanded = phase == .expanded }
-    }
+    
+    @State private var phase: Phase = .compact
+    @State private var phaseTask: Task<Void, Never>? = nil
     @State private var player: AVPlayer? = nil
     @Default(.bluetoothHUDIconStyle) private var iconStyle: BluetoothHUDIconStyle
     @EnvironmentObject var vm: KnotchViewModel
-
+    
     // Expanded width of the notch pill for this HUD
     private let expandedWidth: CGFloat = 280
     private let compactWidth: CGFloat = 120
-
+    
     var body: some View {
         Group {
             if phase == .compact || phase == .collapsing {
@@ -45,12 +44,12 @@ struct BluetoothHUDView: View {
                             )
                     }
                     .frame(width: max(0, vm.effectiveClosedNotchHeight - 4) + 10, alignment: .leading)
-
+                    
                     // CENTER: black gap over the notch pill
                     Rectangle()
                         .fill(.black)
                         .frame(width: vm.closedNotchSize.width - 20)
-
+                    
                     // RIGHT: battery ring
                     HStack(spacing: 4) {
                         if batteryFraction >= 0 {
@@ -75,7 +74,7 @@ struct BluetoothHUDView: View {
                     deviceIcon
                         .frame(width: 52, height: 36)
                         .padding(.leading, 10)
-
+                    
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Connected")
                             .font(.system(size: 11, weight: .regular))
@@ -87,9 +86,9 @@ struct BluetoothHUDView: View {
                     }
                     .padding(.leading, 8)
                     .transition(.opacity.combined(with: .move(edge: .leading)))
-
+                    
                     Spacer()
-
+                    
                     if batteryFraction >= 0 {
                         BatteryRingView(fraction: batteryFraction, lineWidth: 3)
                             .frame(width: 25, height: 25)
@@ -104,17 +103,21 @@ struct BluetoothHUDView: View {
             }
         }
         .animation(.spring(response: 0.45, dampingFraction: 0.78), value: phase)
+        .onChange(of: phase) { _, newPhase in
+            isExpanded = newPhase == .expanded
+        }
         .onAppear {
             setupPlayer()
-            runPhaseSequence()
+            startPhaseSequence()
         }
         .onDisappear {
             player?.pause()
+            phaseTask?.cancel()
         }
     }
-
+    
     // MARK: - Device icon (video if available, else SF symbol)
-
+    
     @ViewBuilder
     private var deviceIcon: some View {
         switch iconStyle {
@@ -134,9 +137,9 @@ struct BluetoothHUDView: View {
                 .foregroundStyle(.white)
         }
     }
-
+    
     // MARK: - Player setup
-
+    
     private func setupPlayer() {
         guard iconStyle == .threeDimensional else { return }
         let movName = movFileName(for: icon)
@@ -146,7 +149,7 @@ struct BluetoothHUDView: View {
         p.play()
         self.player = p
     }
-
+    
     // Map iconName → .mov resource name
     private func movFileName(for icon: String) -> String {
         switch icon {
@@ -156,7 +159,7 @@ struct BluetoothHUDView: View {
         default:             return icon   // beatssolo, beatsstudio, etc.
         }
     }
-
+    
     // Fallback SF symbol when no .mov exists
     private func sfSymbolForIcon(_ icon: String) -> String {
         switch icon {
@@ -166,20 +169,21 @@ struct BluetoothHUDView: View {
         default: return "headphones"
         }
     }
-
+    
     // MARK: - Phase sequencing
-
-    private func runPhaseSequence() {
-        // Phase 1: compact — already the initial state, hold 0.8s
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation { phase = .expanded }
+    
+    private func startPhaseSequence() {
+        phaseTask?.cancel()
+        phaseTask = Task { @MainActor [self] in
+            do {
+                try await Task.sleep(for: .seconds(0.8))
+                withAnimation { phase = .expanded }
+                try await Task.sleep(for: .seconds(2.7))
+                withAnimation { phase = .collapsing }
+            } catch {
+                // Task was cancelled (view dismissed) — do nothing
+            }
         }
-        // Phase 2: expanded — hold until 3.5s
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-            withAnimation { phase = .collapsing }
-        }
-        // Phase 3 "collapsing" is the compact pill with battery ring visible
-        // The parent sneakPeekTask will dismiss after 4.3s total
     }
 }
 

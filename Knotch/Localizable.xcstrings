@@ -22044,6 +22044,7 @@
       }
     },
     "Version" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

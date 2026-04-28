@@ -1991,7 +1991,13 @@ struct Shelf: View {
 struct About: View {
     @State private var showBuildNumber: Bool = false
     let updaterController: SPUStandardUpdaterController
+    @StateObject private var checkForUpdatesViewModel: CheckForUpdatesViewModel
     @Environment(\.openWindow) var openWindow
+
+    init(updaterController: SPUStandardUpdaterController) {
+        self.updaterController = updaterController
+        self._checkForUpdatesViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updaterController.updater))
+    }
 
     var body: some View {
         VStack {
@@ -2002,17 +2008,22 @@ struct About: View {
                         Spacer()
                         Text(Defaults[.releaseName]).foregroundStyle(.secondary)
                     }
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        if showBuildNumber {
-                            Text("(\(Bundle.main.buildVersionNumber ?? ""))").foregroundStyle(.secondary)
+                    Button(action: updaterController.updater.checkForUpdates) {
+                        HStack {
+                            Text("Check for Updates…")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if showBuildNumber {
+                                Text("(\(Bundle.main.buildVersionNumber ?? ""))").foregroundStyle(.secondary)
+                            }
+                            Text(Bundle.main.releaseVersionNumber ?? "unknown").foregroundStyle(.secondary)
+                                .onTapGesture {
+                                    withAnimation { showBuildNumber.toggle() }
+                                }
                         }
-                        Text(Bundle.main.releaseVersionNumber ?? "unknown").foregroundStyle(.secondary)
                     }
-                    .onTapGesture {
-                        withAnimation { showBuildNumber.toggle() }
-                    }
+                    .buttonStyle(SubtleRowButtonStyle())
+                    .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
                 } header: {
                     Text("Version info")
                 }
@@ -2044,9 +2055,6 @@ struct About: View {
                     .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .toolbar {
-            CheckForUpdatesView(updater: updaterController.updater)
         }
     }
 }
@@ -2082,6 +2090,25 @@ struct AccentCircleButton: View {
         }
         .buttonStyle(.plain)
         .help(isSystemDefault ? "Use your macOS system accent color" : "")
+    }
+}
+
+// MARK: - Check for Updates Button
+struct SubtleRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor).opacity(configuration.isPressed ? 0.6 : 0.4))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                    )
+            )
+            .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
