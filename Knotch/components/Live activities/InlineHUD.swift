@@ -22,8 +22,8 @@ struct InlineHUD: View {
                     switch (type) {
                         case .volume:
                             if icon.isEmpty {
-                                SpeakerWaveIcon(value: value, size: 10)
-                                    .frame(width: 24, height: 13, alignment: .leading)
+                                VolumeHUDLottieView(value: value, displaySize: 22)
+                                    .frame(width: 22, height: 22, alignment: .leading)
                             } else {
                                 Image(systemName: icon)
                                     .contentTransition(.interpolate)

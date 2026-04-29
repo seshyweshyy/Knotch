@@ -122,6 +122,8 @@
 		43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */; };
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
 		43A1418D2FA2167F007AF2AE /* HUDIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418C2FA2167C007AF2AE /* HUDIcons.swift */; };
+		43A1418F2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */; };
+		43A141922FA2B104007AF2AE /* Apple_Volume_Icon.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141912FA2B104007AF2AE /* Apple_Volume_Icon.json */; };
 		43ADED322F99E14300060F82 /* AlbumArtBackgroundWindow in Frameworks */ = {isa = PBXBuildFile; productRef = 43ADED312F99E14300060F82 /* AlbumArtBackgroundWindow */; };
 		43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */; };
 		43B1966B2F96DF4B00D97335 /* Knotch.icon in Resources */ = {isa = PBXBuildFile; fileRef = 43B1966A2F96DF4B00D97335 /* Knotch.icon */; };
@@ -314,6 +316,8 @@
 		43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRouteManager.swift; sourceTree = "<group>"; };
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
 		43A1418C2FA2167C007AF2AE /* HUDIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDIcons.swift; sourceTree = "<group>"; };
+		43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeHUDLottieView.swift; sourceTree = "<group>"; };
+		43A141912FA2B104007AF2AE /* Apple_Volume_Icon.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Apple_Volume_Icon.json; sourceTree = "<group>"; };
 		43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothAudioManager.swift; sourceTree = "<group>"; };
 		43B1966A2F96DF4B00D97335 /* Knotch.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Knotch.icon; sourceTree = "<group>"; };
 		43B21FA32F9DAF050057E099 /* DisplaySleepPreventer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySleepPreventer.swift; sourceTree = "<group>"; };
@@ -694,6 +698,7 @@
 		430263A72F9AE8BF00F9722E /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				43A141902FA2B0F7007AF2AE /* Lottie Animations */,
 				430263A82F9AE8CA00F9722E /* BluetoothAnimations */,
 			);
 			path = Resources;
@@ -712,6 +717,14 @@
 				430263E22F9AEF5D00F9722E /* beatsstudio.mov */,
 			);
 			path = BluetoothAnimations;
+			sourceTree = "<group>";
+		};
+		43A141902FA2B0F7007AF2AE /* Lottie Animations */ = {
+			isa = PBXGroup;
+			children = (
+				43A141912FA2B104007AF2AE /* Apple_Volume_Icon.json */,
+			);
+			path = "Lottie Animations";
 			sourceTree = "<group>";
 		};
 		9A0887332C7AFF7E00C160EA /* Tabs */ = {
@@ -810,6 +823,7 @@
 		B18654312C6F45AE000B926A /* Live activities */ = {
 			isa = PBXGroup;
 			children = (
+				43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */,
 				43A1418C2FA2167C007AF2AE /* HUDIcons.swift */,
 				430263932F9AE7FA00F9722E /* BluetoothHUDView.swift */,
 				115C12EB2ED3D003009754CA /* OpenNotchHUD.swift */,
@@ -982,6 +996,7 @@
 				431EB9F92F91B17E0075616F /* lock-unlock.json in Resources */,
 				430263D92F9AEF1500F9722E /* airpodsGen4.mov in Resources */,
 				430263DB2F9AEF3C00F9722E /* airpodsMax.mov in Resources */,
+				43A141922FA2B104007AF2AE /* Apple_Volume_Icon.json in Resources */,
 				14A7E5972C65FD31008C1BE9 /* welcome.m4a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1088,6 +1103,7 @@
 				9A987A0D2C73CA66005CA465 /* ShelfView.swift in Sources */,
 				1132E5142E777B920068732D /* YouTubeMusicNetworking.swift in Sources */,
 				430263942F9AE7FA00F9722E /* BluetoothHUDView.swift in Sources */,
+				43A1418F2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift in Sources */,
 				1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */,
 				43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */,
 				11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */,

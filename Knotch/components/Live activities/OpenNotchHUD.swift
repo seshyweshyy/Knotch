@@ -22,8 +22,8 @@ struct OpenNotchHUD: View {
                 switch type {
                 case .volume:
                     if icon.isEmpty {
-                        SpeakerWaveIcon(value: value, size: 11)
-                            .fixedSize()
+                        VolumeHUDLottieView(value: value, displaySize: 26)
+                            .frame(width: 26, height: 26)
                     } else {
                         Image(systemName: icon)
                             .contentTransition(.interpolate)
