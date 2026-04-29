@@ -3,6 +3,15 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.2.2</title>
+            <pubDate>Tue, 28 Apr 2026 04:03:50 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.2.2/Knotch.v1.2.2.zip" length="13229963" type="application/octet-stream" sparkle:edSignature="gcNXueKutsuQGhAuqE89RSBcKq4A+AgMWeMkgQPpos7XEJ3cCXlyewQwrUqhOO9NtqQiDBK0gChq6jW0KLjeAQ=="/>
+        </item>
+        <item>
             <title>1.2.1</title>
             <pubDate>Tue, 28 Apr 2026 02:36:00 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -19,15 +28,6 @@
             <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.2.0/Knotch.zip" length="13226352" type="application/octet-stream" sparkle:edSignature="IPzlPgKwAOh+GVfPOZ4jwy3IotCF4NtBRQqoNeBSV9xzul2em7IihNl8mfl6WV1b/WkIoelySqxKVQYNaIlEBA=="/>
-        </item>
-        <item>
-            <title>1.1.0</title>
-            <pubDate>Sun, 26 Apr 2026 15:21:47 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.1.0/Knotch.zip" length="13210319" type="application/octet-stream" sparkle:edSignature="HVKxLRYTdbqB5wT4y4ys8ysPMG7akz/cCCmwMrJoQLI4HLstkJOlNTU3Lc9JZpjpqs+40JhVUaOnhlE28hn7DQ=="/>
         </item>
     </channel>
 </rss>
