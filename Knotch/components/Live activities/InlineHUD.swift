@@ -22,10 +22,8 @@ struct InlineHUD: View {
                     switch (type) {
                         case .volume:
                             if icon.isEmpty {
-                                Image(systemName: SpeakerSymbol(value))
-                                    .contentTransition(.interpolate)
-                                    .symbolVariant(value > 0 ? .none : .slash)
-                                    .frame(width: 20, height: 15, alignment: .leading)
+                                SpeakerWaveIcon(value: value, size: 10)
+                                    .frame(width: 24, height: 13, alignment: .leading)
                             } else {
                                 Image(systemName: icon)
                                     .contentTransition(.interpolate)
@@ -34,8 +32,7 @@ struct InlineHUD: View {
                                     .frame(width: 20, height: 15, alignment: .leading)
                             }
                         case .brightness:
-                            Image(systemName: BrightnessSymbol(value))
-                                .contentTransition(.interpolate)
+                            SunRaysIcon(value: value, size: 15)
                                 .frame(width: 20, height: 15, alignment: .center)
                         case .backlight:
                             Image(systemName: value > 0.5 ? "light.max" : "light.min")
@@ -101,32 +98,6 @@ struct InlineHUD: View {
             .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
         }
         .frame(height: vm.closedNotchSize.height + (hoverAnimation ? 8 : 0), alignment: .center)
-    }
-    
-    func SpeakerSymbol(_ value: CGFloat) -> String {
-        switch(value) {
-            case 0:
-                return "speaker"
-            case 0...0.3:
-                return "speaker.wave.1"
-            case 0.3...0.8:
-                return "speaker.wave.2"
-            case 0.8...1:
-                return "speaker.wave.3"
-            default:
-                return "speaker.wave.2"
-        }
-    }
-    
-    func BrightnessSymbol(_ value: CGFloat) -> String {
-        switch(value) {
-            case 0...0.6:
-                return "sun.min"
-            case 0.6...1:
-                return "sun.max"
-            default:
-                return "sun.min"
-        }
     }
     
     func Type2Name(_ type: SneakContentType) -> String {
