@@ -44,7 +44,7 @@ private struct _VolumeHUDLottieNSView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        let lottie = LottieAnimationView(name: "Apple_Volume_Icon")
+        let lottie = LottieAnimationView(name: "volume_animation")
         lottie.contentMode = .scaleAspectFit
         lottie.loopMode = .playOnce
         lottie.wantsLayer = true
