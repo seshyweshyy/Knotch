@@ -78,3 +78,44 @@ private struct _VolumeHUDLottieNSView: NSViewRepresentable {
         )
     }
 }
+
+// MARK: - Display HUD Lottie View
+
+struct DisplayHUDLottieView: View {
+    let displaySize: CGFloat
+
+    var body: some View {
+        _DisplayHUDLottieNSView()
+            .frame(width: displaySize, height: displaySize)
+    }
+}
+
+private struct _DisplayHUDLottieNSView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let lottie = LottieAnimationView(name: "display_animation")
+        lottie.contentMode = .scaleAspectFit
+        lottie.loopMode = .loop
+        lottie.animationSpeed = 1.0
+        lottie.wantsLayer = true
+        lottie.translatesAutoresizingMaskIntoConstraints = false
+        lottie.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        lottie.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        lottie.play()
+
+        let container = NSView()
+        container.wantsLayer = true
+        container.addSubview(lottie)
+        NSLayoutConstraint.activate([
+            lottie.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            lottie.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            lottie.topAnchor.constraint(equalTo: container.topAnchor),
+            lottie.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        return container
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let lottie = nsView.subviews.first as? LottieAnimationView else { return }
+        if !lottie.isAnimationPlaying { lottie.play() }
+    }
+}
