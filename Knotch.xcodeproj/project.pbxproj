@@ -121,8 +121,7 @@
 		432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */; };
 		43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */; };
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
-		43A1418D2FA2167F007AF2AE /* HUDIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418C2FA2167C007AF2AE /* HUDIcons.swift */; };
-		43A1418F2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */; };
+		43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */; };
 		43A141962FA2D8D4007AF2AE /* volume_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141952FA2D8D4007AF2AE /* volume_animation.json */; };
 		43A141982FA2FC61007AF2AE /* display_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141972FA2FC61007AF2AE /* display_animation.json */; };
 		43ADED322F99E14300060F82 /* AlbumArtBackgroundWindow in Frameworks */ = {isa = PBXBuildFile; productRef = 43ADED312F99E14300060F82 /* AlbumArtBackgroundWindow */; };
@@ -316,8 +315,7 @@
 		432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassWidgetWindow.swift; sourceTree = "<group>"; };
 		43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRouteManager.swift; sourceTree = "<group>"; };
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
-		43A1418C2FA2167C007AF2AE /* HUDIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDIcons.swift; sourceTree = "<group>"; };
-		43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeHUDLottieView.swift; sourceTree = "<group>"; };
+		43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDLottieView.swift; sourceTree = "<group>"; };
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
 		43A141972FA2FC61007AF2AE /* display_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = display_animation.json; sourceTree = "<group>"; };
 		43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothAudioManager.swift; sourceTree = "<group>"; };
@@ -826,8 +824,7 @@
 		B18654312C6F45AE000B926A /* Live activities */ = {
 			isa = PBXGroup;
 			children = (
-				43A1418E2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift */,
-				43A1418C2FA2167C007AF2AE /* HUDIcons.swift */,
+				43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */,
 				430263932F9AE7FA00F9722E /* BluetoothHUDView.swift */,
 				115C12EB2ED3D003009754CA /* OpenNotchHUD.swift */,
 				14D570CC2C5F4BB70011E668 /* BatteryView.swift */,
@@ -1107,7 +1104,7 @@
 				9A987A0D2C73CA66005CA465 /* ShelfView.swift in Sources */,
 				1132E5142E777B920068732D /* YouTubeMusicNetworking.swift in Sources */,
 				430263942F9AE7FA00F9722E /* BluetoothHUDView.swift in Sources */,
-				43A1418F2FA2B0DE007AF2AE /* VolumeHUDLottieView.swift in Sources */,
+				43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */,
 				1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */,
 				43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */,
 				11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */,
@@ -1141,7 +1138,6 @@
 				149E0B972C737D00006418B1 /* WebcamManager.swift in Sources */,
 				14288E0C2C6F8EC000B9F80C /* AppIcons.swift in Sources */,
 				B1C448982C972CC4001F0858 /* ListItemPopover.swift in Sources */,
-				43A1418D2FA2167F007AF2AE /* HUDIcons.swift in Sources */,
 				B19016242CC15B5000E3F12E /* Constants.swift in Sources */,
 				1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */,
 				11CFC6632E09918400748C80 /* MusicControllerSelectionView.swift in Sources */,

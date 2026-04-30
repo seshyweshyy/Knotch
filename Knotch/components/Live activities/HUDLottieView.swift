@@ -82,25 +82,31 @@ private struct _VolumeHUDLottieNSView: NSViewRepresentable {
 // MARK: - Display HUD Lottie View
 
 struct DisplayHUDLottieView: View {
+    let value: CGFloat
     let displaySize: CGFloat
 
     var body: some View {
-        _DisplayHUDLottieNSView()
+        _DisplayHUDLottieNSView(value: value)
             .frame(width: displaySize, height: displaySize)
     }
 }
 
 private struct _DisplayHUDLottieNSView: NSViewRepresentable {
+    let value: CGFloat
+
+    private var lottieProgress: CGFloat {
+        max(0, min(1, value))
+    }
+
     func makeNSView(context: Context) -> NSView {
         let lottie = LottieAnimationView(name: "display_animation")
         lottie.contentMode = .scaleAspectFit
-        lottie.loopMode = .loop
-        lottie.animationSpeed = 1.0
+        lottie.loopMode = .playOnce
         lottie.wantsLayer = true
         lottie.translatesAutoresizingMaskIntoConstraints = false
         lottie.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         lottie.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        lottie.play()
+        lottie.currentProgress = lottieProgress
 
         let container = NSView()
         container.wantsLayer = true
@@ -116,6 +122,14 @@ private struct _DisplayHUDLottieNSView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let lottie = nsView.subviews.first as? LottieAnimationView else { return }
-        if !lottie.isAnimationPlaying { lottie.play() }
+        let target = lottieProgress
+        guard abs(target - lottie.currentProgress) > 0.001 else { return }
+        lottie.animationSpeed = 1.8
+        lottie.play(
+            fromProgress: lottie.currentProgress,
+            toProgress: target,
+            loopMode: .playOnce,
+            completion: nil
+        )
     }
 }

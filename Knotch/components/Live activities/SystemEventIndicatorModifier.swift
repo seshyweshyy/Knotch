@@ -38,10 +38,8 @@ struct SystemEventIndicatorModifier: View {
                             .frame(width: 20, height: 15, alignment: .leading)
                     }
                 case .brightness:
-                    Image(systemName: "sun.max.fill")
-                        .contentTransition(.symbolEffect)
-                        .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                    DisplayHUDLottieView(value: value, displaySize: 40)
+                        .frame(width: 22, height: 22)
                 case .backlight:
                     Image(systemName: value > 0.5 ? "light.max" : "light.min")
                         .contentTransition(.interpolate)

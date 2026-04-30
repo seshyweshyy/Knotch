@@ -29,7 +29,8 @@ struct OpenNotchHUD: View {
                             .contentTransition(.interpolate)
                     }
                 case .brightness:
-                    SunRaysIcon(value: value, size: 18)
+                    DisplayHUDLottieView(value: value, displaySize: 34)
+                        .frame(width: 26, height: 26)
                 case .backlight:
                     Image(systemName: value > 0.5 ? "light.max" : "light.min")
                         .contentTransition(.interpolate)

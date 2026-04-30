@@ -32,8 +32,8 @@ struct InlineHUD: View {
                                     .frame(width: 20, height: 15, alignment: .leading)
                             }
                         case .brightness:
-                            SunRaysIcon(value: value, size: 15)
-                                .frame(width: 20, height: 15, alignment: .center)
+                            DisplayHUDLottieView(value: value, displaySize: 30)
+                                .frame(width: 22, height: 22)
                         case .backlight:
                             Image(systemName: value > 0.5 ? "light.max" : "light.min")
                                 .contentTransition(.interpolate)
