@@ -2,6 +2,10 @@ name: Update Version Dropdown in Issue Form
 # Least-privilege: only needs to push the updated issue template file.
 permissions:
   contents: write
+concurrency:
+  group: update-dropdown
+  cancel-in-progress: false
+
 on:
   push:
     tags:
@@ -44,11 +48,12 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
       
+          git pull --rebase origin ${{ github.event.repository.default_branch }}
+      
           if git diff --quiet; then
             echo "No changes to commit."
           else
             git add .github/ISSUE_TEMPLATE/1-bug-report-form.yml
-            git commit -m "Update issue form version dropdown with placeholder and latest tags"
-            git pull --rebase origin main
+            git commit -m "chore: update issue form version dropdown"
             git push
           fi
