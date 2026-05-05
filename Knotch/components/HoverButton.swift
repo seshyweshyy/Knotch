@@ -12,13 +12,14 @@ struct HoverButton: View {
     var iconColor: Color = .primary
     var scale: Image.Scale = .medium
     var action: () -> Void
-    var contentTransition: ContentTransition = .symbolEffect;
-    
+    var contentTransition: ContentTransition = .symbolEffect
+
     @State private var isHovering = false
+    @GestureState private var isPressed = false
 
     var body: some View {
         let size = CGFloat(40)
-        
+
         Button(action: action) {
             Rectangle()
                 .fill(.clear)
@@ -26,17 +27,25 @@ struct HoverButton: View {
                 .frame(width: size, height: size)
                 .overlay {
                     RoundedRectangle(cornerRadius: 11)
-                        .fill(isHovering ? Color.gray.opacity(0.2) : .clear)
+                        .fill(isPressed
+                              ? Color.gray.opacity(0.35)
+                              : isHovering ? Color.gray.opacity(0.2) : .clear)
                         .frame(width: size, height: size)
                         .overlay {
                             Image(systemName: icon)
                                 .foregroundColor(iconColor)
                                 .contentTransition(contentTransition)
                                 .font(scale == .large ? .largeTitle : scale == .small ? .title3 : .title2)
+                                .scaleEffect(isPressed ? 0.82 : 1.0)
+                                .animation(.spring(response: 0.2, dampingFraction: 0.55), value: isPressed)
                         }
                 }
         }
         .buttonStyle(PlainButtonStyle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.3)) {
                 isHovering = hovering

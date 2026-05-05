@@ -109,7 +109,7 @@ struct WheelPicker: View {
                 dateCircle(date: date, isToday: isToday, isSelected: isSelected)
             }
             .padding(.vertical, 4)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 1)
         }
         .buttonStyle(PlainButtonStyle())
         .id(id)
@@ -354,48 +354,101 @@ private struct CalendarEventRow: View {
     let showFullTitle: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: 4) {
-            Rectangle()
+        HStack(alignment: .top, spacing: 0) {
+            // Colored left border
+            RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color(event.calendar.color))
                 .frame(width: 3)
-                .cornerRadius(1.5)
+                .padding(.vertical, 4)
+                .padding(.leading, 4)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .lineLimit(showFullTitle ? nil : 2)
+            HStack(alignment: .top, spacing: 4) {
+                let calColor = Color(event.calendar.color)
 
-                if let location = event.location, !location.isEmpty {
-                    Text(location)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.title)
                         .font(.caption)
-                        .foregroundColor(Color(white: 0.65))
-                        .lineLimit(1)
+                        .fontWeight(.semibold)
+                        .foregroundColor(calColor)
+                        .lineLimit(showFullTitle ? nil : 2)
+
+                    if let location = event.location, !location.isEmpty {
+                        HStack(spacing: 3) {
+                            MapPinIcon(color: calColor)
+                                .frame(width: 10, height: 10)
+                            Text(location)
+                                .font(.system(size: 10))
+                                .foregroundColor(calColor.opacity(0.9))
+                                .lineLimit(1)
+                        }
+                    }
                 }
-            }
-            Spacer(minLength: 0)
-            VStack(alignment: .trailing, spacing: 4) {
-                if event.isAllDay {
-                    Text("All-day")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                } else {
-                    Text(event.start, style: .time)
-                        .foregroundColor(.white)
-                    Text(event.end, style: .time)
-                        .foregroundColor(Color(white: 0.65))
+                Spacer(minLength: 0)
+                VStack(alignment: .trailing, spacing: 2) {
+                    if event.isAllDay {
+                        Text("All-day")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(calColor)
+                            .lineLimit(1)
+                    } else {
+                        Text(event.start, style: .time)
+                            .foregroundColor(calColor)
+                        Text(event.end, style: .time)
+                            .foregroundColor(calColor.opacity(0.75))
+                    }
                 }
+                .font(.caption2)
+                .frame(minWidth: 44, alignment: .trailing)
             }
-            .font(.caption)
-            .frame(minWidth: 44, alignment: .trailing)
+            .padding(.leading, 8)
+            .padding(.trailing, 10)
+            .padding(.vertical, 3)
         }
+        .background(
+            Color(event.calendar.color).opacity(0.12)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 5))
         .opacity(
             event.eventStatus == .ended && Calendar.current.isDateInToday(event.start)
                 ? 0.6 : 1.0
         )
+    }
+}
+
+private struct MapPinIcon: View {
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+
+            Canvas { context, size in
+                let cx = size.width / 2
+                let r = size.width * 0.36
+                let tipY = size.height
+                let baseY = size.height * 0.52
+                let baseHalf = size.width * 0.38
+                let holeR = r * 0.45
+
+                // Outer pin shape as one unified path
+                var pin = Path()
+                pin.addEllipse(in: CGRect(x: cx - r, y: 0, width: r * 2, height: r * 2))
+                pin.move(to: CGPoint(x: cx - baseHalf, y: baseY))
+                pin.addLine(to: CGPoint(x: cx + baseHalf, y: baseY))
+                pin.addLine(to: CGPoint(x: cx, y: tipY))
+                pin.closeSubpath()
+                context.fill(pin, with: .color(color))
+
+                // Punch hole using blendMode
+                var hole = Path()
+                hole.addEllipse(in: CGRect(x: cx - holeR, y: r - holeR, width: holeR * 2, height: holeR * 2))
+                context.blendMode = .clear
+                context.fill(hole, with: .color(.black))
+            }
+            .compositingGroup()
+        }
     }
 }
 
@@ -444,7 +497,7 @@ struct EventListView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: 1) {
                     ForEach(filteredEvents) { event in
                         Button {
                             if let url = event.calendarAppURL() { openURL(url) }
@@ -463,13 +516,8 @@ struct EventListView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 1)
                         .id(event.id)
-
-                        if event.id != filteredEvents.last?.id {
-                            Divider()
-                                .overlay(Color.gray.opacity(0.2))
-                        }
                     }
                 }
             }
