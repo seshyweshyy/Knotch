@@ -352,8 +352,11 @@ private struct ReminderRow: View {
 private struct CalendarEventRow: View {
     let event: EventModel
     let showFullTitle: Bool
+    @Environment(\.eventRowPressed) private var isPressed
 
     var body: some View {
+        let calColor: Color = isPressed ? .black : Color(event.calendar.color)
+
         HStack(alignment: .top, spacing: 0) {
             // Colored left border
             RoundedRectangle(cornerRadius: 1.5)
@@ -363,8 +366,6 @@ private struct CalendarEventRow: View {
                 .padding(.leading, 4)
 
             HStack(alignment: .top, spacing: 4) {
-                let calColor = Color(event.calendar.color)
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title)
                         .font(.caption)
@@ -515,7 +516,7 @@ struct EventListView: View {
                                 )
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color)))
                         .padding(.vertical, 1)
                         .id(event.id)
                     }
@@ -536,6 +537,33 @@ struct EventListView: View {
             }
         }
         Spacer(minLength: 0)
+    }
+}
+
+private struct EventRowButtonStyle: ButtonStyle {
+    let color: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .environment(\.eventRowPressed, configuration.isPressed)
+            .background(
+                configuration.isPressed
+                    ? color.opacity(0.9)
+                    : Color.clear
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+private struct EventRowPressedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var eventRowPressed: Bool {
+        get { self[EventRowPressedKey.self] }
+        set { self[EventRowPressedKey.self] = newValue }
     }
 }
 
