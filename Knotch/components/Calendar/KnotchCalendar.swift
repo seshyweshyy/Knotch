@@ -126,7 +126,7 @@ struct WheelPicker: View {
         ZStack {
             Circle()
                 .fill(
-                    isToday && isSelected  ? Color.effectiveAccent
+                    isToday && isSelected  ? Color.red
                   : !isToday && isSelected ? Color.white
                   :                          Color.clear
                 )
@@ -141,7 +141,7 @@ struct WheelPicker: View {
                 .foregroundColor(
                     isToday && isSelected  ? Color.white             // accent circle → white number
                   : !isToday && isSelected ? Color.black             // white circle → black number
-                  : isToday                ? Color.effectiveAccent   // today unselected → accent number
+                  : isToday                ? Color.red               // today unselected → red number
                   :                          Color(white: 0.75)      // normal → gray number
                 )
                 .animation(.easeInOut(duration: 0.2), value: isSelected)
