@@ -109,7 +109,7 @@ struct WheelPicker: View {
                 dateCircle(date: date, isToday: isToday, isSelected: isSelected)
             }
             .padding(.vertical, 4)
-            .padding(.horizontal, 1)
+            .padding(.horizontal, 1.25)
         }
         .buttonStyle(PlainButtonStyle())
         .id(id)
@@ -130,7 +130,7 @@ struct WheelPicker: View {
                   : !isToday && isSelected ? Color.white
                   :                          Color.clear
                 )
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .scaleEffect(isSelected ? 1.0 : 0.5)
                 .opacity(isSelected ? 1.0 : 0.0)
                 .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isSelected)
