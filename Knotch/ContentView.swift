@@ -425,7 +425,12 @@ struct ContentView: View {
                     Spacer()
                 } else {
                     // Locked state — show lock icon first, before any other content
-                    if vm.isScreenLocked || isUnlockAnimating {
+                    let hudIsActive = coordinator.sneakPeek.show
+                        && coordinator.sneakPeek.type != .music
+                        && coordinator.sneakPeek.type != .bluetoothAudio
+                        && vm.notchState == .closed
+
+                    if (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
                         HStack(spacing: 0) {
                             LockNotchOverlay(isLocked: vm.isScreenLocked, isUnlockAnimating: $isUnlockAnimating)
                                 .allowsHitTesting(false)
