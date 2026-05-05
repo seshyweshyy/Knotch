@@ -653,7 +653,7 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.previousTrack()
             }
         case .playPause:
-            HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large) {
+            HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large, enableBounce: false) {
                 MusicManager.shared.togglePlay()
             }
         case .next:
