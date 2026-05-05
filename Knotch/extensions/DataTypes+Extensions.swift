@@ -24,7 +24,7 @@ extension Date {
     
     var date: String {
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "dd"
+        dateFormatter.dateFormat = "d"
         return dateFormatter.string(from: self)
     }
     

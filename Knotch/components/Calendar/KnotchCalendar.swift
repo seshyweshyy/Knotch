@@ -104,14 +104,12 @@ struct WheelPicker: View {
                 onClick()
             }
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 dayText(date: dateToString(for: date), isToday: isToday, isSelected: isSelected)
                 dateCircle(date: date, isToday: isToday, isSelected: isSelected)
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 4)
-            .background(isSelected ? Color.effectiveAccentBackground : Color.clear)
-            .cornerRadius(8)
         }
         .buttonStyle(PlainButtonStyle())
         .id(id)
@@ -120,22 +118,33 @@ struct WheelPicker: View {
     private func dayText(date: String, isToday: Bool, isSelected: Bool) -> some View {
         Text(date)
             .font(.caption)
-            .foregroundColor(isSelected ? .white : Color(white: 0.65))
+            .foregroundColor(isSelected ? .white : Color(white: 0.55))
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 
     private func dateCircle(date: Date, isToday: Bool, isSelected: Bool) -> some View {
         ZStack {
             Circle()
-                .fill(isToday ? Color.effectiveAccent : .clear)
-                .frame(width: 20, height: 20)
-                .overlay(
-                    Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 0)
+                .fill(
+                    isToday && isSelected  ? Color.effectiveAccent
+                  : !isToday && isSelected ? Color.white
+                  :                          Color.clear
                 )
+                .frame(width: 28, height: 28)
+                .scaleEffect(isSelected ? 1.0 : 0.5)
+                .opacity(isSelected ? 1.0 : 0.0)
+                .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isSelected)
+
             Text("\(date.date)")
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundColor(isSelected ? .white : Color(white: isToday ? 0.9 : 0.65))
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(
+                    isToday && isSelected  ? Color.white             // accent circle → white number
+                  : !isToday && isSelected ? Color.black             // white circle → black number
+                  : isToday                ? Color.effectiveAccent   // today unselected → accent number
+                  :                          Color(white: 0.75)      // normal → gray number
+                )
+                .animation(.easeInOut(duration: 0.2), value: isSelected)
         }
     }
 
@@ -187,9 +196,9 @@ struct WheelPicker: View {
     }
 
     private func dateToString(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E"
-        return formatter.string(from: date)
+        let symbols = ["Su", "M", "Tu", "W", "Th", "F", "Sa"]
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return symbols[weekday - 1]
     }
 }
 
