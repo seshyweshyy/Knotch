@@ -435,8 +435,8 @@ private struct MapPinIcon: View {
                 // Outer pin shape as one unified path
                 var pin = Path()
                 pin.addEllipse(in: CGRect(x: cx - r, y: 0, width: r * 2, height: r * 2))
-                pin.move(to: CGPoint(x: cx - baseHalf, y: baseY))
-                pin.addLine(to: CGPoint(x: cx + baseHalf, y: baseY))
+                pin.move(to: CGPoint(x: cx - baseHalf * 0.75, y: baseY))
+                pin.addLine(to: CGPoint(x: cx + baseHalf * 0.75, y: baseY))
                 pin.addLine(to: CGPoint(x: cx, y: tipY))
                 pin.closeSubpath()
                 context.fill(pin, with: .color(color))
