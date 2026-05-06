@@ -118,10 +118,10 @@ struct MusicLiveActivity: View {
                             .resizable()
                             .scaledToFill()
                             .frame(width: 36, height: 22)
-                            .blur(radius: 4)
-                            .saturation(1.2)
-                            .brightness(0.03)
-                        Color.white.opacity(0.12)
+                            .blur(radius: 5)
+                            .saturation(1.0)
+                            .brightness(0.01)
+                        Color.white.opacity(0.08)
                             .frame(width: 36, height: 22)
                     }
                     .mask {
