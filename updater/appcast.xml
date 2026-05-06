@@ -3,6 +3,15 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.4.1</title>
+            <pubDate>Wed, 06 May 2026 11:15:52 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.4.1/Knotch.v.1.4.1.zip" length="13248903" type="application/octet-stream" sparkle:edSignature="OiRvQUIiRxTedO8zXiEhPQANknXO20NPBUlQotg9LJ32DWNVpJGBUjk2bEMi1gchZlIedlMx98XNg9toK0/wBQ=="/>
+        </item>
+        <item>
             <title>1.4.0</title>
             <pubDate>Wed, 06 May 2026 09:59:28 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -19,15 +28,6 @@
             <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.3.0/Knotch.v.1.3.0.zip" length="13247399" type="application/octet-stream" sparkle:edSignature="jraFAn0lDp8c6a8+1NM8i6DqK6GKMWVLjzMIGvY2rz0s8r9Oabs6rNsaiGczScJp4ddqXnOzyq6+CgMkBdc+AA=="/>
-        </item>
-        <item>
-            <title>1.2.2</title>
-            <pubDate>Tue, 28 Apr 2026 04:03:50 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.2.2/Knotch.v1.2.2.zip" length="13229963" type="application/octet-stream" sparkle:edSignature="gcNXueKutsuQGhAuqE89RSBcKq4A+AgMWeMkgQPpos7XEJ3cCXlyewQwrUqhOO9NtqQiDBK0gChq6jW0KLjeAQ=="/>
         </item>
     </channel>
 </rss>
