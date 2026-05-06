@@ -82,6 +82,16 @@ struct FileShareView: View {
                             vm.dropZoneTargeting ? 1.06 : 1.0
                         )
                         .animation(.spring(response: 0.36, dampingFraction: 0.7), value: vm.dropZoneTargeting)
+
+                    // Loading overlay — sits inside the circle ZStack so it's centred on it
+                    if isProcessing || quickShare.isPickerOpen {
+                        Circle()
+                            .fill(.black.opacity(0.4))
+                            .frame(width: 55, height: 55)
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    }
                 }
 
                 Text(selectedProvider.id)
@@ -90,17 +100,6 @@ struct FileShareView: View {
 
             }
             .padding(18)
-            
-            // Loading overlay
-            if isProcessing || quickShare.isPickerOpen {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.black.opacity(0.3))
-                    .overlay(
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    )
-            }
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
