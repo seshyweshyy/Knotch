@@ -11,9 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/4f197948-8cec-4dfc-9127-df7380cb9e5a" alt="Demo GIF" />
-  
-
+  <img src="https://github.com/user-attachments/assets/678b2531-b68e-413b-9a14-1905f98e784a" alt="Demo GIF" />
 </p>
 
 ---
