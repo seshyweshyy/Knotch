@@ -249,6 +249,7 @@ struct CalendarView: View {
                         .frame(width: 20)
                     }
                 }
+                .frame(height: 52)
             }
 
             let filteredEvents = EventListView.filteredEvents(
