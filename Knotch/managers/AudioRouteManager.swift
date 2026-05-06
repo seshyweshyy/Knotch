@@ -13,20 +13,53 @@ struct AudioOutputDevice: Identifiable, Equatable {
 
     var iconName: String {
         let n = name.lowercased()
+
+        // Headphones/earbuds (check before speaker brands)
         if n.contains("airpods") { return "airpodspro" }
         if n.contains("macbook") { return "laptopcomputer" }
         if n.contains("headphone") || n.contains("headset") { return "headphones" }
-        if n.contains("beats") { return "headphones" }
-        if n.contains("homepod") { return "hifispeaker.2" }
+        if n.contains("earbuds") || n.contains("earphones") { return "earbuds" }
+        if n.contains("homepod") { return "homepod.fill" }
+
+        // Beats: disambiguate speakers vs headphones
+        if n.contains("beats") {
+            // Beats Pill, Beats Studio Pro (speaker), vs Beats Solo, Beats Fit, etc.
+            let beatsSpeakers = ["pill", "studio pro"]
+            return beatsSpeakers.contains(where: n.contains) ? "speaker.wave.2" : "headphones"
+        }
+
+        // Known speaker brands/models — always a speaker regardless of transport
+        let speakerKeywords = [
+            "jbl", "bose soundlink", "bose revolve", "bose home",
+            "sonos", "marshall", "ultimate ears", "ue ", "ue_",
+            "charge", "flip", "pulse", "clip", "link", "boom",
+            "wonderboom", "megaboom", "hyperboom", "roam",
+            "sony srs", "sony lspx", "anker soundcore",
+            "soundcore", "tribit", "harman", "onyx",
+            "speaker", "portable speaker"
+        ]
+        if speakerKeywords.contains(where: { n.contains($0) }) { return "hifispeaker.fill" }
+
+        // Known headphone brands — always headphones
+        let headphoneKeywords = [
+            "sony wh", "sony wf", "sony wi",
+            "bose quietcomfort", "bose qc", "bose nc",
+            "jabra", "sennheiser", "audio-technica",
+            "plantronics", "poly ", "anker soundbuds",
+            "galaxy buds", "pixel buds", "nothing ear",
+            "skullcandy", "jlab"
+        ]
+        if headphoneKeywords.contains(where: { n.contains($0) }) { return "headphones" }
+
         switch transportType {
         case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE:
-            return n.contains("speaker") ? "speaker.wave.2" : "headphones"
+            return "headphones" // unknown BT device: safer default is headphones
         case kAudioDeviceTransportTypeAirPlay:
             return "airplayaudio"
         case kAudioDeviceTransportTypeDisplayPort, kAudioDeviceTransportTypeHDMI:
             return "tv"
         case kAudioDeviceTransportTypeUSB, kAudioDeviceTransportTypeFireWire:
-            return "hifispeaker.2"
+            return "cable.connector"
         case kAudioDeviceTransportTypeBuiltIn:
             return n.contains("display") ? "tv" : "speaker.wave.2"
         default:
