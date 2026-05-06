@@ -74,7 +74,6 @@ class SettingsWindowController: NSWindowController {
         guard let window = window else { return }
         
         window.title = "Knotch Settings"
-        window.standardWindowButton(.miniaturizeButton)?.isEnabled = false
         window.standardWindowButton(.zoomButton)?.isEnabled = false
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
