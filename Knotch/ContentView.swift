@@ -113,18 +113,23 @@ struct MusicLiveActivity: View {
 
             HStack {
                 if useMusicVisualizer {
-                    Rectangle()
-                        .fill(
-                            coloredSpectrogram
-                                ? Color(nsColor: musicManager.avgColor).gradient
-                                : Color.gray.gradient
-                        )
-                        .frame(width: 50, alignment: .center)
-                        .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
-                        .mask {
-                            AudioSpectrumView(isPlaying: $musicManager.isPlaying)
-                                .frame(width: 16, height: 12)
-                        }
+                    ZStack {
+                        Image(nsImage: displayedArt)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 36, height: 22)
+                            .blur(radius: 4)
+                            .saturation(1.2)
+                            .brightness(0.03)
+                        Color.white.opacity(0.12)
+                            .frame(width: 36, height: 22)
+                    }
+                    .mask {
+                        AudioSpectrumView(isPlaying: $musicManager.isPlaying)
+                            .frame(width: 24, height: 14)
+                    }
+                    .frame(width: 24, height: 14)
+                    .clipped()
                 } else {
                     LottieAnimationContainer()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)

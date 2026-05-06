@@ -28,7 +28,7 @@ class AudioSpectrum: NSView {
 
     private func setupBars() {
         let barWidth: CGFloat = 2
-        let barCount = 4
+        let barCount = 5
         let spacing: CGFloat = barWidth
         let totalWidth = CGFloat(barCount) * (barWidth + spacing)
         let totalHeight: CGFloat = 14
@@ -55,7 +55,7 @@ class AudioSpectrum: NSView {
     
     private func startAnimating() {
         guard animationTimer == nil else { return }
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.updateBars()
         }
     }
@@ -74,7 +74,7 @@ class AudioSpectrum: NSView {
             let animation = CABasicAnimation(keyPath: "transform.scale.y")
             animation.fromValue = currentScale
             animation.toValue = targetScale
-            animation.duration = 0.25
+            animation.duration = 0.2
             animation.autoreverses = true
             animation.fillMode = .forwards
             animation.isRemovedOnCompletion = false
