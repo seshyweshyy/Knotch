@@ -235,7 +235,8 @@ struct MusicControlsView: View {
                 timestampDate: musicManager.timestampDate,
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
-                isPlaying: musicManager.isPlaying
+                isPlaying: musicManager.isPlaying,
+                showRemainingTime: true
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }

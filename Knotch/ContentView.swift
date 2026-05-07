@@ -650,15 +650,12 @@ struct ContentView: View {
             if phase == .began {
                 hasTriggeredSwipe = false
                 lockedView = nil
+                return
             }
 
-            // Once a view is committed, re-assert it on every subsequent
-            // event — including any duplicate .ended fired by PanGesture's
-            // timeout — so nothing can bounce us back to the previous view
-            if let target = lockedView {
-                coordinator.currentView = target
+            if hasTriggeredSwipe {
                 if phase == .ended {
-                    withAnimation(animationSpring) { gestureProgress = .zero }
+                    gestureProgress = .zero
                 }
                 return
             }
@@ -668,24 +665,18 @@ struct ContentView: View {
                 return
             }
 
-            withAnimation(animationSpring) {
-                gestureProgress = min(translation / 60, 1.2)
-            }
-
-            let openThreshold: CGFloat = min(Defaults[.gestureSensitivity] * 0.35, 70)
-            if translation > openThreshold {
-                guard Defaults[.swipeToCycleViews] else { return }
+            if Defaults[.swipeToCycleViews] {
                 let destination: NotchViews = coordinator.currentView == .home ? .shelf : .home
-                // Don't cycle into a disabled view
                 let destinationEnabled = destination == .home
                     ? Defaults[.showHomeView]
                     : Defaults[.showShelfView]
-                guard destinationEnabled else { return }
-                lockedView = destination
-                hasTriggeredSwipe = true
-                if Defaults[.enableHaptics] { haptics.toggle() }
-                withAnimation(animationSpring) {
-                    coordinator.currentView = destination
+                if destinationEnabled {
+                    lockedView = destination
+                    hasTriggeredSwipe = true
+                    if Defaults[.enableHaptics] { haptics.toggle() }
+                    withAnimation(animationSpring) {
+                        coordinator.currentView = destination
+                    }
                 }
             }
 
