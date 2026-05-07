@@ -236,7 +236,6 @@ struct MusicControlsView: View {
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
                 isPlaying: musicManager.isPlaying,
-                showRemainingTime: true
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }
@@ -821,48 +820,92 @@ struct MusicSliderView: View {
     let playbackRate: Double
     let isPlaying: Bool
     var showRemainingTime: Bool = false
+    var inlineTimestamps: Bool = false
     var onValueChange: (Double) -> Void
 
-
     var body: some View {
-        VStack {
-            CustomSlider(
-                value: $sliderValue,
-                range: 0...duration,
-                color: Defaults[.sliderColor] == SliderColorEnum.albumArt
-                    ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
-                    : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
-                dragging: $dragging,
-                lastDragged: $lastDragged,
-                onValueChange: onValueChange
-            )
-            .frame(height: 10, alignment: .center)
-
-            HStack {
+        if inlineTimestamps {
+            HStack(alignment: .center, spacing: 6) {
                 Text(timeString(from: sliderValue))
-                Spacer()
-                if showRemainingTime {
-                    Text("-" + timeString(from: max(0, duration - sliderValue)))
-                } else {
-                    Text(timeString(from: duration))
+                    .fontWeight(.medium)
+                    .foregroundColor(
+                        Defaults[.playerColorTinting]
+                            ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
+                    )
+                    .font(.caption)
+                    .monospacedDigit()
+                    .fixedSize()
+
+                CustomSlider(
+                    value: $sliderValue,
+                    range: 0...duration,
+                    color: Defaults[.sliderColor] == SliderColorEnum.albumArt
+                        ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
+                        : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
+                    dragging: $dragging,
+                    lastDragged: $lastDragged,
+                    onValueChange: onValueChange
+                )
+                .frame(height: 10, alignment: .center)
+
+                Text(showRemainingTime
+                     ? "-" + timeString(from: max(0, duration - sliderValue))
+                     : timeString(from: duration))
+                    .fontWeight(.medium)
+                    .foregroundColor(
+                        Defaults[.playerColorTinting]
+                            ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
+                    )
+                    .font(.caption)
+                    .monospacedDigit()
+                    .fixedSize()
+            }
+            .onAppear {
+                let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
+                withAnimation(.easeOut(duration: 0.4)) { sliderValue = target }
+            }
+            .onChange(of: currentDate) {
+                guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+                sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
+            }
+        } else {
+            VStack {
+                CustomSlider(
+                    value: $sliderValue,
+                    range: 0...duration,
+                    color: Defaults[.sliderColor] == SliderColorEnum.albumArt
+                        ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
+                        : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
+                    dragging: $dragging,
+                    lastDragged: $lastDragged,
+                    onValueChange: onValueChange
+                )
+                .frame(height: 10, alignment: .center)
+
+                HStack {
+                    Text(timeString(from: sliderValue))
+                    Spacer()
+                    if showRemainingTime {
+                        Text("-" + timeString(from: max(0, duration - sliderValue)))
+                    } else {
+                        Text(timeString(from: duration))
+                    }
                 }
+                .fontWeight(.medium)
+                .foregroundColor(
+                    Defaults[.playerColorTinting]
+                        ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
+                )
+                .font(.caption)
             }
-            .fontWeight(.medium)
-            .foregroundColor(
-                Defaults[.playerColorTinting]
-                    ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
-            )
-            .font(.caption)
-        }
-        .onAppear {
-            let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
-            withAnimation(.easeOut(duration: 0.4)) {
-                sliderValue = target
+            .onAppear {
+                let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
+                withAnimation(.easeOut(duration: 0.4)) { sliderValue = target }
             }
-        }
-        .onChange(of: currentDate) {
-            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
-            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
+            .onChange(of: currentDate) {
+                guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+                sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
+            }
         }
     }
 
