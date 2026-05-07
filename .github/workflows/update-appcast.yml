@@ -59,4 +59,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add updater/appcast.xml
           git diff --cached --quiet || git commit -m "chore: update appcast for ${{ github.event.release.tag_name || inputs.tag }}"
+          git fetch origin main
+          git stash --include-untracked
+          git rebase origin/main
+          git stash drop || true
           git push origin main
