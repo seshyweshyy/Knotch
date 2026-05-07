@@ -114,14 +114,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    let lockAnimationHost = LockAnimationHost()
+
     @MainActor
     func onScreenLocked(_ notification: Notification) {
         isScreenLocked = true
         broadcastLockState(true)
         enableSkyLightOnAllWindows()
         showLiquidGlassWidgetIfNeeded()
+        lockAnimationHost.play(forward: false)
     }
-
     @MainActor
     func onScreenUnlocked(_ notification: Notification) {
         isScreenLocked = false
@@ -298,6 +300,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = NSHostingView(
             rootView: ContentView()
                 .environmentObject(viewModel)
+                .environmentObject(lockAnimationHost)
         )
 
         window.orderFrontRegardless()

@@ -173,6 +173,7 @@ struct ContentView: View {
     @State private var haptics: Bool = false
     
     @State private var isUnlockAnimating: Bool = false
+    @EnvironmentObject private var lockAnimationHost: LockAnimationHost
     
     @State private var bluetoothHUDExpanded: Bool = false
 
@@ -437,7 +438,7 @@ struct ContentView: View {
 
                     if (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
                         HStack(spacing: 0) {
-                            LockNotchOverlay(isLocked: vm.isScreenLocked, isUnlockAnimating: $isUnlockAnimating)
+                            LockNotchOverlay(isLocked: vm.isScreenLocked, isUnlockAnimating: $isUnlockAnimating, host: lockAnimationHost)
                                 .allowsHitTesting(false)
                                 .padding(.leading, cornerRadiusInsets.closed.bottom - 10)
                             Spacer()
