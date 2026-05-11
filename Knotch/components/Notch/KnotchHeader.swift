@@ -69,7 +69,7 @@ struct KnotchHeader: View {
                                     .fill(.black)
                                     .frame(width: 30, height: 30)
                                     .overlay {
-                                        Image(systemName: "gear")
+                                        Image(systemName: "gearshape.fill")
                                             .foregroundColor(.white)
                                             .padding()
                                             .imageScale(.medium)

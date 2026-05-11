@@ -31,19 +31,30 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("Knotch", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
-            Button("Settings") {
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+                Text("Version \(version)")
+                    .foregroundStyle(.secondary)
+            }
+            Divider()
+            Button {
                 DispatchQueue.main.async {
                     SettingsWindowController.shared.showWindow()
                 }
+            } label: {
+                Label("Settings", systemImage: "gearshape.fill")
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
-            Button("Restart Knotch") {
+            Button {
                 ApplicationRelauncher.restart()
+            } label: {
+                Label("Restart Knotch", systemImage: "arrow.counterclockwise")
             }
-            Button("Quit", role: .destructive) {
+            Button(role: .destructive) {
                 NSApplication.shared.terminate(self)
+            } label: {
+                Label("Quit", systemImage: "power")
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }

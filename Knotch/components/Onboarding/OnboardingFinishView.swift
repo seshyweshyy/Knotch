@@ -36,7 +36,7 @@ struct OnboardingFinishView: View {
 
             VStack(spacing: 12) {
                 Button(action: onOpenSettings) {
-                    Label("Customize in Settings", systemImage: "gear")
+                    Label("Customize in Settings", systemImage: "gearshape.fill")
                         .controlSize(.large)
                 }
                 .controlSize(.large)

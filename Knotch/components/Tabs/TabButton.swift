@@ -10,12 +10,14 @@ import SwiftUI
 struct TabButton: View {
     let label: String
     let icon: String
+    var fontSize: CGFloat = 13
     let selected: Bool
     let onClick: () -> Void
     
     var body: some View {
         Button(action: onClick) {
             Image(systemName: icon)
+                .font(.system(size: fontSize))
                 .padding(.horizontal, 15)
                 .contentShape(Capsule())
         }

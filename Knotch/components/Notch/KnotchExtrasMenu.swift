@@ -61,7 +61,7 @@ struct KnotchExtrasMenu : View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12.0).fill(.black).frame(width: 70, height: 70)
                 VStack(spacing: 8) {
-                    Image(systemName: "gear").resizable()
+                    Image(systemName: "gearshape.fill").resizable()
                         .aspectRatio(contentMode: .fit).frame(width:20)
                     Text("Settings").font(.body)
                 }

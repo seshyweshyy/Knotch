@@ -245,7 +245,7 @@ class KnotchViewCoordinator: ObservableObject {
             }
         }
         // Total duration: compact(0.8) + expanded(2.7) + compact(0.8) = 4.3s
-        sneakPeekDuration = 5.0 
+        sneakPeekDuration = 5.0
     }
 
     private var sneakPeekDuration: TimeInterval = 2

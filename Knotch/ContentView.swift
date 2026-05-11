@@ -192,7 +192,7 @@ struct ContentView: View {
         }
 
     private var currentNotchShape: NotchShape {
-            return NotchShape(
+        return NotchShape(
             topCornerRadius: topCornerRadius,
             bottomCornerRadius: vm.notchState == .open
                 ? cornerRadiusInsets.opened.bottom
@@ -200,7 +200,7 @@ struct ContentView: View {
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
                         ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
-                        : cornerRadiusInsets.closed.bottom
+                            : cornerRadiusInsets.closed.bottom
         )
     }
 
@@ -351,12 +351,17 @@ struct ContentView: View {
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
+                        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+                            Text("Version \(version)")
+                                .font(.footnote)
+                        }
+                        
                         Button {
                             DispatchQueue.main.async {
                                 SettingsWindowController.shared.showWindow()
                             }
                         } label: {
-                            Label("Settings", systemImage: "gear")
+                            Label("Settings", systemImage: "gearshape.fill")
                         }
                         
                         Divider()

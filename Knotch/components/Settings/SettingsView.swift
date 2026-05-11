@@ -43,7 +43,7 @@ private let knotchTabs: [SettingsTabItem] = [
     // System
     SettingsTabItem(id: "HUD", title: "HUDs", systemImage: "dial.medium.fill", tint: .black, group: "System"),
     SettingsTabItem(id: "Battery", title: "Battery", systemImage: "battery.100.bolt", tint: Color(red: 0.2, green: 0.78, blue: 0.35), group: "System"),
-    SettingsTabItem(id: "Bluetooth", title: "Bluetooth", systemImage: "airpodspro", tint: .blue, group: "System"),
+    SettingsTabItem(id: "LiveActivities", title: "Live Activities", systemImage: "livephoto", tint: .blue, group: "System"),
     // More
     SettingsTabItem(id: "Shortcuts", title: "Shortcuts", systemImage: "keyboard", tint: .orange, group: "More"),
     SettingsTabItem(id: "Advanced", title: "Advanced", systemImage: "gearshape.2", tint: .gray, group: "More"),
@@ -398,8 +398,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "HUD", title: "Show HUD in open notch", keywords: ["open notch", "hud", "show"], highlightID: "HUD-Show HUD in open notch"),
             SettingsSearchEntry(tabID: "HUD", title: "HUD style", keywords: ["hud", "inline", "default", "style"], highlightID: "HUD-HUD style"),
             // Bluetooth
-            SettingsSearchEntry(tabID: "Bluetooth", title: "Show Bluetooth device connections", keywords: ["bluetooth", "device", "connection", "hud"], highlightID: "Bluetooth-Show Bluetooth device connections"),
-            SettingsSearchEntry(tabID: "Bluetooth", title: "HUD icon style", keywords: ["bluetooth", "icon", "3d", "symbol", "style"], highlightID: "Bluetooth-HUD icon style"),
+            SettingsSearchEntry(tabID: "LiveActivities", title: "Show Bluetooth device connections", keywords: ["bluetooth", "device", "connection", "hud"], highlightID: "LiveActivities-Show Bluetooth device connections"),
+            SettingsSearchEntry(tabID: "LiveActivities", title: "HUD icon style", keywords: ["bluetooth", "icon", "3d", "symbol", "style"], highlightID: "LiveActivities-HUD icon style"),
             // Battery
             SettingsSearchEntry(tabID: "Battery", title: "Show battery indicator", keywords: ["battery", "indicator"], highlightID: "Battery-Show battery indicator"),
             SettingsSearchEntry(tabID: "Battery", title: "Show power status notifications", keywords: ["power", "notification", "battery"], highlightID: "Battery-Show power status notifications"),
@@ -570,8 +570,8 @@ struct SettingsView: View {
                         SettingsForm(tabID: "HUD") { HUD() }
                     case "Battery":
                         SettingsForm(tabID: "Battery") { Charge() }
-                    case "Bluetooth":
-                        SettingsForm(tabID: "Bluetooth") { BluetoothSettings() }
+                    case "LiveActivities":
+                        SettingsForm(tabID: "LiveActivities") { LiveActivitiesSettings() }
                     case "Shelf":
                         SettingsForm(tabID: "Shelf") { Shelf() }
                     case "Shortcuts":
@@ -854,19 +854,20 @@ struct Charge: View {
     }
 }
 
-// MARK: - Bluetooth
+// MARK: - Live Activities
 
-struct BluetoothSettings: View {
+struct LiveActivitiesSettings: View {
     @Default(.showBluetoothDeviceConnections) var showBluetoothDeviceConnections
     @Default(.bluetoothHUDIconStyle) var bluetoothHUDIconStyle
 
     var body: some View {
         Form {
+            // MARK: Bluetooth
             Section {
                 Defaults.Toggle(key: .showBluetoothDeviceConnections) {
                     Text("Show Bluetooth device connections")
                 }
-                .settingsHighlight(id: "Bluetooth-Show Bluetooth device connections")
+                .settingsHighlight(id: "LiveActivities-Show Bluetooth device connections")
                 VStack(alignment: .leading, spacing: 8) {
                     Text("HUD icon style")
                         .font(.headline)
@@ -899,13 +900,10 @@ struct BluetoothSettings: View {
                                                 }
                                             }
                                         }
-                                        .overlay {
+                                        .overlay(
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .strokeBorder(
-                                                    bluetoothHUDIconStyle == style ? Color.accentColor : Color.clear,
-                                                    lineWidth: 2.5
-                                                )
-                                        }
+                                                .stroke(bluetoothHUDIconStyle == style ? Color.accentColor : Color.clear, lineWidth: 2.5)
+                                        )
                                     Text(style.rawValue)
                                         .font(.caption)
                                         .fontWeight(.medium)
@@ -918,9 +916,9 @@ struct BluetoothSettings: View {
                         Spacer()
                     }
                 }
-                .settingsHighlight(id: "Bluetooth-HUD icon style")
+                .settingsHighlight(id: "LiveActivities-HUD icon style")
             } header: {
-                Text("Connection HUD")
+                Text("Bluetooth")
             }
         }
         .accentColor(.effectiveAccent)
