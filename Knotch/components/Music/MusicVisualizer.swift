@@ -56,31 +56,30 @@ class AudioSpectrum: NSView {
     }
     
     private func startAnimating() {
-            guard animationTimer == nil else { return }
-            // Subscribe to live meter if available (macOS 14.2+)
-            if #available(macOS 14.2, *) {
-                meterCancellable = LiveAudioMeter.shared.$amplitudes
-                    .receive(on: DispatchQueue.main)
-                    .sink { [weak self] amplitudes in
-                        guard let self, self.currentIsPlaying else { return }
-                        self.updateBars(amplitudes: amplitudes)
-                    }
-                // Keep timer as fallback in case meter has no signal yet
-                animationTimer = Timer.scheduledTimer(withTimeInterval: 0.21, repeats: true) { [weak self] _ in
-                    guard let self else { return }
-                    // Only fire random animation if meter is silent (all zeros)
-                    if #available(macOS 14.2, *) {
-                        let hasSignal = LiveAudioMeter.shared.amplitudes.contains { $0 > 0.01 }
-                        if hasSignal { return }
-                    }
-                    self.updateBars(amplitudes: nil)
+        guard animationTimer == nil else { return }
+        if #available(macOS 14.2, *) {
+            // Fire one immediate random frame so there's no blank gap on start
+            updateBars(amplitudes: nil)
+            meterCancellable = LiveAudioMeter.shared.$amplitudes
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] amplitudes in
+                    guard let self, self.currentIsPlaying else { return }
+                    let hasSignal = amplitudes.contains { $0 > 0.01 }
+                    self.updateBars(amplitudes: hasSignal ? amplitudes : nil)
                 }
-            } else {
-                animationTimer = Timer.scheduledTimer(withTimeInterval: 0.21, repeats: true) { [weak self] _ in
-                    self?.updateBars(amplitudes: nil)
-                }
+            // Only run the fallback timer if the live meter has no signal
+            animationTimer = Timer.scheduledTimer(withTimeInterval: 0.19, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                let hasSignal = LiveAudioMeter.shared.amplitudes.contains { $0 > 0.01 }
+                if hasSignal { return }
+                self.updateBars(amplitudes: nil)
+            }
+        } else {
+            animationTimer = Timer.scheduledTimer(withTimeInterval: 0.19, repeats: true) { [weak self] _ in
+                self?.updateBars(amplitudes: nil)
             }
         }
+    }
     
     private func stopAnimating() {
             meterCancellable?.cancel()
@@ -114,12 +113,12 @@ class AudioSpectrum: NSView {
                     barLayer.add(spring, forKey: "scaleY")
                 } else {
                     // Random fallback path
-                    targetScale = CGFloat.random(in: 0.1...0.7)
+                    targetScale = CGFloat.random(in: 0.1...0.9)
                     barScales[i] = targetScale
                     let animation = CABasicAnimation(keyPath: "transform.scale.y")
                     animation.fromValue = currentScale
                     animation.toValue = targetScale
-                    animation.duration = 0.21
+                    animation.duration = 0.19
                     animation.autoreverses = false
                     animation.fillMode = .forwards
                     animation.isRemovedOnCompletion = false

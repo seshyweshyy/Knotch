@@ -592,9 +592,9 @@ class MusicManager: ObservableObject {
         withAnimation(.smooth) {
             self.albumArt = newAlbumArt
             self.artFlipSignal = ArtFlipSignal(art: newAlbumArt, direction: resolvedDirection)
-            if Defaults[.coloredSpectrogram] {
-                self.calculateAverageColor()
-            }
+        }
+        if Defaults[.coloredSpectrogram] {
+            calculateAverageColor()
         }
     }
 

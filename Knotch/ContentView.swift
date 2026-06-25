@@ -151,16 +151,42 @@ struct MusicLiveActivity: View {
     }
 }
 
+private struct BatteryNotchBanner: View {
+    @ObservedObject var batteryModel = BatteryStatusViewModel.shared
+    @EnvironmentObject var vm: KnotchViewModel
+
+    var body: some View {
+        HStack(spacing: 0) {
+            HStack {
+                Text(batteryModel.statusText)
+                    .font(.subheadline)
+                    .foregroundStyle(.white)
+            }
+            Rectangle()
+                .fill(.black)
+                .frame(width: vm.closedNotchSize.width + 10)
+            HStack {
+                KnotchBatteryView(
+                    batteryWidth: 30,
+                    isCharging: batteryModel.isCharging,
+                    isInLowPowerMode: batteryModel.isInLowPowerMode,
+                    isPluggedIn: batteryModel.isPluggedIn,
+                    levelBattery: batteryModel.levelBattery,
+                    isForNotification: true
+                )
+            }
+            .frame(width: 76, alignment: .trailing)
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+}
+
 @MainActor
 struct ContentView: View {
     @EnvironmentObject var vm: KnotchViewModel
-    @ObservedObject var webcamManager = WebcamManager.shared
-
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
-    @ObservedObject var batteryModel = BatteryStatusViewModel.shared
-    @ObservedObject var brightnessManager = BrightnessManager.shared
-    @ObservedObject var volumeManager = VolumeManager.shared
+
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -453,30 +479,7 @@ struct ContentView: View {
                         if coordinator.expandingView.type == .battery && coordinator.expandingView.show
                             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
                         {
-                            HStack(spacing: 0) {
-                                HStack {
-                                    Text(batteryModel.statusText)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.white)
-                                }
-                                
-                                Rectangle()
-                                    .fill(.black)
-                                    .frame(width: vm.closedNotchSize.width + 10)
-                                
-                                HStack {
-                                    KnotchBatteryView(
-                                        batteryWidth: 30,
-                                        isCharging: batteryModel.isCharging,
-                                        isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                        isPluggedIn: batteryModel.isPluggedIn,
-                                        levelBattery: batteryModel.levelBattery,
-                                        isForNotification: true
-                                    )
-                                }
-                                .frame(width: 76, alignment: .trailing)
-                            }
-                            .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+                            BatteryNotchBanner()
                         } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio && vm.notchState == .closed {
                             BluetoothHUDView(
                                 icon: coordinator.sneakPeek.icon,
