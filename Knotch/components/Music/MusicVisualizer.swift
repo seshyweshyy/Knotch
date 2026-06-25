@@ -7,12 +7,14 @@
 import AppKit
 import Cocoa
 import SwiftUI
+import Combine
 
 class AudioSpectrum: NSView {
     private var barLayers: [CAShapeLayer] = []
     private var barScales: [CGFloat] = []
     private(set) var currentIsPlaying: Bool = true
     private var animationTimer: Timer?
+    private var meterCancellable: AnyCancellable?
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -54,36 +56,78 @@ class AudioSpectrum: NSView {
     }
     
     private func startAnimating() {
-        guard animationTimer == nil else { return }
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.21, repeats: true) { [weak self] _ in
-            self?.updateBars()
+            guard animationTimer == nil else { return }
+            // Subscribe to live meter if available (macOS 14.2+)
+            if #available(macOS 14.2, *) {
+                meterCancellable = LiveAudioMeter.shared.$amplitudes
+                    .receive(on: DispatchQueue.main)
+                    .sink { [weak self] amplitudes in
+                        guard let self, self.currentIsPlaying else { return }
+                        self.updateBars(amplitudes: amplitudes)
+                    }
+                // Keep timer as fallback in case meter has no signal yet
+                animationTimer = Timer.scheduledTimer(withTimeInterval: 0.21, repeats: true) { [weak self] _ in
+                    guard let self else { return }
+                    // Only fire random animation if meter is silent (all zeros)
+                    if #available(macOS 14.2, *) {
+                        let hasSignal = LiveAudioMeter.shared.amplitudes.contains { $0 > 0.01 }
+                        if hasSignal { return }
+                    }
+                    self.updateBars(amplitudes: nil)
+                }
+            } else {
+                animationTimer = Timer.scheduledTimer(withTimeInterval: 0.21, repeats: true) { [weak self] _ in
+                    self?.updateBars(amplitudes: nil)
+                }
+            }
         }
-    }
     
     private func stopAnimating() {
-        animationTimer?.invalidate()
-        animationTimer = nil
-        resetBars()
-    }
-    
-    private func updateBars() {
-        for (i, barLayer) in barLayers.enumerated() {
-            let currentScale = barScales[i]
-            let targetScale = CGFloat.random(in: 0.1 ... 1.0)
-            barScales[i] = targetScale
-            let animation = CABasicAnimation(keyPath: "transform.scale.y")
-            animation.fromValue = currentScale
-            animation.toValue = targetScale
-            animation.duration = 0.21
-            animation.autoreverses = true
-            animation.fillMode = .forwards
-            animation.isRemovedOnCompletion = false
-            if #available(macOS 13.0, *) {
-                animation.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 24, preferred: 24)
-            }
-            barLayer.add(animation, forKey: "scaleY")
+            meterCancellable?.cancel()
+            meterCancellable = nil
+            animationTimer?.invalidate()
+            animationTimer = nil
+            resetBars()
         }
-    }
+    
+    private func updateBars(amplitudes: [Float]?) {
+            let barCount = barLayers.count
+            for (i, barLayer) in barLayers.enumerated() {
+                let currentScale = barScales[i]
+                let targetScale: CGFloat
+                if let amplitudes, i < amplitudes.count {
+                    // Live audio path — spring animation
+                    targetScale = CGFloat(max(0.05, min(1.0, amplitudes[i])))
+                    barScales[i] = targetScale
+                    let spring = CASpringAnimation(keyPath: "transform.scale.y")
+                    spring.fromValue = currentScale
+                    spring.toValue = targetScale
+                    spring.mass = 0.5
+                    spring.stiffness = 120
+                    spring.damping = 8
+                    spring.initialVelocity = 0
+                    spring.fillMode = .forwards
+                    spring.isRemovedOnCompletion = false
+                    spring.duration = spring.settlingDuration
+                    barLayer.add(spring, forKey: "scaleY")
+                } else {
+                    // Random fallback path
+                    targetScale = CGFloat.random(in: 0.1...0.7)
+                    barScales[i] = targetScale
+                    let animation = CABasicAnimation(keyPath: "transform.scale.y")
+                    animation.fromValue = currentScale
+                    animation.toValue = targetScale
+                    animation.duration = 0.21
+                    animation.autoreverses = false
+                    animation.fillMode = .forwards
+                    animation.isRemovedOnCompletion = false
+                    if #available(macOS 13.0, *) {
+                        animation.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 24, preferred: 24)
+                    }
+                    barLayer.add(animation, forKey: "scaleY")
+                }
+            }
+        }
     
     private func resetBars() {
         let dotScale: CGFloat = 2.0 / 14.0

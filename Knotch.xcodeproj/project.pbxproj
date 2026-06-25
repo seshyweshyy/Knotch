@@ -121,6 +121,7 @@
 		432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */; };
 		43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */; };
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
+		4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */; };
 		43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */; };
 		43A141962FA2D8D4007AF2AE /* volume_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141952FA2D8D4007AF2AE /* volume_animation.json */; };
 		43A141982FA2FC61007AF2AE /* display_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141972FA2FC61007AF2AE /* display_animation.json */; };
@@ -315,6 +316,7 @@
 		432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassWidgetWindow.swift; sourceTree = "<group>"; };
 		43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRouteManager.swift; sourceTree = "<group>"; };
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
+		4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAudioMeter.swift; sourceTree = "<group>"; };
 		43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDLottieView.swift; sourceTree = "<group>"; };
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
 		43A141972FA2FC61007AF2AE /* display_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = display_animation.json; sourceTree = "<group>"; };
@@ -561,6 +563,7 @@
 		147163B52C5D804B0068B555 /* managers */ = {
 			isa = PBXGroup;
 			children = (
+				4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */,
 				43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */,
 				43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
@@ -1125,6 +1128,7 @@
 				11F748842ECB27DC00F841DB /* MusicSlotConfigurationView.swift in Sources */,
 				9A0887352C7AFF8E00C160EA /* TabSelectionView.swift in Sources */,
 				112FB7352CCF16F70015238C /* NotchSpaceManager.swift in Sources */,
+				4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */,
 				14FC6E502C7DED5600C7BEA5 /* DataTypes+Extensions.swift in Sources */,
 				1153BD982D9881F900979FB0 /* AppleScriptHelper.swift in Sources */,
 				432CB8EF2F8DC2FD00D5FE00 /* LiquidGlassMusicWidget.swift in Sources */,
@@ -1373,7 +1377,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				DEVELOPMENT_TEAM = 767K5YA7LW;
@@ -1411,7 +1415,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1438,7 +1442,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				DEVELOPMENT_TEAM = 767K5YA7LW;
@@ -1475,7 +1479,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

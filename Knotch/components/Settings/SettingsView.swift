@@ -363,6 +363,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tabs", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tabs"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Colored spectrogram", keywords: ["color", "spectrogram", "music"], highlightID: "Media-Colored spectrograms"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable blur effect behind album art", keywords: ["blur", "glass", "album art"], highlightID: "Appearance-Enable blur effect"),
             SettingsSearchEntry(tabID: "Appearance", title: "Slider color", keywords: ["slider", "color", "accent"], highlightID: "Appearance-Slider color"),
@@ -1388,6 +1389,10 @@ struct Appearance: View {
                     Text("Colored spectrogram")
                 }
                 .settingsHighlight(id: "Media-Colored spectrograms")
+                Defaults.Toggle(key: .liveWaveform) {
+                    Text("Live waveform")
+                }
+                .settingsHighlight(id: "Media-Live waveform")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
                     .settingsHighlight(id: "Appearance-Player tinting")
                 Defaults.Toggle(key: .lightingEffect) {
@@ -1402,6 +1407,10 @@ struct Appearance: View {
                 .settingsHighlight(id: "Appearance-Slider color")
             } header: {
                 Text("Media")
+            } footer: {
+                Text("Live waveform captures system audio from the active music app. Requires macOS 14.2 or later.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
 
             Section {

@@ -108,6 +108,19 @@ class MusicManager: ObservableObject {
             // Initialize the active controller after deprecation check
             self.setActiveControllerBasedOnPreference()
         }
+
+        // Wire live audio meter to follow the active music app
+        if #available(macOS 14.2, *) {
+            Publishers.CombineLatest($bundleIdentifier, Defaults.publisher(.liveWaveform).map(\.newValue))
+                .sink { bundleID, liveEnabled in
+                    if liveEnabled {
+                        LiveAudioMeter.shared.retarget(bundleID: bundleID)
+                    } else {
+                        LiveAudioMeter.shared.retarget(bundleID: nil)
+                    }
+                }
+                .store(in: &cancellables)
+        }
     }
 
     deinit {
@@ -616,10 +629,10 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Public Methods for controlling playback
+    private var togglePlayWorkItem: DispatchWorkItem?
+
     func playPause() {
-        Task {
-            await activeController?.togglePlay()
-        }
+        scheduleTogglePlay()
     }
 
     func play() {
@@ -647,10 +660,18 @@ class MusicManager: ObservableObject {
     }
     
     func togglePlay() {
-        Task {
-            await activeController?.togglePlay()
-        }
+        scheduleTogglePlay()
     }
+    
+    private func scheduleTogglePlay() {
+        togglePlayWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            Task { await self?.activeController?.togglePlay() }
+        }
+        togglePlayWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
+    }
+
 
     func nextTrack() {
         pendingFlipDirection = .forward

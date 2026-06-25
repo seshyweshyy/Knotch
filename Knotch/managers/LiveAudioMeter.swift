@@ -2,8 +2,6 @@
 //  LiveAudioMeter.swift
 //  Knotch
 //
-//  Created by seshyweshyy
-//
 //  Raw HAL tap approach — no AVAudioEngine. Avoids the format-negotiation
 //  failures from our previous CATapDescription + AVAudioEngine attempt.
 //
@@ -18,7 +16,7 @@ final class LiveAudioMeter {
     static let shared = LiveAudioMeter()
 
     // Number of amplitude values published (matches AudioSpectrum bar count)
-    static let bandCount = 6
+    static let bandCount = 5
 
     // Thread-safe amplitude storage written by IOProc, read by display link
     private let amplitudeBuffer = UnsafeMutableBufferPointer<Float>.allocate(capacity: bandCount)
@@ -27,9 +25,13 @@ final class LiveAudioMeter {
     @Published private(set) var amplitudes: [Float] = Array(repeating: 0, count: bandCount)
 
     // Smoothing coefficients
-    private let attackCoeff: Float = 0.6
-    private let decayCoeff: Float = 0.12
+    private let attackCoeff: Float = 0.8
+    private let decayCoeff: Float = 0.15
     private var smoothed: [Float] = Array(repeating: 0, count: bandCount)
+    
+    // Rolling per-band peak for self-normalizing loudness
+    private var rollingPeak: [Float] = Array(repeating: 0.001, count: bandCount)
+    private let peakDecay: Float = 0.998  // slow decay so quiet songs self-normalize
 
     // CoreAudio objects
     private var processTapID: AudioObjectID = kAudioObjectUnknown
@@ -54,6 +56,7 @@ final class LiveAudioMeter {
     // MARK: - Public API
 
     func retarget(bundleID: String?) {
+        dumpProcessList() // temporary
         guard bundleID != targetBundleID else { return }
         targetBundleID = bundleID
         stop()
@@ -75,8 +78,8 @@ final class LiveAudioMeter {
         let tap = CATapDescription(stereoMixdownOfProcesses: [processObjectID])
         tap.uuid = UUID()
         tap.muteBehavior = .unmuted
-        tap.privateTap = true
-        tap.exclusive = false
+        tap.isPrivate = true
+        tap.isExclusive = false
 
         // 3. Create the process tap
         var tapID: AudioObjectID = kAudioObjectUnknown
@@ -125,9 +128,9 @@ final class LiveAudioMeter {
         // 8. Register IOProc — raw HAL callback, no AVAudioEngine
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let procErr = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggID, nil) {
-            [weak self] _, _, inputData, _, _ in
-            guard let self, let inputData else { return }
-            self.processInputData(inputData, channelCount: channelCount)
+            [weak self] (inNow, inInputData, inInputTime, outOutputData, inOutputTime) in
+            guard let self else { return }
+            self.processInputData(inInputData, channelCount: channelCount)
         }
         guard procErr == noErr else {
             teardownCoreAudio()
@@ -178,41 +181,95 @@ final class LiveAudioMeter {
 
     // MARK: - IOProc audio processing (realtime audio thread)
 
-    private func processInputData(_ inputData: UnsafePointer<AudioBufferList>, channelCount: Int) {
+    private func processInputData(_ inputData: UnsafePointer<AudioBufferList>?, channelCount: Int) {
+        guard let inputData else { return }
         let abl = inputData.pointee
-        let bufferCount = Int(abl.mNumberBuffers)
-        guard bufferCount > 0 else { return }
+        guard abl.mNumberBuffers > 0 else { return }
 
-        // Treat each buffer as one channel (interleaved or non-interleaved)
-        // Distribute into bandCount slots using RMS per segment
-        let bandCount = Self.bandCount
-        var newAmplitudes = [Float](repeating: 0, count: bandCount)
-
-        // Use first buffer (interleaved stereo or mono)
-        let buf = withUnsafePointer(to: abl.mBuffers) { ptr in
-            ptr.pointee
-        }
+        let buf = withUnsafePointer(to: abl.mBuffers) { $0.pointee }
         guard let dataPtr = buf.mData else { return }
-        let frameCount = Int(buf.mDataByteSize) / MemoryLayout<Float>.size
-        guard frameCount > 0 else { return }
 
-        let samples = UnsafeBufferPointer<Float>(
-            start: dataPtr.assumingMemoryBound(to: Float.self),
-            count: frameCount
-        )
+        // Total float samples in buffer (interleaved channels)
+        let totalSamples = Int(buf.mDataByteSize) / MemoryLayout<Float>.size
+        guard totalSamples > 0 else { return }
 
-        // Split frame array into bandCount equal segments and RMS each
-        let samplesPerBand = max(1, frameCount / bandCount)
+        let ptr = dataPtr.assumingMemoryBound(to: Float.self)
+
+        // Downmix interleaved stereo → mono by averaging channels
+        let frameCount = totalSamples / max(channelCount, 1)
+        var mono = [Float](repeating: 0, count: frameCount)
+        if channelCount == 2 {
+            // Left + right average
+            var scale: Float = 0.5
+            vDSP_vasm(ptr, 2, ptr + 1, 2, &scale, &mono, 1, vDSP_Length(frameCount))
+        } else {
+            cblas_scopy(Int32(frameCount), ptr, Int32(channelCount), &mono, 1)
+        }
+
+        // FFT to get frequency content
+        let fftSize = 1024
+        let log2n = vDSP_Length(log2(Float(fftSize)))
+        guard let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return }
+        defer { vDSP_destroy_fftsetup(fftSetup) }
+
+        // Zero-pad or truncate mono buffer to fftSize
+        var windowed = [Float](repeating: 0, count: fftSize)
+        let copyCount = min(frameCount, fftSize)
+        windowed.withUnsafeMutableBufferPointer { dst in
+            mono.withUnsafeBufferPointer { src in
+                cblas_scopy(Int32(copyCount), src.baseAddress!, 1, dst.baseAddress!, 1)
+            }
+        }
+
+        // Apply Hann window to reduce spectral leakage
+        var window = [Float](repeating: 0, count: fftSize)
+        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
+        vDSP_vmul(windowed, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
+
+        // Pack into split complex for FFT
+        var realPart = [Float](repeating: 0, count: fftSize / 2)
+        var imagPart = [Float](repeating: 0, count: fftSize / 2)
+        var splitComplex = DSPSplitComplex(realp: &realPart, imagp: &imagPart)
+        windowed.withUnsafeBytes { ptr in
+            let floatPtr = ptr.bindMemory(to: DSPComplex.self)
+            vDSP_ctoz(floatPtr.baseAddress!, 2, &splitComplex, 1, vDSP_Length(fftSize / 2))
+        }
+        vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
+
+        // Compute magnitudes
+        var magnitudes = [Float](repeating: 0, count: fftSize / 2)
+        vDSP_zvmags(&splitComplex, 1, &magnitudes, 1, vDSP_Length(fftSize / 2))
+
+        // Frequency bands with per-band gain to compensate for energy distribution
+        // Low bands have high energy density (few bins, loud) → lower gain
+        // High bands have low energy density (many bins, quiet) → higher gain
+        let bandCount = Self.bandCount
+        let binCount = fftSize / 2
+
+        let bandBoundaries: [Int] = [
+            0,
+            Int(Float(binCount) * 0.05),   // bass      0–1.2kHz
+            Int(Float(binCount) * 0.14),   // low-mid   1.2–3.4kHz
+            Int(Float(binCount) * 0.30),   // mid       3.4–7.2kHz
+            Int(Float(binCount) * 0.58),   // high-mid  7.2–13.9kHz
+            binCount                        // high      13.9–24kHz
+        ]
+
+        // Per-band gain: low bands get less gain, high bands get more
+        let bandGains: [Float] = [0.8, 1.8, 2.5, 3.5, 5.0]
+
+        var newAmplitudes = [Float](repeating: 0, count: bandCount)
         for band in 0..<bandCount {
-            let start = band * samplesPerBand
-            let end = min(start + samplesPerBand, frameCount)
+            let start = bandBoundaries[band]
+            let end = bandBoundaries[band + 1]
             guard start < end else { continue }
             var rms: Float = 0
-            vDSP_rmsqv(samples.baseAddress! + start, 1, &rms, vDSP_Length(end - start))
-            newAmplitudes[band] = min(rms * 4.0, 1.0) // scale + clamp
+            vDSP_rmsqv(&magnitudes + start, 1, &rms, vDSP_Length(end - start))
+            let normalized = rms / Float(end - start)
+            let curved = powf(normalized, 0.45)
+            newAmplitudes[band] = min(curved * bandGains[band], 1.0)
         }
 
-        // Write atomically to shared buffer
         for i in 0..<bandCount {
             amplitudeBuffer[i] = newAmplitudes[i]
         }
@@ -242,7 +299,6 @@ final class LiveAudioMeter {
     }
 
     private func publishAmplitudes() {
-        // Read from atomic buffer, apply attack/decay smoothing, publish on main
         var next = [Float](repeating: 0, count: Self.bandCount)
         for i in 0..<Self.bandCount {
             next[i] = amplitudeBuffer[i]
@@ -250,15 +306,32 @@ final class LiveAudioMeter {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             for i in 0..<Self.bandCount {
-                let target = next[i]
-                let coeff = target > self.smoothed[i] ? self.attackCoeff : self.decayCoeff
-                self.smoothed[i] = self.smoothed[i] + coeff * (target - self.smoothed[i])
+                let raw = next[i]
+                // Update rolling peak with slow decay
+                self.rollingPeak[i] = max(self.rollingPeak[i] * self.peakDecay, raw, 0.001)
+                // Normalize against rolling peak so quiet songs still animate fully
+                let normalized = min(raw / self.rollingPeak[i], 1.0)
+                // Attack/decay smoothing
+                let coeff = normalized > self.smoothed[i] ? self.attackCoeff : self.decayCoeff
+                self.smoothed[i] = self.smoothed[i] + coeff * (normalized - self.smoothed[i])
             }
             self.amplitudes = self.smoothed
         }
     }
 
     // MARK: - Process lookup
+    
+    func dumpProcessList() {
+        guard let list = try? AudioObjectID.system.readProcessList() else {
+            NSLog("[LiveAudioMeter] could not read process list")
+            return
+        }
+        NSLog("[LiveAudioMeter] HAL process list (%d entries):", list.count)
+        for objectID in list {
+            let bundleID = objectID.readProcessBundleID() ?? "(nil)"
+            NSLog("[LiveAudioMeter]   objectID=%u  bundleID=%@", objectID, bundleID)
+        }
+    }
 
     private func findProcessObjectID(bundleID: String) throws -> AudioObjectID {
         let processList = try AudioObjectID.system.readProcessList()

@@ -223,6 +223,7 @@ extension Defaults.Keys {
     
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
+    static let liveWaveform = Key<Bool>("liveWaveform", default: false)
     
     // MARK: Advanced Settings
     static let useCustomAccentColor = Key<Bool>("useCustomAccentColor", default: false)
