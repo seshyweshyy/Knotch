@@ -111,9 +111,9 @@ class MusicManager: ObservableObject {
 
         // Wire live audio meter to follow the active music app
         if #available(macOS 14.2, *) {
-            Publishers.CombineLatest($bundleIdentifier, Defaults.publisher(.liveWaveform).map(\.newValue))
-                .sink { bundleID, liveEnabled in
-                    if liveEnabled {
+            Publishers.CombineLatest3($bundleIdentifier, $isPlaying, Defaults.publisher(.liveWaveform).map(\.newValue))
+                .sink { bundleID, playing, liveEnabled in
+                    if liveEnabled && playing {
                         LiveAudioMeter.shared.retarget(bundleID: bundleID)
                     } else {
                         LiveAudioMeter.shared.retarget(bundleID: nil)
@@ -669,7 +669,7 @@ class MusicManager: ObservableObject {
             Task { await self?.activeController?.togglePlay() }
         }
         togglePlayWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
     }
 
 

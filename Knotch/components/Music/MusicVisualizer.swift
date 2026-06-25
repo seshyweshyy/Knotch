@@ -96,8 +96,10 @@ class AudioSpectrum: NSView {
                 let currentScale = barScales[i]
                 let targetScale: CGFloat
                 if let amplitudes, i < amplitudes.count {
-                    // Live audio path — spring animation
-                    targetScale = CGFloat(max(0.05, min(1.0, amplitudes[i])))
+                    // Live audio path — spring animation, minimum is dot scale like resetBars()
+                    let dotScale: CGFloat = 2.0 / 14.0
+                    let clamped = CGFloat(min(1.0, amplitudes[i]))
+                    targetScale = max(dotScale, clamped)
                     barScales[i] = targetScale
                     let spring = CASpringAnimation(keyPath: "transform.scale.y")
                     spring.fromValue = currentScale

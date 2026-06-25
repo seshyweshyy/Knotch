@@ -55,17 +55,24 @@ final class LiveAudioMeter {
 
     // MARK: - Public API
 
+    private var retargetWork: DispatchWorkItem?
+
     func retarget(bundleID: String?) {
-        dumpProcessList() // temporary
-        guard bundleID != targetBundleID else { return }
-        targetBundleID = bundleID
-        stop()
-        guard let bundleID, !bundleID.isEmpty else { return }
-        do {
-            try start(bundleID: bundleID)
-        } catch {
-            NSLog("[LiveAudioMeter] start failed: \(error)")
+        retargetWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard bundleID != self.targetBundleID else { return }
+            self.targetBundleID = bundleID
+            self.stop()
+            guard let bundleID, !bundleID.isEmpty else { return }
+            do {
+                try self.start(bundleID: bundleID)
+            } catch {
+                NSLog("[LiveAudioMeter] start failed: \(error)")
+            }
         }
+        retargetWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
     // MARK: - Tap lifecycle
@@ -256,7 +263,7 @@ final class LiveAudioMeter {
         ]
 
         // Per-band gain: low bands get less gain, high bands get more
-        let bandGains: [Float] = [0.8, 1.8, 2.5, 3.5, 5.0]
+        let bandGains: [Float] = [0.3, 1.1, 2.5, 3.8, 5.0]
 
         var newAmplitudes = [Float](repeating: 0, count: bandCount)
         for band in 0..<bandCount {
