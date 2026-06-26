@@ -119,9 +119,9 @@ struct MusicLiveActivity: View {
                             .scaledToFill()
                             .frame(width: 36, height: 22)
                             .blur(radius: 5)
-                            .saturation(1.0)
+                            .saturation(1.1)
                             .brightness(0.01)
-                        Color.white.opacity(0.08)
+                        Color.white.opacity(0.05)
                             .frame(width: 36, height: 22)
                     }
                     .mask {

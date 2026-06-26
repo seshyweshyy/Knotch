@@ -62,6 +62,7 @@ class AudioSpectrum: NSView {
             updateBars(amplitudes: nil)
             meterCancellable = LiveAudioMeter.shared.$amplitudes
                 .receive(on: DispatchQueue.main)
+                .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
                 .sink { [weak self] amplitudes in
                     guard let self, self.currentIsPlaying else { return }
                     let hasSignal = amplitudes.contains { $0 > 0.01 }
@@ -104,8 +105,8 @@ class AudioSpectrum: NSView {
                     spring.fromValue = currentScale
                     spring.toValue = targetScale
                     spring.mass = 0.5
-                    spring.stiffness = 120
-                    spring.damping = 8
+                    spring.stiffness = 80
+                    spring.damping = 14
                     spring.initialVelocity = 0
                     spring.fillMode = .forwards
                     spring.isRemovedOnCompletion = false
