@@ -15,6 +15,11 @@ class AudioSpectrum: NSView {
     private(set) var currentIsPlaying: Bool = true
     private var animationTimer: Timer?
     private var meterCancellable: AnyCancellable?
+
+    private let barWidth: CGFloat = 2
+    private let barCount = 5
+    private let spacing: CGFloat = 2
+    private let totalHeight: CGFloat = 14
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -29,30 +34,30 @@ class AudioSpectrum: NSView {
     }
 
     private func setupBars() {
-        let barWidth: CGFloat = 2
-        let barCount = 5
-        let spacing: CGFloat = barWidth
         let totalWidth = CGFloat(barCount) * (barWidth + spacing)
-        let totalHeight: CGFloat = 14
         frame.size = CGSize(width: totalWidth, height: totalHeight)
 
         for i in 0 ..< barCount {
             let xPosition = CGFloat(i) * (barWidth + spacing)
             let barLayer = CAShapeLayer()
+            // Frame is always full height and never moves — only the path shape changes
             barLayer.frame = CGRect(x: xPosition, y: 0, width: barWidth, height: totalHeight)
-            barLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            barLayer.position = CGPoint(x: xPosition + barWidth / 2, y: totalHeight / 2)
             barLayer.fillColor = NSColor.white.cgColor
-            let path = NSBezierPath(roundedRect: CGRect(x: 0, y: 0, width: barWidth, height: totalHeight),
-                                    xRadius: barWidth / 2,
-                                    yRadius: barWidth / 2)
-            barLayer.path = path.cgPath
             let initialScale = CGFloat.random(in: 0.35...1.0)
-            barLayer.transform = CATransform3DMakeScale(1, initialScale, 1)
+            barLayer.path = barPath(scale: initialScale)
             barLayers.append(barLayer)
             barScales.append(initialScale)
             layer?.addSublayer(barLayer)
         }
+    }
+
+    // Builds a vertically-centered rounded rect path within the full totalHeight frame
+    private func barPath(scale: CGFloat) -> CGPath {
+        let h = max(barWidth, totalHeight * scale) // minimum height = barWidth so caps always render
+        let y = (totalHeight - h) / 2
+        return NSBezierPath(roundedRect: CGRect(x: 0, y: y, width: barWidth, height: h),
+                            xRadius: barWidth / 2,
+                            yRadius: barWidth / 2).cgPath
     }
     
     private func startAnimating() {
@@ -91,59 +96,56 @@ class AudioSpectrum: NSView {
         }
     
     private func updateBars(amplitudes: [Float]?) {
-            let barCount = barLayers.count
             for (i, barLayer) in barLayers.enumerated() {
                 let currentScale = barScales[i]
                 let targetScale: CGFloat
                 if let amplitudes, i < amplitudes.count {
-                    // Live audio path — spring animation, minimum is dot scale like resetBars()
                     let dotScale: CGFloat = 2.0 / 14.0
                     let clamped = CGFloat(min(1.0, amplitudes[i]))
                     targetScale = max(dotScale, clamped)
                     barScales[i] = targetScale
-                    let spring = CASpringAnimation(keyPath: "transform.scale.y")
-                    spring.fromValue = currentScale
-                    spring.toValue = targetScale
-                    spring.mass = 0.5
-                    spring.stiffness = 80
-                    spring.damping = 14
+                    let spring = CASpringAnimation(keyPath: "path")
+                    spring.fromValue = barLayer.presentation()?.path ?? barLayer.path
+                    spring.toValue = barPath(scale: targetScale)
+                    spring.mass = 0.3
+                    spring.stiffness = 190
+                    spring.damping = 9
                     spring.initialVelocity = 0
                     spring.fillMode = .forwards
                     spring.isRemovedOnCompletion = false
                     spring.duration = spring.settlingDuration
-                    barLayer.add(spring, forKey: "scaleY")
+                    barLayer.add(spring, forKey: "path")
+                    barLayer.path = barPath(scale: targetScale)
                 } else {
-                    // Random fallback path
-                    targetScale = CGFloat.random(in: 0.1...0.9)
+                    targetScale = CGFloat.random(in: 0.1...0.7)
                     barScales[i] = targetScale
-                    let animation = CABasicAnimation(keyPath: "transform.scale.y")
-                    animation.fromValue = currentScale
-                    animation.toValue = targetScale
-                    animation.duration = 0.19
-                    animation.autoreverses = false
-                    animation.fillMode = .forwards
-                    animation.isRemovedOnCompletion = false
-                    if #available(macOS 13.0, *) {
-                        animation.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 24, preferred: 24)
-                    }
-                    barLayer.add(animation, forKey: "scaleY")
+                    let anim = CABasicAnimation(keyPath: "path")
+                    anim.fromValue = barLayer.presentation()?.path ?? barLayer.path
+                    anim.toValue = barPath(scale: targetScale)
+                    anim.duration = 0.21
+                    anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    anim.fillMode = .forwards
+                    anim.isRemovedOnCompletion = false
+                    barLayer.add(anim, forKey: "path")
+                    barLayer.path = barPath(scale: targetScale)
                 }
             }
         }
     
     private func resetBars() {
         let dotScale: CGFloat = 2.0 / 14.0
+        let dotPath = barPath(scale: dotScale)
         for (i, barLayer) in barLayers.enumerated() {
             barLayer.removeAllAnimations()
-            let animation = CABasicAnimation(keyPath: "transform.scale.y")
-            animation.fromValue = barScales[i]
-            animation.toValue = dotScale
-            animation.duration = 0.25
-            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            animation.fillMode = .forwards
-            animation.isRemovedOnCompletion = false
-            barLayer.add(animation, forKey: "scaleY")
-            barLayer.transform = CATransform3DMakeScale(1, dotScale, 1)
+            let anim = CABasicAnimation(keyPath: "path")
+            anim.fromValue = barLayer.presentation()?.path ?? barLayer.path
+            anim.toValue = dotPath
+            anim.duration = 0.25
+            anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            anim.fillMode = .forwards
+            anim.isRemovedOnCompletion = false
+            barLayer.add(anim, forKey: "path")
+            barLayer.path = dotPath
             barScales[i] = dotScale
         }
     }

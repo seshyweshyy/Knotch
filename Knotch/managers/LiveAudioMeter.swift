@@ -31,7 +31,7 @@ final class LiveAudioMeter {
     
     // Rolling per-band peak for self-normalizing loudness
     private var rollingPeak: [Float] = Array(repeating: 0.001, count: bandCount)
-    private let peakDecay: Float = 0.998  // slow decay so quiet songs self-normalize
+    private let peakDecay: Float = 0.996  // slow decay so quiet songs self-normalize
 
     // CoreAudio objects
     private var processTapID: AudioObjectID = kAudioObjectUnknown
@@ -263,7 +263,7 @@ final class LiveAudioMeter {
         ]
 
         // Per-band gain: low bands get less gain, high bands get more
-        let bandGains: [Float] = [0.05, 1.0, 3.0, 3.8, 3.0]
+        let bandGains: [Float] = [0.1, 1.0, 3.0, 3.8, 2.0]
 
         var newAmplitudes = [Float](repeating: 0, count: bandCount)
         for band in 0..<bandCount {
