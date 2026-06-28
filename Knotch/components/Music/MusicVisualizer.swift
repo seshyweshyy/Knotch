@@ -74,7 +74,7 @@ class AudioSpectrum: NSView {
                     self.updateBars(amplitudes: hasSignal ? amplitudes : nil)
                 }
             // Only run the fallback timer if the live meter has no signal
-            animationTimer = Timer.scheduledTimer(withTimeInterval: 0.19, repeats: true) { [weak self] _ in
+            animationTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: true) { [weak self] _ in
                 guard let self else { return }
                 let hasSignal = LiveAudioMeter.shared.amplitudes.contains { $0 > 0.01 }
                 if hasSignal { return }
@@ -117,12 +117,18 @@ class AudioSpectrum: NSView {
                     barLayer.add(spring, forKey: "path")
                     barLayer.path = barPath(scale: targetScale)
                 } else {
-                    targetScale = CGFloat.random(in: 0.1...0.7)
+                    // Bias each bar's range by position: left bars (bass) go higher, right bars (highs) go lower
+                    let t = CGFloat(i) / CGFloat(barCount - 1) // 0.0 = leftmost, 1.0 = rightmost
+                    let maxScale = 1.0 - (t * 0.15)  // left: up to 1.0, right: up to 0.85
+                    let minScale = 0.15 + (t * 0.05) // left: from 0.15, right: from 0.20
+                    let rawTarget = CGFloat.random(in: minScale...maxScale)
+                    // Smooth: blend 40% toward new target, 60% staying near current — reduces jumpiness
+                    targetScale = currentScale * 0.2 + rawTarget * 0.8
                     barScales[i] = targetScale
                     let anim = CABasicAnimation(keyPath: "path")
                     anim.fromValue = barLayer.presentation()?.path ?? barLayer.path
                     anim.toValue = barPath(scale: targetScale)
-                    anim.duration = 0.21
+                    anim.duration = 0.25
                     anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                     anim.fillMode = .forwards
                     anim.isRemovedOnCompletion = false
