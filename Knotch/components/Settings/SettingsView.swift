@@ -427,6 +427,10 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Advanced", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "Advanced-Show on lock screen"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide from screen recording", keywords: ["screen recording", "privacy", "hide"], highlightID: "Advanced-Hide from screen recording"),
             SettingsSearchEntry(tabID: "Advanced", title: "Custom visualizers", keywords: ["lottie", "visualizer", "custom"], highlightID: "Advanced-Custom visualizers"),
+            // About
+            SettingsSearchEntry(tabID: "About", title: "Check for Updates", keywords: ["version", "update", "check", "build", "changelog", "release"], highlightID: "About-Check for Updates"),
+            SettingsSearchEntry(tabID: "About", title: "Automatically check for updates", keywords: ["auto", "automatic", "update", "check", "sparkle"], highlightID: "About-Automatic updates"),
+            SettingsSearchEntry(tabID: "About", title: "Automatically download updates", keywords: ["auto", "automatic", "download", "update", "sparkle"], highlightID: "About-Automatic updates"),
         ]
     }
 
@@ -1391,7 +1395,11 @@ struct Appearance: View {
                 }
                 .settingsHighlight(id: "Media-Colored spectrograms")
                 Defaults.Toggle(key: .liveWaveform) {
-                    Text("Live waveform")
+                    HStack(spacing: 6) {
+                        Text("Live waveform")
+                        Image(systemName: "waveform.circle.fill")
+                            .modifier(HoverTooltip(text: "Records system audio"))
+                    }
                 }
                 .settingsHighlight(id: "Media-Live waveform")
                 Defaults.Toggle(key: .homeViewVisualizer) {
@@ -1569,6 +1577,135 @@ struct Appearance: View {
 
     func checkVideoInput() -> Bool {
         AVCaptureDevice.default(for: .video) != nil
+    }
+}
+
+// MARK: - Hover Tooltip
+
+struct HoverTooltip: ViewModifier {
+    let text: String
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(isHovering ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary))
+            .onHover { isHovering = $0 }
+            .overlay(alignment: .top) {
+                if isHovering {
+                    TooltipCallout(text: text)
+                        .offset(y: -37)
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottom)))
+                        .zIndex(999)
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeInOut(duration: 0.15), value: isHovering)
+    }
+}
+
+struct TooltipCallout: View {
+    let text: String
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Text(text)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .padding(.bottom, 7) // room for arrow
+                .glassEffect(.regular.tint(.clear), in: BubbleShape(cornerRadius: 18, arrowSize: CGSize(width: 14, height: 8), arrowCornerRadius: 3))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        } else {
+            Text(text)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.black.opacity(0.85))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                        }
+                }
+                .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                .overlay(alignment: .bottom) {
+                    Triangle()
+                        .fill(Color.black.opacity(0.85))
+                        .frame(width: 14, height: 8)
+                        .offset(y: 8)
+                }
+        }
+    }
+}
+
+struct BubbleShape: Shape {
+    let cornerRadius: CGFloat
+    let arrowSize: CGSize
+    var arrowCornerRadius: CGFloat = 4
+
+    func path(in rect: CGRect) -> Path {
+        let bubbleRect = CGRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width,
+            height: rect.height - arrowSize.height
+        )
+        let midX = rect.midX
+        let halfW = arrowSize.width / 2
+
+        var path = Path()
+
+        // Top-left corner
+        path.move(to: CGPoint(x: bubbleRect.minX + cornerRadius, y: bubbleRect.minY))
+        path.addLine(to: CGPoint(x: bubbleRect.maxX - cornerRadius, y: bubbleRect.minY))
+        path.addQuadCurve(to: CGPoint(x: bubbleRect.maxX, y: bubbleRect.minY + cornerRadius),
+                          control: CGPoint(x: bubbleRect.maxX, y: bubbleRect.minY))
+
+        // Right side
+        path.addLine(to: CGPoint(x: bubbleRect.maxX, y: bubbleRect.maxY - cornerRadius))
+        path.addQuadCurve(to: CGPoint(x: bubbleRect.maxX - cornerRadius, y: bubbleRect.maxY),
+                          control: CGPoint(x: bubbleRect.maxX, y: bubbleRect.maxY))
+
+        // Bottom-right to arrow right base
+        path.addLine(to: CGPoint(x: midX + halfW, y: bubbleRect.maxY))
+
+        // Arrow right side down to tip (with rounded tip only)
+        path.addLine(to: CGPoint(x: midX + arrowCornerRadius, y: rect.maxY - arrowCornerRadius))
+        path.addQuadCurve(
+            to: CGPoint(x: midX - arrowCornerRadius, y: rect.maxY - arrowCornerRadius),
+            control: CGPoint(x: midX, y: rect.maxY)
+        )
+
+        // Arrow left side back up to base
+        path.addLine(to: CGPoint(x: midX - halfW, y: bubbleRect.maxY))
+
+        // Bottom-left corner
+        path.addLine(to: CGPoint(x: bubbleRect.minX + cornerRadius, y: bubbleRect.maxY))
+        path.addQuadCurve(to: CGPoint(x: bubbleRect.minX, y: bubbleRect.maxY - cornerRadius),
+                          control: CGPoint(x: bubbleRect.minX, y: bubbleRect.maxY))
+
+        // Left side
+        path.addLine(to: CGPoint(x: bubbleRect.minX, y: bubbleRect.minY + cornerRadius))
+        path.addQuadCurve(to: CGPoint(x: bubbleRect.minX + cornerRadius, y: bubbleRect.minY),
+                          control: CGPoint(x: bubbleRect.minX, y: bubbleRect.minY))
+
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -2015,11 +2152,6 @@ struct About: View {
         VStack {
             Form {
                 Section {
-                    HStack {
-                        Text("Release name")
-                        Spacer()
-                        Text(Defaults[.releaseName]).foregroundStyle(.secondary)
-                    }
                     Button(action: updaterController.updater.checkForUpdates) {
                         HStack {
                             Text("Check for Updates…")
@@ -2036,10 +2168,12 @@ struct About: View {
                     }
                     .buttonStyle(SubtleRowButtonStyle())
                     .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
+                    .settingsHighlight(id: "About-Check for Updates")
+                    UpdaterSettingsView(updater: updaterController.updater)
+                        .settingsHighlight(id: "About-Automatic updates")
                 } header: {
-                    Text("Version info")
+                    Text("Version Info & Updates")
                 }
-                UpdaterSettingsView(updater: updaterController.updater)
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
                     Button {
