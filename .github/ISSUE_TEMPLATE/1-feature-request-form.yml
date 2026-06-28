@@ -1,7 +1,7 @@
 name: Feature Request
 description: Suggest a new idea or enhancement for Knotch
 title: "[FEATURE] "
-labels: []
+labels: ["enhancement"]
 
 body:
   - type: markdown
@@ -9,43 +9,25 @@ body:
       value: |
         ## Feature Request
         
-        Thanks for helping make **Knotch** better! Please check [existing requests](https://github.com/seshyweshyy/Knotch/issues?q=is%3Aissue) before submitting to avoid duplicates.
+        Thanks for helping make **Knotch** better! Please check [existing requests](https://github.com/seshyweshyy/Knotch/issues?q=is%3Aissue+label%3Aenhancement) before submitting to avoid duplicates.
 
   - type: textarea
     id: problem
     attributes:
       label: Is your feature request related to a problem?
-      description: |
-        Please provide a clear description of the problem or pain point this feature would address.
-        
-        **Example:** "I often miss my next meeting because I work in full-screen mode and can't see the system clock or calendar notifications."
-      placeholder: "I'm frustrated when... or It would be great if..."
+      description: A brief description of the problem or frustration this would solve. Leave blank if not applicable.
+      placeholder: "e.g. I can't see my calendar when I'm in full-screen apps..."
     validations:
-      required: true
-
+      required: false
+      
   - type: textarea
     id: solution
     attributes:
-      label: Describe the solution you'd like
-      description: |
-        How should Knotch handle this? Describe the behavior, UI, or interaction you imagine in detail.
-        
-        **Example:** "When a meeting is starting in 5 minutes, the notch could expand slightly to show a countdown timer or the meeting title."
-      placeholder: "I would like the notch to..."
+      label: What would you like Knotch to do?
+      description: Describe the feature and how it should work.
+      placeholder: "e.g. Show my next calendar event in the notch with a countdown timer..."
     validations:
       required: true
-
-  - type: textarea
-    id: use-cases
-    attributes:
-      label: Use cases & user scenarios
-      description: |
-        Describe specific scenarios where this feature would be valuable. Who would benefit from this and how often would it be used?
-        
-        **Example:** "Remote workers who attend 5+ video meetings daily would use this constantly. Students could benefit during online classes."
-      placeholder: "This would help users who..."
-    validations:
-      required: false
 
   - type: textarea
     id: additional-context
@@ -65,8 +47,8 @@ body:
       label: Willingness to contribute
       description: "We love community contributions! Would you be willing to help build this?"
       options:
-        - label: "Yes, I can write the code for this feature"
-        - label: "Yes, I can help with design/mockups"
+        - label: "I'd like to help implement this"
+        - label: "I can help with design or mockups"
 
   - type: checkboxes
     id: checklist
@@ -75,6 +57,4 @@ body:
       description: "Please confirm the following before submitting:"
       options:
         - label: "I have searched existing issues to ensure this isn't a duplicate"
-          required: true
-        - label: "I have provided sufficient detail for the team to understand the request"
           required: true
