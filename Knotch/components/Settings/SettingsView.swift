@@ -1172,16 +1172,17 @@ struct Media: View {
                 }
                 .settingsHighlight(id: "Media-Show album art")
                 Defaults.Toggle(key: .lockScreenExpandedAlbumArt) {
-                    HStack {
                         Text("Enable expanded album art")
-                        customBadge(text: "Beta")
-                    }
                 }
                 .disabled(!Defaults[.lockScreenMusicWidget])
                 .settingsHighlight(id: "Media-Expanded album art")
 
                 Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
-                    Text("Keep screen awake when art is expanded")
+                    HStack(spacing: 6) {
+                        Text("Keep screen awake while album art is expanded")
+                        Image(systemName: "battery.50")
+                            .modifier(HoverTooltip(text: "May increase battery usage"))
+                    }
                 }
                 .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
                 .settingsHighlight(id: "Media-Keep awake expanded art")
@@ -1403,7 +1404,7 @@ struct Appearance: View {
                 }
                 .settingsHighlight(id: "Media-Live waveform")
                 Defaults.Toggle(key: .homeViewVisualizer) {
-                    Text("Show visualizer in home view")
+                    Text("Show waveform in home view")
                 }
                 .settingsHighlight(id: "Media-Home view visualizer")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
