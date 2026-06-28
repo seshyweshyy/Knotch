@@ -197,6 +197,7 @@ struct KnotchBatteryView: View {
                     Text("\(Int32(levelBattery))%")
                         .font(.callout)
                         .foregroundStyle(.white)
+                        .fixedSize()
                 }
                 BatteryView(
                     levelBattery: levelBattery,

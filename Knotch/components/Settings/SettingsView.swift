@@ -364,6 +364,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Colored spectrogram", keywords: ["color", "spectrogram", "music"], highlightID: "Media-Colored spectrograms"),
             SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Show visualizer in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view visualizer"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable blur effect behind album art", keywords: ["blur", "glass", "album art"], highlightID: "Appearance-Enable blur effect"),
             SettingsSearchEntry(tabID: "Appearance", title: "Slider color", keywords: ["slider", "color", "accent"], highlightID: "Appearance-Slider color"),
@@ -1393,6 +1394,10 @@ struct Appearance: View {
                     Text("Live waveform")
                 }
                 .settingsHighlight(id: "Media-Live waveform")
+                Defaults.Toggle(key: .homeViewVisualizer) {
+                    Text("Show visualizer in home view")
+                }
+                .settingsHighlight(id: "Media-Home view visualizer")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
                     .settingsHighlight(id: "Appearance-Player tinting")
                 Defaults.Toggle(key: .lightingEffect) {
