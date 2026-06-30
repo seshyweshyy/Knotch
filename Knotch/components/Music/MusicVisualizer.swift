@@ -107,9 +107,9 @@ class AudioSpectrum: NSView {
                     let spring = CASpringAnimation(keyPath: "path")
                     spring.fromValue = barLayer.presentation()?.path ?? barLayer.path
                     spring.toValue = barPath(scale: targetScale)
-                    spring.mass = 0.3
-                    spring.stiffness = 190
-                    spring.damping = 9
+                    spring.mass = 0.2
+                    spring.stiffness = 200
+                    spring.damping = 8
                     spring.initialVelocity = 0
                     spring.fillMode = .forwards
                     spring.isRemovedOnCompletion = false

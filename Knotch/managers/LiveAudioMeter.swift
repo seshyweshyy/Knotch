@@ -263,8 +263,9 @@ final class LiveAudioMeter {
         ]
 
         // Per-band gain: low bands get less gain, high bands get more
-        let bandGains: [Float] = [0.1, 1.0, 3.0, 3.8, 2.0]
+        let bandGains: [Float] = [0.05, 1.0, 3.0, 3.8, 2.0]
 
+        let bellCurve: [Float] = [0.7, 0.85, 1.0, 0.85, 0.7]
         var newAmplitudes = [Float](repeating: 0, count: bandCount)
         for band in 0..<bandCount {
             let start = bandBoundaries[band]
@@ -274,7 +275,7 @@ final class LiveAudioMeter {
             vDSP_rmsqv(&magnitudes + start, 1, &rms, vDSP_Length(end - start))
             let normalized = rms / Float(end - start)
             let curved = powf(normalized, 0.45)
-            newAmplitudes[band] = min(curved * bandGains[band], 1.0)
+            newAmplitudes[band] = min(curved * bandGains[band] * bellCurve[band], 1.0)
         }
 
         for i in 0..<bandCount {
