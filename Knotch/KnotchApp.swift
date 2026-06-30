@@ -121,7 +121,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .eraseToAnyPublisher()
         AlbumArtBackgroundWindowController.shared.prepare(on: screen, colorPublisher: colorPublisher)
         AlbumArtBackgroundWindowController.shared.setSharingType(
-            Defaults[.hideFromScreenRecording] ? .none : .readWrite
+            Defaults[.hideFromScreenRecording] ? .none : .readOnly
         )
     }
 
@@ -434,7 +434,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Defaults.publisher(.hideFromScreenRecording)
             .sink { change in
                 AlbumArtBackgroundWindowController.shared.setSharingType(
-                    change.newValue ? .none : .readWrite
+                    change.newValue ? .none : .readOnly
                 )
             }
             .store(in: &cancellables)
@@ -698,17 +698,4 @@ extension Notification.Name {
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
     static let expandedDragDetectionChanged = Notification.Name("expandedDragDetectionChanged")
-}
-
-extension CGRect: @retroactive Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(origin.x)
-        hasher.combine(origin.y)
-        hasher.combine(size.width)
-        hasher.combine(size.height)
-    }
-
-    public static func == (lhs: CGRect, rhs: CGRect) -> Bool {
-        return lhs.origin == rhs.origin && lhs.size == rhs.size
-    }
 }

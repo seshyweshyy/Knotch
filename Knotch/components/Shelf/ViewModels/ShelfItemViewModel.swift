@@ -499,10 +499,10 @@ final class ShelfItemViewModel: ObservableObject {
             case "Show in Finder":
                 let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
                 Task {
-                    let urls = await selected.asyncCompactMap { item -> URL? in
+                    let urls = selected.compactMap { item -> URL? in
                         if case .file = item.kind {
                             // Use immediate update for user-initiated menu action
-                            return await ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item)
+                            return ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item)
                         }
                         return nil
                     }
@@ -579,21 +579,17 @@ final class ShelfItemViewModel: ObservableObject {
                 guard !fileURLs.isEmpty else { break }
 
                 Task {
-                    do {
-                        // Create ZIP in a temporary location while holding access to selected resources
-                        if let zipTempURL = try await fileURLs.accessSecurityScopedResources(accessor: { urls in
-                            await TemporaryFileStorageService.shared.createZip(from: urls)
-                        }) {
-                            if let bookmark = try? Bookmark(url: zipTempURL) {
-                                let newItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
-                                ShelfStateViewModel.shared.add([newItem])
-                            } else {
-                                // Fallback: reveal the temporary file in Finder
-                                NSWorkspace.shared.activateFileViewerSelecting([zipTempURL])
-                            }
+                    // Create ZIP in a temporary location while holding access to selected resources
+                    if let zipTempURL = await fileURLs.accessSecurityScopedResources(accessor: { urls in
+                        await TemporaryFileStorageService.shared.createZip(from: urls)
+                    }) {
+                        if let bookmark = try? Bookmark(url: zipTempURL) {
+                            let newItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
+                            ShelfStateViewModel.shared.add([newItem])
+                        } else {
+                            // Fallback: reveal the temporary file in Finder
+                            NSWorkspace.shared.activateFileViewerSelecting([zipTempURL])
                         }
-                    } catch {
-                        print("❌ Compress failed: \(error)")
                     }
                 }
                 
@@ -710,6 +706,7 @@ final class ShelfItemViewModel: ObservableObject {
             panel.isAccessoryViewDisclosed = true
 
             // Wire up popup to switch filter mode
+            @MainActor
             class PopupBinder: NSObject {
                 weak var popup: NSPopUpButton?
                 weak var chooserDelegate: AppChooserDelegate?
@@ -832,7 +829,7 @@ final class ShelfItemViewModel: ObservableObject {
                     }
                 } catch {
                     print("❌ Failed to remove background: \(error.localizedDescription)")
-                    await showErrorAlert(title: "Background Removal Failed", message: error.localizedDescription)
+                    showErrorAlert(title: "Background Removal Failed", message: error.localizedDescription)
                 }
             }
         }
@@ -862,7 +859,7 @@ final class ShelfItemViewModel: ObservableObject {
                     }
                 } catch {
                     print("❌ Failed to create PDF: \(error.localizedDescription)")
-                    await showErrorAlert(title: "PDF Creation Failed", message: error.localizedDescription)
+                    showErrorAlert(title: "PDF Creation Failed", message: error.localizedDescription)
                 }
             }
         }
@@ -933,7 +930,7 @@ final class ShelfItemViewModel: ObservableObject {
                         ShelfStateViewModel.shared.add([newItem])
                     }
                 } catch {
-                    await showErrorAlert(title: "Text Extraction Failed", message: error.localizedDescription)
+                    showErrorAlert(title: "Text Extraction Failed", message: error.localizedDescription)
                 }
             }
         }
@@ -951,7 +948,7 @@ final class ShelfItemViewModel: ObservableObject {
                         ShelfStateViewModel.shared.add([newItem])
                     }
                 } catch {
-                    await showErrorAlert(title: "DOCX Conversion Failed", message: error.localizedDescription)
+                    showErrorAlert(title: "DOCX Conversion Failed", message: error.localizedDescription)
                 }
             }
         }

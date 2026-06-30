@@ -38,8 +38,10 @@ final class LiveAudioMeter {
     private var aggregateDeviceID: AudioDeviceID = kAudioObjectUnknown
     private var ioProcID: AudioDeviceIOProcID?
 
-    // Display link for main-thread amplitude publishing
-    private var displayLink: CVDisplayLink?
+    // Timer for main-thread amplitude publishing (replaces deprecated CVDisplayLink,
+    // which requires anchoring to a specific NSView/NSWindow/NSScreen we don't have
+    // as a singleton audio processor)
+    private var displayTimer: DispatchSourceTimer?
 
     // Target bundle ID (e.g. "com.spotify.client")
     private var targetBundleID: String?
@@ -210,7 +212,9 @@ final class LiveAudioMeter {
             var scale: Float = 0.5
             vDSP_vasm(ptr, 2, ptr + 1, 2, &scale, &mono, 1, vDSP_Length(frameCount))
         } else {
-            cblas_scopy(Int32(frameCount), ptr, Int32(channelCount), &mono, 1)
+            mono.withUnsafeMutableBufferPointer { dst in
+                vDSP_mmov(ptr, dst.baseAddress!, vDSP_Length(frameCount), 1, vDSP_Length(channelCount), 1)
+            }
         }
 
         // FFT to get frequency content
@@ -224,7 +228,7 @@ final class LiveAudioMeter {
         let copyCount = min(frameCount, fftSize)
         windowed.withUnsafeMutableBufferPointer { dst in
             mono.withUnsafeBufferPointer { src in
-                cblas_scopy(Int32(copyCount), src.baseAddress!, 1, dst.baseAddress!, 1)
+                vDSP_mmov(src.baseAddress!, dst.baseAddress!, vDSP_Length(copyCount), 1, 1, 1)
             }
         }
 
@@ -236,16 +240,23 @@ final class LiveAudioMeter {
         // Pack into split complex for FFT
         var realPart = [Float](repeating: 0, count: fftSize / 2)
         var imagPart = [Float](repeating: 0, count: fftSize / 2)
-        var splitComplex = DSPSplitComplex(realp: &realPart, imagp: &imagPart)
-        windowed.withUnsafeBytes { ptr in
-            let floatPtr = ptr.bindMemory(to: DSPComplex.self)
-            vDSP_ctoz(floatPtr.baseAddress!, 2, &splitComplex, 1, vDSP_Length(fftSize / 2))
-        }
-        vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
-
-        // Compute magnitudes
         var magnitudes = [Float](repeating: 0, count: fftSize / 2)
-        vDSP_zvmags(&splitComplex, 1, &magnitudes, 1, vDSP_Length(fftSize / 2))
+
+        realPart.withUnsafeMutableBufferPointer { realPtr in
+            imagPart.withUnsafeMutableBufferPointer { imagPtr in
+                var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
+                windowed.withUnsafeBytes { ptr in
+                    let floatPtr = ptr.bindMemory(to: DSPComplex.self)
+                    vDSP_ctoz(floatPtr.baseAddress!, 2, &splitComplex, 1, vDSP_Length(fftSize / 2))
+                }
+                vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
+
+                // Compute magnitudes
+                magnitudes.withUnsafeMutableBufferPointer { magPtr in
+                    vDSP_zvmags(&splitComplex, 1, magPtr.baseAddress!, 1, vDSP_Length(fftSize / 2))
+                }
+            }
+        }
 
         // Frequency bands with per-band gain to compensate for energy distribution
         // Low bands have high energy density (few bins, loud) → lower gain
@@ -267,15 +278,17 @@ final class LiveAudioMeter {
 
         let bellCurve: [Float] = [0.7, 0.85, 1.0, 0.85, 0.7]
         var newAmplitudes = [Float](repeating: 0, count: bandCount)
-        for band in 0..<bandCount {
-            let start = bandBoundaries[band]
-            let end = bandBoundaries[band + 1]
-            guard start < end else { continue }
-            var rms: Float = 0
-            vDSP_rmsqv(&magnitudes + start, 1, &rms, vDSP_Length(end - start))
-            let normalized = rms / Float(end - start)
-            let curved = powf(normalized, 0.45)
-            newAmplitudes[band] = min(curved * bandGains[band] * bellCurve[band], 1.0)
+        magnitudes.withUnsafeMutableBufferPointer { magPtr in
+            for band in 0..<bandCount {
+                let start = bandBoundaries[band]
+                let end = bandBoundaries[band + 1]
+                guard start < end else { continue }
+                var rms: Float = 0
+                vDSP_rmsqv(magPtr.baseAddress! + start, 1, &rms, vDSP_Length(end - start))
+                let normalized = rms / Float(end - start)
+                let curved = powf(normalized, 0.45)
+                newAmplitudes[band] = min(curved * bandGains[band] * bellCurve[band], 1.0)
+            }
         }
 
         for i in 0..<bandCount {
@@ -286,24 +299,19 @@ final class LiveAudioMeter {
     // MARK: - Display link (main thread publish)
 
     private func startDisplayLink() {
-        guard displayLink == nil else { return }
-        var dl: CVDisplayLink?
-        CVDisplayLinkCreateWithActiveCGDisplays(&dl)
-        guard let dl else { return }
-
-        CVDisplayLinkSetOutputHandler(dl) { [weak self] _, _, _, _, _ in
+        guard displayTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now(), repeating: 1.0 / 60.0)
+        timer.setEventHandler { [weak self] in
             self?.publishAmplitudes()
-            return kCVReturnSuccess
         }
-        CVDisplayLinkStart(dl)
-        displayLink = dl
+        timer.resume()
+        displayTimer = timer
     }
 
     private func stopDisplayLink() {
-        if let dl = displayLink {
-            CVDisplayLinkStop(dl)
-            displayLink = nil
-        }
+        displayTimer?.cancel()
+        displayTimer = nil
     }
 
     private func publishAmplitudes() {
@@ -411,11 +419,15 @@ private extension AudioObjectID {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var value: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
-        let err = AudioObjectGetPropertyData(self, &address, 0, nil, &size, &value)
-        guard err == noErr else { throw "readDeviceUID: \(err)" }
-        return value as String
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<CFString?>.size)
+        let err = withUnsafeMutablePointer(to: &value) { valuePtr -> OSStatus in
+            AudioObjectGetPropertyData(self, &address, 0, nil, &size, valuePtr)
+        }
+        guard err == noErr, let cfValue = value?.takeRetainedValue() else {
+            throw "readDeviceUID: \(err)"
+        }
+        return cfValue as String
     }
 
     func readAudioTapStreamBasicDescription() throws -> AudioStreamBasicDescription {
@@ -437,11 +449,13 @@ private extension AudioObjectID {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var value: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
-        let err = AudioObjectGetPropertyData(self, &address, 0, nil, &size, &value)
-        guard err == noErr else { return nil }
-        let s = value as String
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<CFString?>.size)
+        let err = withUnsafeMutablePointer(to: &value) { valuePtr -> OSStatus in
+            AudioObjectGetPropertyData(self, &address, 0, nil, &size, valuePtr)
+        }
+        guard err == noErr, let cfValue = value?.takeRetainedValue() else { return nil }
+        let s = cfValue as String
         return s.isEmpty ? nil : s
     }
 }

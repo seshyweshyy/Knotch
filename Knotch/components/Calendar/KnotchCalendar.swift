@@ -423,9 +423,6 @@ private struct MapPinIcon: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-
             Canvas { context, size in
                 let cx = size.width / 2
                 let r = size.width * 0.36

@@ -175,10 +175,13 @@ final class AudioRouteManager: ObservableObject {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var name: CFString = "" as CFString
+        var name: Unmanaged<CFString>?
         var size = UInt32(MemoryLayout<CFString?>.size)
-        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &name) == noErr else { return nil }
-        return name as String
+        let status = withUnsafeMutablePointer(to: &name) { namePtr -> OSStatus in
+            AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, namePtr)
+        }
+        guard status == noErr, let cfName = name?.takeRetainedValue() else { return nil }
+        return cfName as String
     }
 
     private func transportType(for deviceID: AudioDeviceID) -> UInt32 {

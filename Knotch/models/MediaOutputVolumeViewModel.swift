@@ -98,7 +98,7 @@ final class MediaOutputVolumeViewModel: ObservableObject {
         )
         var volume = Float32(0.5)
         var size = UInt32(MemoryLayout<Float32>.size)
-        AudioHardwareServiceGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
+        AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
         return volume
     }
 
@@ -112,7 +112,7 @@ final class MediaOutputVolumeViewModel: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         var v = Float32(max(0, min(1, value)))
-        AudioHardwareServiceSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &v)
+        AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &v)
     }
 
     private func readMute() -> Bool {
