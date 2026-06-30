@@ -59,9 +59,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add updater/appcast.xml
           git diff --cached --quiet || git commit -m "chore: update appcast for ${{ github.event.release.tag_name || inputs.tag }}"
+          rm -rf updater/releases
+          success=false
           for i in 1 2 3 4 5; do
             git fetch origin main
-            git rebase origin/main && git push origin main && break
+            if git rebase origin/main && git push origin main; then
+              success=true
+              break
+            fi
+            git rebase --abort 2>/dev/null || true
             echo "Push attempt $i failed, retrying..."
             sleep $((RANDOM % 5 + 1))
           done
+          if [ "$success" != "true" ]; then
+            echo "All push attempts failed"
+            exit 1
+          fi
