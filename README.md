@@ -65,7 +65,7 @@
 
 ## System Requirements
 
-- macOS **14 Sonoma** or later (may require macOS **26** for Liquid Glass features)
+- macOS **15 Sequoia** or later (Requires macOS **26** for Liquid Glass features)
 - Apple Silicon or Intel Mac
 
 ---
