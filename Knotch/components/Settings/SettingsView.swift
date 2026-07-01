@@ -1398,7 +1398,7 @@ struct Appearance: View {
                 Defaults.Toggle(key: .liveWaveform) {
                     HStack(spacing: 6) {
                         Text("Live waveform")
-                        Image(systemName: "waveform.circle.fill")
+                        Image(systemName: "waveform.and.mic")
                             .modifier(HoverTooltip(text: "Records system audio"))
                     }
                 }
