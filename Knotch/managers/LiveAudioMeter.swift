@@ -25,8 +25,8 @@ final class LiveAudioMeter {
     @Published private(set) var amplitudes: [Float] = Array(repeating: 0, count: bandCount)
 
     // Smoothing coefficients
-    private let attackCoeff: Float = 0.8
-    private let decayCoeff: Float = 0.15
+    private let attackCoeff: Float = 0.95
+    private let decayCoeff: Float = 0.35
     private var smoothed: [Float] = Array(repeating: 0, count: bandCount)
     
     // Rolling per-band peak for self-normalizing loudness
@@ -276,7 +276,7 @@ final class LiveAudioMeter {
         // Per-band gain: low bands get less gain, high bands get more
         let bandGains: [Float] = [0.05, 1.0, 3.0, 3.8, 0.05]
 
-        let bellCurve: [Float] = [0.7, 0.85, 1.0, 0.85, 0.7]
+
         var newAmplitudes = [Float](repeating: 0, count: bandCount)
         magnitudes.withUnsafeMutableBufferPointer { magPtr in
             for band in 0..<bandCount {
@@ -287,7 +287,7 @@ final class LiveAudioMeter {
                 vDSP_rmsqv(magPtr.baseAddress! + start, 1, &rms, vDSP_Length(end - start))
                 let normalized = rms / Float(end - start)
                 let curved = powf(normalized, 0.45)
-                newAmplitudes[band] = min(curved * bandGains[band] * bellCurve[band], 1.0)
+                newAmplitudes[band] = min(curved * bandGains[band], 1.0)
             }
         }
 
