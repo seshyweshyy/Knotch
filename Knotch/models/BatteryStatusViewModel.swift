@@ -71,7 +71,7 @@ class BatteryStatusViewModel: ObservableObject {
             self.notifyImportanChangeStatus()
             withAnimation {
                 self.isInLowPowerMode = isEnabled
-                self.statusText = "Low Power: \(self.isInLowPowerMode ? "On" : "Off")"
+                self.statusText = "Low Power Mode \(self.isInLowPowerMode ? "On" : "Off")"
             }
 
         case .isChargingChanged(let isCharging):
@@ -83,8 +83,8 @@ class BatteryStatusViewModel: ObservableObject {
                 self.isCharging = isCharging
                 self.statusText =
                     isCharging
-                    ? "Charging battery"
-                    : (self.levelBattery < self.maxCapacity ? "Not charging" : "Full charge")
+                    ? "Charging"
+                    : (self.levelBattery < self.maxCapacity ? "Not Charging" : "Full Charge")
             }
 
         case .timeToFullChargeChanged(let time):

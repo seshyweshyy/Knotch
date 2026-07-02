@@ -161,10 +161,12 @@ private struct BatteryNotchBanner: View {
                 Text(batteryModel.statusText)
                     .font(.subheadline)
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             Rectangle()
                 .fill(.black)
-                .frame(width: vm.closedNotchSize.width + 10)
+                .frame(width: vm.closedNotchSize.width + 40)
             HStack {
                 KnotchBatteryView(
                     batteryWidth: 30,

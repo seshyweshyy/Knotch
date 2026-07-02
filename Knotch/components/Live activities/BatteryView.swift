@@ -39,40 +39,57 @@ struct BatteryView: View {
         }
     }
 
+    private var bodyHeight: CGFloat {
+        batteryWidth / 2.1
+    }
+
+    private var terminalHeight: CGFloat {
+        max(4, bodyHeight * 0.38)
+    }
+
+    private var glyphSystemName: String? {
+        guard iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons]) else { return nil }
+        if isCharging { return "bolt.fill" }
+        if isPluggedIn { return "powerplug.fill" }
+        return nil
+    }
+
+    private var showsGlyph: Bool {
+        iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons])
+    }
+
     var body: some View {
-        ZStack(alignment: .leading) {
+        HStack(spacing: 1.5) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color.white.opacity(0.5))
 
-            Image(systemName: icon)
-                .resizable()
-                .fontWeight(.thin)
-                .aspectRatio(contentMode: .fit)
-                .foregroundColor(.white.opacity(0.5))
-                .frame(
-                    width: batteryWidth + 1
-                )
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(batteryColor.gradient)
+                        .frame(width: max(0, (CGFloat(levelBattery) / 100) * geo.size.width))
+                }
 
-            RoundedRectangle(cornerRadius: 2.5)
-                .fill(batteryColor)
-                .frame(
-                    width: CGFloat(((CGFloat(CFloat(levelBattery)) / 100) * (batteryWidth - 6))),
-                    height: (batteryWidth - 2.75) - 18
-                )
-                .padding(.leading, 2)
-
-            if iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons]) {
-                ZStack {
+                if showsGlyph {
                     Image(iconStatus)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .foregroundColor(.white)
-                        .frame(
-                            width: 17,
-                            height: 17
-                        )
+                        .frame(width: bodyHeight * 1.2, height: bodyHeight * 1.2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
-                .frame(width: batteryWidth, height: batteryWidth)
             }
+            .frame(width: batteryWidth, height: bodyHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(Color.white.opacity(0.5))
+                .frame(width: 2, height: terminalHeight)
         }
+        .scaleEffect(0.93)
+        .animation(.smooth(duration: 0.18), value: levelBattery)
+        .animation(.smooth(duration: 0.18), value: isCharging)
+        .animation(.smooth(duration: 0.18), value: isPluggedIn)
     }
 }
 
