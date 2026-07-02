@@ -213,7 +213,24 @@ class MusicManager: ObservableObject {
     @MainActor
     private func updateFromPlaybackState(_ state: PlaybackState) {
         // Check for playback state changes (playing/paused)
-        if state.isPlaying != self.isPlaying {
+        var shouldIgnoreThisPlaybackFlip = false
+        if let expected = pendingOptimisticPlayState {
+            if state.isPlaying == expected {
+                // Real state caught up with what we optimistically set — done
+                pendingOptimisticPlayState = nil
+            } else if Date().timeIntervalSince(optimisticPlayStateSetAt) < 0.4 {
+                // Contradicts the tap we just made, but we're still inside the grace
+                // window — this is almost certainly a stale echo from before the
+                // play/pause command actually landed in the target app. Ignore it
+                // so the button doesn't flicker back and forth.
+                shouldIgnoreThisPlaybackFlip = true
+            } else {
+                // Grace window expired and reality still disagrees — trust reality
+                pendingOptimisticPlayState = nil
+            }
+        }
+
+        if !shouldIgnoreThisPlaybackFlip && state.isPlaying != self.isPlaying {
             NSLog("Playback state changed: \(state.isPlaying ? "Playing" : "Paused")")
             withAnimation(.smooth) {
                 self.isPlaying = state.isPlaying
@@ -629,10 +646,11 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Public Methods for controlling playback
-    private var togglePlayWorkItem: DispatchWorkItem?
+    @MainActor private var pendingOptimisticPlayState: Bool?
+    @MainActor private var optimisticPlayStateSetAt: Date = .distantPast
 
     func playPause() {
-        scheduleTogglePlay()
+        togglePlay()
     }
 
     func play() {
@@ -660,18 +678,26 @@ class MusicManager: ObservableObject {
     }
     
     func togglePlay() {
-        scheduleTogglePlay()
-    }
-    
-    private func scheduleTogglePlay() {
-        togglePlayWorkItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            Task { await self?.activeController?.togglePlay() }
-        }
-        togglePlayWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
-    }
+        guard let controller = activeController else { return }
+        let targetState = !isPlaying
 
+        Task {
+            await MainActor.run {
+                pendingOptimisticPlayState = targetState
+                optimisticPlayStateSetAt = Date()
+                withAnimation(.smooth(duration: 0.18)) {
+                    self.isPlaying = targetState
+                }
+                self.updateIdleState(state: targetState)
+            }
+
+            if targetState {
+                await controller.play()
+            } else {
+                await controller.pause()
+            }
+        }
+    }
 
     func nextTrack() {
         pendingFlipDirection = .forward
