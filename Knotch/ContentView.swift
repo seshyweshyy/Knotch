@@ -155,7 +155,43 @@ private struct BatteryNotchBanner: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @EnvironmentObject var vm: KnotchViewModel
 
+    private let bannerWidth: CGFloat = 280
+    private let bannerContentHeight: CGFloat = 60
+
+    private enum BannerKind: Equatable {
+        case lowBattery
+        case fullBattery
+        case generic
+    }
+
+    private var kind: BannerKind {
+        if batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn {
+            return .lowBattery
+        } else if batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn) {
+            return .fullBattery
+        } else {
+            return .generic
+        }
+    }
+
+    @State private var pulse = false
+    @State private var showBatteryIndicator = false
+    @State private var changeBatteryIndicator = true
+
     var body: some View {
+        Group {
+            if kind == .generic {
+                genericBanner
+            } else {
+                standardBanner
+            }
+        }
+        .onAppear(perform: prepareAnimations)
+        .onChange(of: kind) { _, _ in prepareAnimations() }
+    }
+
+    // Original slim pill — still used for the Low Power Mode toggle message
+    private var genericBanner: some View {
         HStack(spacing: 0) {
             HStack {
                 Text(batteryModel.statusText)
@@ -164,9 +200,12 @@ private struct BatteryNotchBanner: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
+            .frame(width: 110, alignment: .leading)
+
             Rectangle()
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width + 40)
+
             HStack {
                 KnotchBatteryView(
                     batteryWidth: 30,
@@ -180,6 +219,258 @@ private struct BatteryNotchBanner: View {
             .frame(width: 76, alignment: .trailing)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    // Takeover banner for low/full battery
+    private var standardBanner: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: kind == .lowBattery ? 2 : 3) {
+                title
+                description
+            }
+            .padding(.leading, kind == .lowBattery ? 40 : 35)
+            .fixedSize(horizontal: true, vertical: false)
+
+            Spacer()
+
+            indicator
+                .padding(.leading, 15)
+                .padding(.trailing, kind == .lowBattery ? 45 : 40)
+        }
+        .frame(width: bannerWidth, height: bannerContentHeight)
+        .padding(.top, vm.effectiveClosedNotchHeight)
+        .padding(.bottom, 10)
+    }
+
+    @ViewBuilder
+    private var title: some View {
+        HStack(spacing: 5) {
+            Text(verbatim: kind == .lowBattery ? "Battery Low" : "Full Battery")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(1)
+
+            Text("\(Int(batteryModel.levelBattery))%")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(kind == .lowBattery
+                    ? (batteryModel.isInLowPowerMode ? .yellow : .red)
+                    : (batteryModel.isInLowPowerMode ? .yellow : .green))
+        }
+    }
+
+    @ViewBuilder
+    private var description: some View {
+        switch kind {
+        case .lowBattery:
+            if batteryModel.isInLowPowerMode {
+                (
+                    Text(verbatim: "Low Power Mode enabled,")
+                        .foregroundColor(.yellow)
+                        .font(.system(size: 10, weight: .medium))
+                    +
+                    Text(verbatim: "\nit is recommended to charge it.")
+                        .foregroundColor(.gray.opacity(0.6))
+                        .font(.system(size: 10, weight: .medium))
+                )
+                .lineLimit(2)
+            } else {
+                Text(verbatim: "Turn on Low Power Mode or it\nis recommended to charge it.")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.gray.opacity(0.6))
+                    .lineLimit(2)
+            }
+        case .fullBattery:
+            Text(verbatim: "Your Mac is fully charged.")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.gray.opacity(0.6))
+                .lineLimit(1)
+        case .generic:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var indicator: some View {
+        switch kind {
+        case .lowBattery:
+            if batteryModel.isInLowPowerMode {
+                yellowLowIndicator
+            } else {
+                redLowIndicator
+            }
+        case .fullBattery:
+            if showBatteryIndicator {
+                if batteryModel.isInLowPowerMode {
+                    yellowFullIndicator
+                        .transition(.opacity.combined(with: .scale))
+                } else {
+                    greenFullIndicator
+                        .transition(.opacity.combined(with: .scale))
+                }
+            } else {
+                magSafeIndicator
+                    .transition(.opacity.combined(with: .scale))
+            }
+        case .generic:
+            EmptyView()
+        }
+    }
+
+    private var redLowIndicator: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30)
+                .fill(.red.opacity(0.2))
+                .frame(width: 70, height: 40)
+
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.red.opacity(0.4))
+                    .frame(width: 40, height: 24)
+
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.red.opacity(0.4))
+                    .frame(width: 3, height: 8)
+            }
+            .padding(.trailing, 5)
+
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.red.gradient)
+                .frame(width: 8, height: 14)
+                .opacity(pulse ? 1 : 0.3)
+                .offset(x: -15)
+
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(Color.red.opacity(0.9), lineWidth: 1.5)
+                .frame(width: pulse ? 8 : 30, height: pulse ? 14 : 32)
+                .offset(x: -15)
+                .opacity(pulse ? 0.3 : 1)
+        }
+    }
+
+    private var yellowLowIndicator: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30)
+                .fill(.yellow.opacity(0.2))
+                .frame(width: 70, height: 40)
+
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.yellow.opacity(0.4))
+                    .frame(width: 40, height: 24)
+
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.yellow.opacity(0.4))
+                    .frame(width: 3, height: 8)
+            }
+            .padding(.trailing, 5)
+
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.yellow.gradient)
+                .frame(width: 8, height: 14)
+                .offset(x: -15)
+        }
+    }
+
+    private var greenFullIndicator: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30)
+                .fill(.green.opacity(0.2))
+                .frame(width: 70, height: 40)
+
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.green.opacity(0.4))
+                    .frame(width: 44, height: 24)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.green.gradient)
+                            .frame(width: 34, height: 14)
+                            .opacity(pulse ? 1 : 0.4)
+                    )
+
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.green.opacity(0.4))
+                    .frame(width: 3, height: 8)
+            }
+        }
+    }
+
+    private var yellowFullIndicator: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30)
+                .fill(.yellow.opacity(0.2))
+                .frame(width: 70, height: 40)
+
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.yellow.opacity(0.4))
+                    .frame(width: 44, height: 24)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.yellow.gradient)
+                            .frame(width: 34, height: 14)
+                            .opacity(pulse ? 1 : 0.4)
+                    )
+
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.yellow.opacity(0.4))
+                    .frame(width: 3, height: 8)
+            }
+        }
+    }
+
+    private var magSafeIndicator: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(.gray.opacity(0.15))
+                .frame(width: 30, height: 5)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.gray.opacity(0.2).gradient)
+                    .frame(width: 30, height: 40)
+
+                Circle()
+                    .fill(changeBatteryIndicator ? .orange : .green)
+                    .shadow(color: changeBatteryIndicator ? .orange : .green, radius: 5)
+                    .frame(width: 5, height: 5)
+            }
+
+            Rectangle()
+                .fill(.white.opacity(0.4))
+                .frame(width: 3, height: 32)
+        }
+    }
+
+    private func prepareAnimations() {
+        pulse = false
+        showBatteryIndicator = kind == .fullBattery
+        changeBatteryIndicator = true
+
+        switch kind {
+        case .generic:
+            break
+        case .lowBattery:
+            if !batteryModel.isInLowPowerMode {
+                withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
+        case .fullBattery:
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation(.spring(duration: 0.4)) {
+                    showBatteryIndicator = false
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation(.spring(duration: 0.2)) {
+                    changeBatteryIndicator = false
+                }
+            }
+        }
     }
 }
 
@@ -220,6 +511,13 @@ struct ContentView: View {
         }
 
     private var currentNotchShape: NotchShape {
+        let batteryModel = BatteryStatusViewModel.shared
+        let isExpandedBatteryBanner = coordinator.expandingView.type == .battery
+            && coordinator.expandingView.show
+            && Defaults[.showPowerStatusNotifications]
+            && ((batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
+                || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn)))
+
         return NotchShape(
             topCornerRadius: topCornerRadius,
             bottomCornerRadius: vm.notchState == .open
@@ -228,7 +526,9 @@ struct ContentView: View {
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
                         ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
-                            : cornerRadiusInsets.closed.bottom
+                            : isExpandedBatteryBanner
+                                ? 28
+                                : cornerRadiusInsets.closed.bottom
         )
     }
 

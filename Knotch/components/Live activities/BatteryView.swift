@@ -86,7 +86,7 @@ struct BatteryView: View {
                 .fill(Color.white.opacity(0.5))
                 .frame(width: 2, height: terminalHeight)
         }
-        .scaleEffect(0.93)
+        .scaleEffect(0.90)
         .animation(.smooth(duration: 0.18), value: levelBattery)
         .animation(.smooth(duration: 0.18), value: isCharging)
         .animation(.smooth(duration: 0.18), value: isPluggedIn)
@@ -209,7 +209,7 @@ struct KnotchBatteryView: View {
                 showPopupMenu.toggle()
             }
         }) {
-            HStack {
+            HStack(spacing: 4) {
                 if Defaults[.showBatteryPercentage] {
                     Text("\(Int32(levelBattery))%")
                         .font(.callout)
