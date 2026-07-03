@@ -2093,30 +2093,25 @@ struct Shelf: View {
             Section {
                 Picker("Quick Share Service", selection: $quickShareProvider) {
                     ForEach(quickShareService.availableProviders, id: \.id) { provider in
-                        HStack {
-                            if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
-                                Image(nsImage: nsImg).resizable().aspectRatio(contentMode: .fit).frame(width: 16, height: 16)
-                            } else {
-                                Image(systemName: "square.and.arrow.up").frame(width: 16, height: 16).foregroundColor(.accentColor)
-                            }
-                            Text(provider.id)
-                        }
-                        .tag(provider.id)
+                        QuickShareProviderRow(provider: provider)
+                            .tag(provider.id)
                     }
                 }
                 .pickerStyle(.menu)
                 .settingsHighlight(id: "Shelf-Shelf activation gesture")
                 if let selectedProvider = selectedProvider {
                     HStack {
-                        Group {
-                            if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
-                                Image(nsImage: nsImg).resizable().aspectRatio(contentMode: .fit)
-                            } else {
-                                Image(systemName: "square.and.arrow.up")
-                            }
+                        if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
+                            Image(nsImage: nsImg)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 16, height: 16)
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .frame(width: 16, height: 16)
+                                .foregroundColor(.accentColor)
                         }
-                        .frame(width: 16, height: 16)
-                        .foregroundColor(.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Currently selected: \(selectedProvider.id)").font(.caption).foregroundColor(.secondary)
                             Text("Files dropped on the shelf will be shared via this service").font(.caption2).foregroundColor(.secondary)

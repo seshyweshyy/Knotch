@@ -55,17 +55,13 @@ class QuickShareService: ObservableObject {
             let title = svc.title
             guard !excludedProviders.contains(title) else { continue }
             let imgData: Data? = {
-                // AirDrop is not a standalone .app — fetch its icon from the sharing service image
                 if title == "AirDrop" {
-                    guard let source = NSImage(named: "AirDropIcon") else { return nil }
-                    let size = NSSize(width: 16, height: 16)
-                    let resized = NSImage(size: size)
-                    resized.lockFocus()
-                    source.draw(in: NSRect(origin: .zero, size: size),
-                                from: NSRect(origin: .zero, size: source.size),
-                                operation: .copy, fraction: 1.0)
-                    resized.unlockFocus()
-                    return resized.tiffRepresentation
+                    // The AirDrop NSSharingService returned by the picker enumeration
+                    // sometimes has an uninitialized (zero-size) .image until the
+                    // picker actually displays it. Constructing a fresh instance by
+                    // name — same trick Atoll uses — guarantees a fully-loaded icon.
+                    let airdropImage = NSSharingService(named: .sendViaAirDrop)?.image ?? svc.image
+                    return Self.resizedIconData(from: airdropImage)
                 }
                 // Try to find the app by its display/bundle name and use its real icon
                 let allApps = FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask)
@@ -78,7 +74,7 @@ class QuickShareService: ObservableObject {
                             ?? bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
                             ?? appURL.deletingPathExtension().lastPathComponent
                         if name == title {
-                            return NSWorkspace.shared.icon(forFile: appURL.path).tiffRepresentation
+                            return Self.resizedIconData(from: NSWorkspace.shared.icon(forFile: appURL.path))
                         }
                     }
                 }
@@ -95,6 +91,11 @@ class QuickShareService: ObservableObject {
         if let idx = providers.firstIndex(where: { $0.id == "AirDrop" }) {
             let ad = providers.remove(at: idx)
             providers.insert(ad, at: 0)
+        }
+
+        if !providers.contains(where: { $0.id == "LocalSend" }) {
+            let icon = NSImage(named: "LocalSend").flatMap { Self.resizedIconData(from: $0) }
+            providers.insert(QuickShareProvider(id: "LocalSend", imageData: icon, supportsRawText: true), at: min(1, providers.count))
         }
 
         if !providers.contains(where: { $0.id == "Share Menu" }) {
@@ -149,6 +150,18 @@ class QuickShareService: ObservableObject {
         // Start security-scoped access for all file URLs
         sharingAccessingURLs = fileURLs.filter { $0.startAccessingSecurityScopedResource() }
 
+        if provider.id == "LocalSend" {
+            SharingStateManager.shared.beginInteraction()
+            defer { SharingStateManager.shared.endInteraction() }
+            do {
+                try await LocalSendService.shared.send(items: items)
+            } catch {
+                NSLog("LocalSend send failed: \(error.localizedDescription)")
+            }
+            stopSharingAccessingURLs()
+            return
+        }
+
         // Setup lifecycle delegate to keep notch open during picker/service
         let delegate = SharingStateManager.shared.makeDelegate { [weak self] in
             self?.lifecycleDelegate = nil
@@ -169,6 +182,35 @@ class QuickShareService: ObservableObject {
                 picker.show(relativeTo: .zero, of: view, preferredEdge: .minY)
             }
         }
+    }
+    
+    /// Renders `image` into a fixed-size, fixed-resolution PNG so menu items
+    /// (which use NSImage's native pixel size, not SwiftUI frame modifiers)
+    /// never render oversized.
+    private static func resizedIconData(from image: NSImage, size: CGFloat = 34) -> Data? {
+        // Some NSSharingService/NSWorkspace icons come back with a zero size
+        // when queried too early — bail out to nil so callers fall back to a
+        // placeholder instead of caching a blank transparent icon.
+        guard image.size.width > 0, image.size.height > 0 else { return nil }
+
+        // Cache at 64pt (2x for the largest place these render — the 34pt
+        // drop-zone circle in FileShareView) rather than menu-row size (16pt),
+        // so SwiftUI is always downscaling a sharp source instead of
+        // upscaling a soft one. NSImage.draw picks the best source
+        // representation for this target automatically.
+        let target = NSSize(width: size, height: size)
+        let thumb = NSImage(size: target)
+        thumb.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: target),
+                   from: NSRect(origin: .zero, size: image.size),
+                   operation: .copy, fraction: 1.0)
+        thumb.unlockFocus()
+        thumb.size = target
+
+        guard let tiff = thumb.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff)
+        else { return nil }
+        return bitmap.representation(using: .png, properties: [:])
     }
 
     private func stopSharingAccessingURLs() {

@@ -13,11 +13,16 @@ import UniformTypeIdentifiers
 struct FileShareView: View {
     @EnvironmentObject private var vm: KnotchViewModel
     @StateObject private var quickShare = QuickShareService.shared
+    @StateObject private var localSend = LocalSendService.shared
     @Default(.quickShareProvider) var quickShareProvider: String
 
     @State private var hostView: NSView?
     @State private var interactionNonce: UUID = .init()
     @State private var isProcessing = false
+    @State private var pendingDropProviders: [NSItemProvider]?
+    @State private var showLocalSendDevicePicker = false
+    @State private var showQuickSharePopover = false
+    @State private var isSwitchHover = false
     
     private var selectedProvider: QuickShareProvider {
         quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) ?? QuickShareProvider(id: "Share Menu", imageData: nil, supportsRawText: true)
@@ -26,17 +31,65 @@ struct FileShareView: View {
     var body: some View {
         dropArea
             .background(NSViewHost(view: $hostView))
+            .onAppear { localSend.startDiscovery() }
             .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data, .image], isTargeted: $vm.dropZoneTargeting) { providers in
                 interactionNonce = .init()
                 vm.dropEvent = true
-                Task { await handleDrop(providers) }
+                if selectedProvider.id == "LocalSend" {
+                    pendingDropProviders = providers
+                    showLocalSendDevicePicker = true
+                } else {
+                    Task { await handleDrop(providers) }
+                }
                 return true
             }
             .onTapGesture {
-                Task {
-                    await handleClick()
+                if selectedProvider.id == "LocalSend" {
+                    showLocalSendDevicePicker = true
+                } else {
+                    Task { await handleClick() }
                 }
             }
+            .popover(isPresented: $showLocalSendDevicePicker, arrowEdge: .bottom) {
+                localSendDevicePicker
+            }
+    }
+
+    private var localSendDevicePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Send via LocalSend").font(.headline)
+
+            if localSend.devices.isEmpty {
+                Text("Searching for nearby devices…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(localSend.devices) { device in
+                    Button {
+                        localSend.selectedDeviceID = device.id
+                        showLocalSendDevicePicker = false
+                        if let providers = pendingDropProviders {
+                            Task {
+                                await handleDrop(providers)
+                                pendingDropProviders = nil
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "laptopcomputer")
+                            Text(device.alias)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .padding()
+        .frame(minWidth: 220)
     }
 
     private var dropArea: some View {
@@ -97,11 +150,83 @@ struct FileShareView: View {
                 Text(selectedProvider.id)
                     .font(.system(.headline, design: .rounded))
                     .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
             }
             .padding(18)
+
+            // Switch button pinned to top-right corner
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        SharingStateManager.shared.beginInteraction()
+                        showQuickSharePopover.toggle()
+                    } label: {
+                        Image(systemName: "switch.2")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 12, height: 12)
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(isSwitchHover ? Color.white.opacity(0.12) : Color.clear))
+                            .foregroundColor(isSwitchHover ? .accentColor : .gray)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .onHover { hovering in isSwitchHover = hovering }
+                    .popover(isPresented: $showQuickSharePopover, arrowEdge: .bottom) {
+                        quickSharePopoverContent
+                    }
+                    .padding(.trailing, 6)
+                    .padding(.top, 6)
+                }
+                Spacer()
+            }
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onChange(of: showQuickSharePopover) { _, isOpen in
+            if !isOpen { SharingStateManager.shared.endInteraction() }
+        }
+    }
+
+    private var quickSharePopoverContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Quick Share")
+                .font(.headline)
+
+            Picker("Quick Share Service", selection: $quickShareProvider) {
+                ForEach(quickShare.availableProviders, id: \.id) { provider in
+                    QuickShareProviderRow(provider: provider)
+                        .tag(provider.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(minWidth: 260)
+
+            if let selected = quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) {
+                HStack(alignment: .top, spacing: 8) {
+                    if let imgData = selected.imageData, let nsImg = NSImage(data: imgData) {
+                        Image(nsImage: nsImg)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                            .frame(width: 20, height: 20)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Currently: \(selected.id)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Files shared from the shelf will use this service")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
     }
 
     // MARK: - Actions

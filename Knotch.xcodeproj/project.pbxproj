@@ -121,6 +121,8 @@
 		432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */; };
 		43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */; };
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
+		435517E92FF7538700696038 /* LocalSendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517E82FF7537F00696038 /* LocalSendService.swift */; };
+		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
 		4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */; };
 		43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */; };
 		43A141962FA2D8D4007AF2AE /* volume_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141952FA2D8D4007AF2AE /* volume_animation.json */; };
@@ -316,6 +318,8 @@
 		432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassWidgetWindow.swift; sourceTree = "<group>"; };
 		43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRouteManager.swift; sourceTree = "<group>"; };
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
+		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
+		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
 		4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAudioMeter.swift; sourceTree = "<group>"; };
 		43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDLottieView.swift; sourceTree = "<group>"; };
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
@@ -420,6 +424,7 @@
 		1113ABBF2E80E27000EC13B2 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				435517E82FF7537F00696038 /* LocalSendService.swift */,
 				4329964E2F975EAF00CBBC90 /* ImageConverter.swift */,
 				1194E87B2EA19E09009C82D6 /* ImageProcessingService.swift */,
 				118EBE282E946B3F00D54B5A /* ShareServiceFinder.swift */,
@@ -447,6 +452,7 @@
 		1113ABC42E80E27000EC13B2 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */,
 				11F747CD2EC75CEA00F841DB /* DragPreviewView.swift */,
 				110029292E8691B400035A57 /* FileShareView.swift */,
 				1113ABC32E80E27000EC13B2 /* ShelfItemView.swift */,
@@ -1087,6 +1093,7 @@
 				B1A78C822C8BA08100BD51B0 /* FullscreenMediaDetection.swift in Sources */,
 				14E9FEAE2C7325770062E83F /* Button+Bouncing.swift in Sources */,
 				14D570C92C5F38890011E668 /* KnotchViewModel.swift in Sources */,
+				435517E92FF7538700696038 /* LocalSendService.swift in Sources */,
 				14D570BC2C5E98EB0011E668 /* generic.swift in Sources */,
 				118EBE272E92DE8400D54B5A /* NSMenu+AssociatedObject.swift in Sources */,
 				B1CE8CFE2C6F659400DD9871 /* KeyboardShortcutsHelper.swift in Sources */,
@@ -1126,6 +1133,7 @@
 				118EBE2D2E97165600D54B5A /* Bookmark.swift in Sources */,
 				B1FEB4992C7686630066EBBC /* PanGesture.swift in Sources */,
 				11F748842ECB27DC00F841DB /* MusicSlotConfigurationView.swift in Sources */,
+				435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */,
 				9A0887352C7AFF8E00C160EA /* TabSelectionView.swift in Sources */,
 				112FB7352CCF16F70015238C /* NotchSpaceManager.swift in Sources */,
 				4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */,
