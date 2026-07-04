@@ -55,7 +55,11 @@ struct BatteryView: View {
     }
 
     private var showsGlyph: Bool {
-        iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons])
+        !showsPercentageInIcon && iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons])
+    }
+
+    private var showsPercentageInIcon: Bool {
+        Defaults[.showBatteryPercentageAsIcon]
     }
 
     var body: some View {
@@ -70,7 +74,25 @@ struct BatteryView: View {
                         .frame(width: max(0, (CGFloat(levelBattery) / 100) * geo.size.width))
                 }
 
-                if showsGlyph {
+                if showsPercentageInIcon {
+                    HStack(spacing: -bodyHeight * 0.08) {
+                        Text("\(Int32(levelBattery))")
+                            .font(.system(size: bodyHeight * 0.9, weight: .bold, design: .rounded))
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                            .foregroundColor(.black)
+
+                        if iconStatus != "" && Int32(levelBattery) < 100 {
+                            Image(iconStatus)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .foregroundColor(.black)
+                                .frame(width: bodyHeight * 0.8, height: bodyHeight * 0.8)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(.horizontal, 1)
+                } else if showsGlyph {
                     Image(iconStatus)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -86,7 +108,7 @@ struct BatteryView: View {
                 .fill(Color.white.opacity(0.5))
                 .frame(width: 2, height: terminalHeight)
         }
-        .scaleEffect(0.90)
+        .scaleEffect(0.93)
         .animation(.smooth(duration: 0.18), value: levelBattery)
         .animation(.smooth(duration: 0.18), value: isCharging)
         .animation(.smooth(duration: 0.18), value: isPluggedIn)
@@ -209,8 +231,8 @@ struct KnotchBatteryView: View {
                 showPopupMenu.toggle()
             }
         }) {
-            HStack(spacing: 4) {
-                if Defaults[.showBatteryPercentage] {
+            HStack {
+                if Defaults[.showBatteryPercentage] && !Defaults[.showBatteryPercentageAsIcon] {
                     Text("\(Int32(levelBattery))%")
                         .font(.callout)
                         .foregroundStyle(.white)

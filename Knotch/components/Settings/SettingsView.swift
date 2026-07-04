@@ -407,6 +407,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Battery", title: "Show power status notifications", keywords: ["power", "notification", "battery"], highlightID: "Battery-Show power status notifications"),
             SettingsSearchEntry(tabID: "Battery", title: "Show battery percentage", keywords: ["battery", "percentage"], highlightID: "Battery-Show battery percentage"),
             SettingsSearchEntry(tabID: "Battery", title: "Show power status icons", keywords: ["power", "icons", "battery"], highlightID: "Battery-Show power status icons"),
+            SettingsSearchEntry(tabID: "Battery", title: "Show battery percentage as icon", keywords: ["battery", "percentage", "icon", "ios"], highlightID: "Battery-Show battery percentage as icon"),
             // Shelf
             SettingsSearchEntry(tabID: "Shelf", title: "Enable shelf", keywords: ["shelf", "drop"], highlightID: "Shelf-Enable shelf"),
             SettingsSearchEntry(tabID: "Shelf", title: "Open shelf by default if items are present", keywords: ["shelf", "default", "open"], highlightID: "Shelf-Open shelf by default"),
@@ -843,10 +844,15 @@ struct Charge: View {
                     Text("Show battery percentage")
                 }
                 .settingsHighlight(id: "Battery-Show battery percentage")
+                .disabled(Defaults[.showBatteryPercentageAsIcon])
                 Defaults.Toggle(key: .showPowerStatusIcons) {
                     Text("Show power status icons")
                 }
                 .settingsHighlight(id: "Battery-Show power status icons")
+                Defaults.Toggle(key: .showBatteryPercentageAsIcon) {
+                    Text("Show battery percentage as icon")
+                }
+                .settingsHighlight(id: "Battery-Show battery percentage as icon")
             } header: {
                 Text("Battery Information")
             }
