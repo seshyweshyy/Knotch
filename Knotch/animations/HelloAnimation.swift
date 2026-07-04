@@ -20,8 +20,8 @@ struct HelloShape: Shape {
         path.addCurve(to: CGPoint(x: 0.22327*width, y: 0.88718*height), control1: CGPoint(x: 0.25733*width, y: 0.51463*height), control2: CGPoint(x: 0.19915*width, y: 0.81575*height))
         path.addCurve(to: CGPoint(x: 0.38553*width, y: 0.71351*height), control1: CGPoint(x: 0.2474*width, y: 0.95861*height), control2: CGPoint(x: 0.33586*width, y: 0.89978*height))
         path.addCurve(to: CGPoint(x: 0.35998*width, y: 0.45441*height), control1: CGPoint(x: 0.43519*width, y: 0.52724*height), control2: CGPoint(x: 0.38978*width, y: 0.4306*height))
-        path.addCurve(to: CGPoint(x: 0.35478*width, y: 0.87317*height), control1: CGPoint(x: 0.33018*width, y: 0.47822*height), control2: CGPoint(x: 0.27956*width, y: 0.71631*height))
-        path.addCurve(to: CGPoint(x: 0.53453*width, y: 0.62808*height), control1: CGPoint(x: 0.42999*width, y: 1.03004*height), control2: CGPoint(x: 0.51892*width, y: 0.6939*height))
+        path.addCurve(to: CGPoint(x: 0.35478*width, y: 0.90000*height), control1: CGPoint(x: 0.33018*width, y: 0.47822*height), control2: CGPoint(x: 0.27956*width, y: 0.74314*height))
+        path.addCurve(to: CGPoint(x: 0.53453*width, y: 0.62808*height), control1: CGPoint(x: 0.42999*width, y: 1.05687*height), control2: CGPoint(x: 0.51892*width, y: 0.6939*height))
         path.addCurve(to: CGPoint(x: 0.57332*width, y: 0.00623*height), control1: CGPoint(x: 0.55014*width, y: 0.56225*height), control2: CGPoint(x: 0.63955*width, y: 0.05805*height))
         path.addCurve(to: CGPoint(x: 0.48723*width, y: 0.60146*height), control1: CGPoint(x: 0.5071*width, y: -0.04559*height), control2: CGPoint(x: 0.48486*width, y: 0.50623*height))
         path.addCurve(to: CGPoint(x: 0.54588*width, y: 0.91239*height), control1: CGPoint(x: 0.48959*width, y: 0.6967*height), control2: CGPoint(x: 0.50378*width, y: 0.87597*height))
@@ -31,28 +31,16 @@ struct HelloShape: Shape {
         path.addCurve(to: CGPoint(x: 0.69678*width, y: 0.92639*height), control1: CGPoint(x: 0.66083*width, y: 0.22892*height), control2: CGPoint(x: 0.62204*width, y: 0.86057*height))
         path.addCurve(to: CGPoint(x: 0.87275*width, y: 0.47822*height), control1: CGPoint(x: 0.77152*width, y: 0.99222*height), control2: CGPoint(x: 0.78855*width, y: 0.42997*height))
         path.addCurve(to: CGPoint(x: 0.91438*width, y: 0.89776*height), control1: CGPoint(x: 0.9734*width, y: 0.51043*height), control2: CGPoint(x: 0.92329*width, y: 0.85998*height))
-        path.addCurve(to: CGPoint(x: 0.79943*width, y: 0.69608*height), control1: CGPoint(x: 0.87047*width, y: 1.08403*height), control2: CGPoint(x: 0.77956*width, y: height))
-        path.addCurve(to: CGPoint(x: 0.92006*width, y: 0.53081*height), control1: CGPoint(x: 0.81523*width, y: 0.45436*height), control2: CGPoint(x: 0.86282*width, y: 0.43277*height))
-        path.addCurve(to: CGPoint(x: 0.99905*width, y: 0.432*height), control1: CGPoint(x: 0.95979*width, y: 0.57703*height), control2: CGPoint(x: 0.98959*width, y: 0.4944*height))
+        path.addCurve(to: CGPoint(x: 0.79943*width, y: 0.69608*height), control1: CGPoint(x: 0.87047*width, y: 0.95*height), control2: CGPoint(x: 0.77956*width, y: 0.92*height))
+        path.addCurve(to: CGPoint(x: 0.92006*width, y: 0.50081*height), control1: CGPoint(x: 0.81523*width, y: 0.45436*height), control2: CGPoint(x: 0.86282*width, y: 0.40277*height))
+        path.addCurve(to: CGPoint(x: 0.99905*width, y: 0.432*height), control1: CGPoint(x: 0.95979*width, y: 0.54703*height), control2: CGPoint(x: 0.98959*width, y: 0.4944*height))
         return path
     }
 }
 
-extension ShapeStyle where Self == AngularGradient {
+extension ShapeStyle where Self == Color {
     static var hello: some ShapeStyle {
-        LinearGradient(
-            stops: [
-                .init(color: .blue, location: 0.0),
-                .init(color: .purple, location: 0.2),
-                .init(color: .red, location: 0.4),
-                .init(color: .mint, location: 0.5),
-                .init(color: .indigo, location: 0.7),
-                .init(color: .pink, location: 0.9),
-                .init(color: .blue, location: 1.0)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+        .white
     }
 }
 
@@ -78,12 +66,13 @@ struct GlowingSnake<
         shape
             .trim(
                 from: {
+                    guard delay > 0 else { return .zero }
                     if progress > 1 - delay {
-                        2 * progress - 1.0
+                        return 2 * progress - 1.0
                     } else if progress > delay {
-                        progress - delay
+                        return progress - delay
                     } else {
-                        .zero
+                        return .zero
                     }
                 }(),
                 to: progress
@@ -104,6 +93,7 @@ struct HelloAnimation: View {
     var body: some View {
         GlowingSnake(
             progress: progress,
+            delay: 0.0,
             fill: .hello,
             lineWidth: 8,
             blurRadius: 8.0,
@@ -119,8 +109,11 @@ struct HelloAnimation: View {
                 progress = 1.0
             }
             
-            // Wait for the animation to complete
+            // Wait for the draw-in to complete
             try? await Task.sleep(for: .seconds(4.0))
+            
+            // Hold the fully-drawn word on screen for a beat before closing
+            try? await Task.sleep(for: .seconds(0.8))
             
             onFinish()
         }

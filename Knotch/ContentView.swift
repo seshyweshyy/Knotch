@@ -520,15 +520,17 @@ struct ContentView: View {
 
         return NotchShape(
             topCornerRadius: topCornerRadius,
-            bottomCornerRadius: vm.notchState == .open
-                ? cornerRadiusInsets.opened.bottom
-                : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
-                    ? 22
-                    : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-                        ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
-                            : isExpandedBatteryBanner
-                                ? 28
-                                : cornerRadiusInsets.closed.bottom
+            bottomCornerRadius: coordinator.helloAnimationRunning
+                ? 28
+                : vm.notchState == .open
+                    ? cornerRadiusInsets.opened.bottom
+                    : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
+                        ? 22
+                        : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
+                            ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
+                                : isExpandedBatteryBanner
+                                    ? 28
+                                    : cornerRadiusInsets.closed.bottom
         )
     }
 
@@ -594,7 +596,9 @@ struct ContentView: View {
                 mainLayout
                     .frame(
                         width: vm.notchState == .open ? vm.notchSize.width : nil,
-                        height: vm.notchState == .open ? vm.notchSize.height : nil
+                        height: coordinator.helloAnimationRunning
+                            ? 150
+                            : (vm.notchState == .open ? vm.notchSize.height : nil)
                     )
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
@@ -758,9 +762,10 @@ struct ContentView: View {
                         vm.closeHello()
                     }).frame(
                         width: getClosedNotchSize().width,
-                        height: 80
+                        height: 68
                     )
-                    .padding(.top, 40)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 30)
                     Spacer()
                 } else {
                     // Locked state — show lock icon first, before any other content

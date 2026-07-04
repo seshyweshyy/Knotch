@@ -105,7 +105,7 @@ struct BatteryView: View {
             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
 
             RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(Color.white.opacity(0.5))
+                .fill(levelBattery == 100 ? batteryColor.gradient : Color.white.opacity(0.5).gradient)
                 .frame(width: 2, height: terminalHeight)
         }
         .scaleEffect(0.93)
