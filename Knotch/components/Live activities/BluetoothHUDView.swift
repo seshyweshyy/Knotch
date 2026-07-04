@@ -51,19 +51,12 @@ struct BluetoothHUDView: View {
                     // RIGHT: battery ring
                     HStack(spacing: 4) {
                         if batteryFraction >= 0 {
-                            BatteryRingView(fraction: batteryFraction, lineWidth: 2.5)
+                            BatteryRingView(fraction: batteryFraction, lineWidth: 2.5, showsPercentLabel: false)
                                 .frame(width: 16, height: 16)
-                            Text("\(Int(batteryFraction * 100))%")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.gray)
-                                .lineLimit(1)
-                                .allowsTightening(true)
                         }
                     }
                     .padding(.trailing, 4)
-                    .frame(width: 30 + (batteryFraction >= 0 ? 30 : 0), alignment: .trailing)
-                }
+                    .frame(width: 30, alignment: .trailing)                }
                 .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
                 .transition(.opacity)
             } else {
@@ -88,8 +81,8 @@ struct BluetoothHUDView: View {
                     Spacer()
                     
                     if batteryFraction >= 0 {
-                        BatteryRingView(fraction: batteryFraction, lineWidth: 3)
-                            .frame(width: 25, height: 25)
+                        BatteryRingView(fraction: batteryFraction, lineWidth: 3.5)
+                            .frame(width: 34, height: 34)
                             .padding(.trailing, 10)
                             .transition(.opacity.combined(with: .scale(scale: 0.7)))
                     }
@@ -177,9 +170,22 @@ struct BluetoothHUDView: View {
 private struct BatteryRingView: View {
     let fraction: CGFloat
     var lineWidth: CGFloat = 3.5  // customisable per call site
+    var showsPercentLabel: Bool = true  // set false to show just the ring, no number
 
     private var displayPercent: Int { fraction < 0 ? -1 : Int(fraction * 100) }
-    private var ringColor: Color { fraction < 0 || fraction > 0.2 ? .green : .red }
+
+    // Green 60–100%, yellow 30–59%, red 0–29%. Unknown battery (-1) stays green
+    // rather than implying a low-battery warning for a device we simply
+    // couldn't read a level from.
+    private var ringColor: Color {
+        guard fraction >= 0 else { return .green }
+        switch displayPercent {
+        case 60...:   return .green
+        case 30..<60: return .yellow
+        default:      return .red
+        }
+    }
+
     private var trimEnd: CGFloat { fraction < 0 ? 1.0 : max(0.02, fraction) }
 
     var body: some View {
@@ -193,10 +199,10 @@ private struct BatteryRingView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.5), value: fraction)
 
-            if displayPercent >= 0 {
+            if showsPercentLabel && displayPercent >= 0 {
                 Text("\(displayPercent)")
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.system(size: lineWidth * 3, weight: .semibold, design: .rounded))
+                    .foregroundStyle(ringColor)
             }
         }
     }
