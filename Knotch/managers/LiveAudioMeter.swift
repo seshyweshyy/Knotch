@@ -11,6 +11,37 @@ import Accelerate
 import Combine
 import Foundation
 
+/// Marks short windows during which our own CoreAudio hardware reconfiguration
+/// (tearing down/creating the aggregate device + tap in LiveAudioMeter) is
+/// expected to trigger a spurious camera disconnect/reconnect on Apple Silicon.
+/// WebcamManager checks this to avoid tearing down the capture session for
+/// bounces we caused ourselves, rather than a real unplug.
+enum AudioHardwareReconfig {
+    private static let lock = NSLock()
+    private static var _isLikelyBounce = false
+    private static var resetWorkItem: DispatchWorkItem?
+
+    static var isLikelyBounce: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _isLikelyBounce
+    }
+
+    static func markPending(for duration: TimeInterval = 1.5) {
+        lock.lock()
+        _isLikelyBounce = true
+        lock.unlock()
+
+        resetWorkItem?.cancel()
+        let work = DispatchWorkItem {
+            lock.lock()
+            _isLikelyBounce = false
+            lock.unlock()
+        }
+        resetWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
+    }
+}
+
 @available(macOS 14.2, *)
 final class LiveAudioMeter {
     static let shared = LiveAudioMeter()
@@ -80,6 +111,8 @@ final class LiveAudioMeter {
     // MARK: - Tap lifecycle
 
     private func start(bundleID: String) throws {
+        AudioHardwareReconfig.markPending()
+
         // 1. Find the AudioObjectID of the target process
         let processObjectID = try findProcessObjectID(bundleID: bundleID)
 
@@ -173,6 +206,8 @@ final class LiveAudioMeter {
     }
 
     private func teardownCoreAudio() {
+        AudioHardwareReconfig.markPending()
+
         if aggregateDeviceID != kAudioObjectUnknown {
             AudioDeviceStop(aggregateDeviceID, ioProcID)
             if let procID = ioProcID {

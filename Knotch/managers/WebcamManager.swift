@@ -237,6 +237,10 @@ class WebcamManager: NSObject, ObservableObject {
     }
 
     @objc private func deviceWasDisconnected(notification: Notification) {
+        if AudioHardwareReconfig.isLikelyBounce {
+            NSLog("Camera device was disconnected — ignoring, likely a CoreAudio aggregate device bounce")
+            return
+        }
         NSLog("Camera device was disconnected")
         sessionQueue.async { [weak self] in
             guard let self = self else { return }
