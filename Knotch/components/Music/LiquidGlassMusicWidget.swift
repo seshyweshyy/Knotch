@@ -4,7 +4,7 @@
 //
 //  Lock-screen music widget styled to match the iOS lock screen player:
 //  large album art top-left, song/artist right of art, progress bar full-width,
-//  transport controls centred below. Supports tinted or clear glass via Settings.
+//  transport controls centred below.
 //
 
 import SwiftUI
@@ -12,18 +12,21 @@ import Defaults
 
 enum LockScreenWidgetStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case frosted = "Frosted"
-    case tinted = "Tinted"
     var id: String { rawValue }
 }
+
+// Hit-testing for the album art thumbnail is handled outside SwiftUI/AppKit's
+// normal view dispatch entirely — see AlbumArtHitRegion and the click monitor
+// in LiquidGlassWidgetWindowController. This view only reports its own frame.
 
 struct LiquidGlassMusicWidget: View {
     @ObservedObject var musicManager = MusicManager.shared
     @Default(.playerColorTinting) var playerColorTinting
-    @Default(.lockScreenWidgetStyle) var widgetStyle
     @Default(.lockScreenExpandedAlbumArt) var expandedAlbumArtEnabled
 
     @Binding var isExpanded: Bool
     var artNamespace: Namespace.ID
+    var onArtFrameChange: (CGRect) -> Void = { _ in }
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
@@ -38,10 +41,6 @@ struct LiquidGlassMusicWidget: View {
                 innerContent
                     .glassEffect(.regular, in: .rect(cornerRadius: 22))
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay(topGradientOverlay)
-                    .overlay(topBorderOverlay)
-                    .shadow(color: .white.opacity(isExpanded ? 0.12 : 0), radius: 12, x: 0, y: 0)
-                    .overlay(bottomBorderOverlay)
                     .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
             }
             .onChange(of: musicManager.artFlipSignal) { _, signal in flipArt(signal) }
@@ -52,10 +51,6 @@ struct LiquidGlassMusicWidget: View {
                         .fill(.black.opacity(0.55))
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(topGradientOverlay)
-                .overlay(topBorderOverlay)
-                .shadow(color: .white.opacity(isExpanded ? 0.12 : 0), radius: 12, x: 0, y: 0)
-                .overlay(bottomBorderOverlay)
                 .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
                 .onChange(of: musicManager.artFlipSignal) { _, signal in flipArt(signal) }
         }
@@ -84,7 +79,7 @@ struct LiquidGlassMusicWidget: View {
                         textColor: playerColorTinting
                             ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
                             : Color.white.opacity(0.65),
-                        frameWidth: 180
+                        frameWidth: isExpanded ? 260 : 180
                     )
                     .id("artist-\(isExpanded)")
                 }
@@ -192,23 +187,29 @@ struct LiquidGlassMusicWidget: View {
     }
 
     private var albumArtThumbnail: some View {
-        Button {
-            guard expandedAlbumArtEnabled else { return }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
-                isExpanded = true
-            }
-        } label: {
-            Image(nsImage: displayedArt)
-                .resizable()
-                .aspectRatio(1, contentMode: .fill)
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .matchedGeometryEffect(id: "albumArt", in: artNamespace)
-                .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
-                .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
-                .opacity(isExpanded ? 0 : 1)
-        }
-        .buttonStyle(.plain)
-        .disabled(isExpanded)
+        Image(nsImage: displayedArt)
+            .resizable()
+            .aspectRatio(1, contentMode: .fill)
+            .frame(width: 56, height: 56)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .matchedGeometryEffect(id: "albumArt", in: artNamespace)
+            .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+            .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+            .opacity(isExpanded ? 0 : 1)
+            .allowsHitTesting(false)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            onArtFrameChange(isExpanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
+                        }
+                        .onChange(of: proxy.frame(in: .named("widgetRootSpace"))) { _, newFrame in
+                            onArtFrameChange(isExpanded ? .zero : newFrame)
+                        }
+                        .onChange(of: isExpanded) { _, expanded in
+                            onArtFrameChange(expanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
+                        }
+                }
+            )
     }
 }

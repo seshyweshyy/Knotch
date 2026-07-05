@@ -1100,7 +1100,6 @@ struct Media: View {
     @Default(.hideNotchOption) var hideNotchOption
     @Default(.enableSneakPeek) private var enableSneakPeek
     @Default(.sneakPeekStyles) var sneakPeekStyles
-    @Default(.lockScreenWidgetStyle) var lockScreenWidgetStyle
     @Default(.enableLyrics) var enableLyrics
 
     var body: some View {

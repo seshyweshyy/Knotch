@@ -16,6 +16,19 @@ import SwiftUI
 import Defaults
 import AlbumArtBackgroundWindow
 
+/// Tracks the album art thumbnail's current on-screen frame so a window-level
+/// event monitor can detect taps directly, bypassing AppKit's normal view
+/// hit-testing/dispatch entirely.
+final class AlbumArtHitRegion {
+    static let shared = AlbumArtHitRegion()
+    /// Frame in the SwiftUI top-left-origin coordinate space of the widget root.
+    var frameInWindow: CGRect = .zero
+}
+
+extension Notification.Name {
+    static let albumArtHitRegionTapped = Notification.Name("albumArtHitRegionTapped")
+}
+
 class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
     override init(
         contentRect: NSRect,
@@ -59,7 +72,13 @@ private struct LiquidGlassWidgetRoot: View {
                 // Layer 1: widget pinned to bottom-centre
                 VStack {
                     Spacer()
-                    LiquidGlassMusicWidget(isExpanded: $isExpanded, artNamespace: artNamespace)
+                    LiquidGlassMusicWidget(
+                        isExpanded: $isExpanded,
+                        artNamespace: artNamespace,
+                        onArtFrameChange: { frame in
+                            AlbumArtHitRegion.shared.frameInWindow = frame
+                        }
+                    )
                         .compositingGroup()
                         .shadow(color: .black.opacity(isExpanded ? 0.5 : 0), radius: isExpanded ? 60 : 0, x: 0, y: isExpanded ? 20 : 0)
                         .transition(
@@ -86,8 +105,15 @@ private struct LiquidGlassWidgetRoot: View {
                         .transition(.scale(scale: 0.85).combined(with: .opacity))
                 }
             }
+            .coordinateSpace(name: "widgetRootSpace")
         }
         .ignoresSafeArea()
+            .onReceive(NotificationCenter.default.publisher(for: .albumArtHitRegionTapped)) { _ in
+                guard !isExpanded, Defaults[.lockScreenExpandedAlbumArt] else { return }
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                    isExpanded = true
+                }
+            }
             .animation(.spring(response: 0.4, dampingFraction: 0.82), value: isExpanded)
             .onChange(of: isExpanded) { _, expanded in
                 if expanded {
@@ -118,15 +144,21 @@ private struct LiquidGlassWidgetRoot: View {
 
 // MARK: - Controller
 
+/// NSHostingView that accepts the very first click even while its window
+/// can't become key (KnotchSkyLightWindow always returns canBecomeKey == false).
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 class LiquidGlassWidgetWindowController {
     static let shared = LiquidGlassWidgetWindowController()
     private var window: LiquidGlassWidgetWindow?
+    private var clickMonitor: Any?
 
     private init() {}
 
     // MARK: Show
 
-    // AFTER:
     func show(on screen: NSScreen) {
         if window == nil {
             let win = LiquidGlassWidgetWindow(
@@ -135,7 +167,7 @@ class LiquidGlassWidgetWindowController {
                 backing: .buffered,
                 defer: false
             )
-            win.contentView = NSHostingView(rootView: LiquidGlassWidgetRoot())
+            win.contentView = FirstMouseHostingView(rootView: LiquidGlassWidgetRoot())
             window = win
         }
 
@@ -143,10 +175,12 @@ class LiquidGlassWidgetWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
+        installClickMonitor()
     }
 
     func hide() {
         guard let win = window else { return }
+        removeClickMonitor()
         win.disableSkyLight()
         win.orderOut(nil)
     }
@@ -157,5 +191,38 @@ class LiquidGlassWidgetWindowController {
 
     func updateScreen(_ screen: NSScreen) {
         window?.setFrame(screen.frame, display: true)
+    }
+
+    // MARK: - Direct hit-testing bypass for the album art thumbnail
+
+    private func installClickMonitor() {
+        guard clickMonitor == nil, let win = window else { return }
+
+        // Local monitor: fires for events dispatched to our own windows
+        // regardless of whether Knotch is the frontmost/active app, which
+        // is what we need here since loginwindow is frontmost during lock.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak win] event in
+            guard let win, event.window === win else { return event }
+            let region = AlbumArtHitRegion.shared.frameInWindow
+            guard region != .zero else { return event }
+
+            // NSEvent.locationInWindow is bottom-left-origin AppKit coordinates;
+            // AlbumArtHitRegion stores a top-left-origin SwiftUI frame — flip Y.
+            let windowHeight = win.frame.height
+            let point = CGPoint(x: event.locationInWindow.x, y: windowHeight - event.locationInWindow.y)
+
+            if region.contains(point) {
+                NotificationCenter.default.post(name: .albumArtHitRegionTapped, object: nil)
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func removeClickMonitor() {
+        if let monitor = clickMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickMonitor = nil
+        }
     }
 }

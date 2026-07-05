@@ -173,7 +173,6 @@ extension Defaults.Keys {
         default: MusicControlButton.defaultLayout.count
     )
     static let lockScreenMusicWidget = Key<Bool>("lockScreenMusicWidget", default: true)
-    static let lockScreenWidgetStyle = Key<LockScreenWidgetStyle>("lockScreenWidgetStyle", default: .frosted)
     static let lockScreenExpandedAlbumArt = Key<Bool>("lockScreenExpandedAlbumArt", default: true)
     static let keepAwakeOnExpandedArt = Key<Bool>("keepAwakeOnExpandedArt", default: true)
     
