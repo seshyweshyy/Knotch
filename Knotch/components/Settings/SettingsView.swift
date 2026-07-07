@@ -671,6 +671,7 @@ struct GeneralSettings: View {
                     }
                 }
                 .disabled(showOnAllDisplays)
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "General-External display support")
                 Defaults.Toggle(key: .automaticallySwitchDisplay) {
                     Text("Automatically switch displays")
@@ -698,6 +699,7 @@ struct GeneralSettings: View {
                     }
                     NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "General-Notch height on notch displays")
                 if notchHeightMode == .custom {
                     Slider(value: $notchHeight, in: 15...45, step: 1) {
@@ -720,6 +722,7 @@ struct GeneralSettings: View {
                     }
                     NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "General-Notch height on non-notch displays")
                 if nonNotchHeightMode == .custom {
                     Slider(value: $nonNotchHeight, in: 0...40, step: 1) {
@@ -801,9 +804,9 @@ struct GeneralSettings: View {
                         notchAppearanceStyle = style
                     } label: {
                         VStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(style == .solidBlack ? Color.black : Color.black.opacity(0.45))
+                            NotchStylePreview(style: style)
                                 .frame(width: 100, height: 52)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
                                         .stroke(notchAppearanceStyle == style ? Color.accentColor : Color.clear, lineWidth: 2.5)
@@ -834,7 +837,7 @@ struct GeneralSettings: View {
         } header: {
             Text("Notch appearance")
         } footer: {
-            Text("Semi Liquid Glass shows part of the notch as frosted glass, capped at 80% to keep content legible.")
+            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider ranging to adjust to your liking.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
@@ -1066,11 +1069,13 @@ struct HUD: View {
                         Text(opt.rawValue).tag(opt)
                     }
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "HUD-Option key behaviour")
                 Picker("Progress bar style", selection: $enableGradient) {
                     Text("Hierarchical").tag(false)
                     Text("Gradient").tag(true)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "HUD-Progress bar style")
                 Defaults.Toggle(key: .systemEventIndicatorShadow) {
                     Text("Enable glowing effect")
@@ -1115,6 +1120,7 @@ struct HUD: View {
                         }
                     }
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "HUD-HUD style")
                 Defaults.Toggle(key: .showClosedNotchHUDPercentage) {
                     Text("Show percentage")
@@ -1164,6 +1170,7 @@ struct Media: View {
                 .onChange(of: mediaController) { _, _ in
                     NotificationCenter.default.post(name: Notification.Name.mediaControllerChanged, object: nil)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Media-Music source")
             } header: {
                 Text("Media Source")
@@ -1194,6 +1201,7 @@ struct Media: View {
                         Text(style.rawValue).tag(style)
                     }
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Media-Sneak peek style")
                 HStack {
                     Stepper(value: $waitInterval, in: 0...10, step: 1) {
@@ -1217,6 +1225,7 @@ struct Media: View {
                     Text("Hide for media app only").tag(HideNotchOption.nowPlayingOnly)
                     Text("Never hide").tag(HideNotchOption.never)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Media-Full screen behavior")
             } header: {
                 Text("Media playback live activity")
@@ -1342,6 +1351,7 @@ struct CalendarSettings: View {
                         }
                     }
                 }
+                .tint(Color(nsColor: .labelColor))
             }
             .disabled(!showCalendar)
             Section(header: Text("Calendars")) {
@@ -1474,6 +1484,7 @@ struct Appearance: View {
                         Text(option.rawValue)
                     }
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Appearance-Slider color")
             } header: {
                 Text("Media")
@@ -1493,6 +1504,7 @@ struct Appearance: View {
                                 Text(visualizer.name).tag(visualizer)
                             }
                         }
+                        .tint(Color(nsColor: .labelColor))
                     } else {
                         HStack {
                             Text("Selected animation")
@@ -1624,6 +1636,7 @@ struct Appearance: View {
                     Text("Circle").tag(MirrorShapeEnum.circle)
                     Text("Square").tag(MirrorShapeEnum.rectangle)
                 }
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Advanced-Mirror shape")
             } header: {
                 HStack { Text("Additional features") }
@@ -1897,6 +1910,7 @@ struct Advanced: View {
                         Text("Custom").tag(true)
                     }
                     .pickerStyle(.segmented)
+                    .tint(Color(nsColor: .labelColor))
                     if !useCustomAccentColor {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 12) {
@@ -2159,6 +2173,7 @@ struct Shelf: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Shelf-Shelf activation gesture")
                 if let selectedProvider = selectedProvider {
                     HStack {

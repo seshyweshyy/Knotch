@@ -1,3 +1,9 @@
+//
+//  NotchStylePreview.swift
+//  Knotch
+//
+//
+
 import SwiftUI
 
 /// Miniature live preview of a notch appearance style: a sample wallpaper
@@ -7,28 +13,45 @@ import SwiftUI
 struct NotchStylePreview: View {
     let style: NotchAppearanceStyle
 
+    @State private var wallpaperImage: NSImage?
+
     private var previewNotchShape: NotchShape {
-        NotchShape(topCornerRadius: 3, bottomCornerRadius: 7)
+        NotchShape(topCornerRadius: 6, bottomCornerRadius: 14)
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            // Swap this for whatever your actual bundled sample wallpaper
-            // asset is named — it's the same image already shown in your
-            // Notch Style picker thumbnails.
-            Image("PreviewWallpaper")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+        ZStack {
+            Group {
+                if let wallpaperImage {
+                    Image(nsImage: wallpaperImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    Color.gray.opacity(0.3)
+                }
+            }
 
             previewNotchShape
                 .fill(Color.black)
-                .frame(width: 56, height: 18)
+                .frame(width: 84, height: 34)
                 .overlay {
                     notchMaterial
                         .clipShape(previewNotchShape)
                 }
-                .frame(width: 56, height: 18)
+                .frame(width: 84, height: 34)
         }
+        .task {
+            loadCurrentWallpaper()
+        }
+    }
+
+    private func loadCurrentWallpaper() {
+        guard let screen = NSScreen.main,
+              let url = NSWorkspace.shared.desktopImageURL(for: screen),
+              let image = NSImage(contentsOf: url) else {
+            return
+        }
+        wallpaperImage = image
     }
 
     @ViewBuilder
@@ -41,7 +64,20 @@ struct NotchStylePreview: View {
             if #available(macOS 26, *) {
                 ZStack {
                     KnotchVariant11Glass()
-                    Color.black.opacity(0.35)
+                    Color.black
+                        .mask {
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .black, location: 0),
+                                    .init(color: .black, location: 0.42),
+                                    .init(color: .black.opacity(0.6), location: 0.5),
+                                    .init(color: .clear, location: 0.58),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
                 }
             } else {
                 Color.black

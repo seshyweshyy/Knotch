@@ -123,7 +123,8 @@
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
 		435517E92FF7538700696038 /* LocalSendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517E82FF7537F00696038 /* LocalSendService.swift */; };
 		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
-		435D85EA2FFCD1F500803FF3 /* KnotchVariant11Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */; };
+		435D85EC2FFCDE3E00803FF3 /* NotchStylePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */; };
+		435D85ED2FFCDE5F00803FF3 /* KnotchVariant11Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
@@ -327,6 +328,7 @@
 		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
 		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
 		435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchVariant11Glass.swift; sourceTree = "<group>"; };
+		435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchStylePreview.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
 		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
@@ -819,7 +821,6 @@
 		B186542E2C6F453B000B926A /* Music */ = {
 			isa = PBXGroup;
 			children = (
-				435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */,
 				43130CB52F8F37EE00BA14A1 /* ExpandedAlbumArtView.swift */,
 				432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */,
 				432CB8EE2F8DC2FB00D5FE00 /* LiquidGlassMusicWidget.swift */,
@@ -832,6 +833,8 @@
 		B186542F2C6F455E000B926A /* Notch */ = {
 			isa = PBXGroup;
 			children = (
+				435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */,
+				435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */,
 				43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */,
 				1194E8862EA6DDA7009C82D6 /* KnotchSkyLightWindow.swift */,
 				1160F8D72DD98230006FBB94 /* NotchShape.swift */,
@@ -1135,7 +1138,6 @@
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
 				1153BD932D986E4300979FB0 /* AppleMusicController.swift in Sources */,
 				11C5E3132DFE85970065821E /* SettingsWindowController.swift in Sources */,
-				435D85EA2FFCD1F500803FF3 /* KnotchVariant11Glass.swift in Sources */,
 				110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */,
 				11CFC6652E09C7B300748C80 /* OnboardingFinishView.swift in Sources */,
 				507266DB2C908E2E00A2D00D /* HoverButton.swift in Sources */,
@@ -1148,6 +1150,7 @@
 				1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */,
 				43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */,
 				11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */,
+				435D85EC2FFCDE3E00803FF3 /* NotchStylePreview.swift in Sources */,
 				43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */,
 				14CEF4162C5CAED300855D72 /* KnotchApp.swift in Sources */,
 				437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */,
@@ -1174,6 +1177,7 @@
 				11CFC6612E097F6800748C80 /* PermissionsRequestView.swift in Sources */,
 				14D570D22C5F6C6A0011E668 /* KnotchExtrasMenu.swift in Sources */,
 				11D58EA22E760AE100FA8377 /* ImageService.swift in Sources */,
+				435D85ED2FFCDE5F00803FF3 /* KnotchVariant11Glass.swift in Sources */,
 				432A89E02F8A7C7500237ABF /* BottomRoundedRectangle.swift in Sources */,
 				11F748822ECB07A400F841DB /* MusicControlButton.swift in Sources */,
 				432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */,
