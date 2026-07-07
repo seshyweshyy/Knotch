@@ -729,7 +729,9 @@ struct ContentView: View {
 
             if isTargeted {
                 if vm.notchState == .closed {
-                    coordinator.currentView = .shelf
+                    if !TimerManager.shared.isCreatingTimer {
+                        coordinator.currentView = .shelf
+                    }
                     doOpen()
                 }
                 return
@@ -802,6 +804,9 @@ struct ContentView: View {
                         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
                                 .frame(alignment: .center)
+                        } else if vm.notchState == .closed && !TimerManager.shared.timers.isEmpty && !vm.hideOnClosed {
+                            TimerCompactPill()
+                                .frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight, alignment: .center)
                         } else if vm.notchState == .open {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
@@ -863,6 +868,7 @@ struct ContentView: View {
                         ShelfView()
                     }
                 }
+                .frame(maxWidth: .infinity)
                 .onChange(of: coordinator.currentView) { _, newView in
                     if vm.notchState == .open {
                         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
@@ -981,7 +987,7 @@ struct ContentView: View {
                 return
             }
 
-            if Defaults[.swipeToCycleViews] {
+            if Defaults[.swipeToCycleViews] && !TimerManager.shared.isCreatingTimer {
                 let destination: NotchViews = coordinator.currentView == .home ? .shelf : .home
                 let destinationEnabled = destination == .home
                     ? Defaults[.showHomeView]

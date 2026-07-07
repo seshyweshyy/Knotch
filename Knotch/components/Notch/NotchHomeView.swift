@@ -751,16 +751,31 @@ struct NotchHomeView: View {
     @ObservedObject var webcamManager = WebcamManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @ObservedObject var timerManager = TimerManager.shared
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
         Group {
             if !coordinator.firstLaunch {
-                mainContent
+                if timerManager.isCreatingTimer {
+                    TimerSliderView()
+                        .frame(maxWidth: .infinity)
+                        .transition(.opacity)
+                } else {
+                    mainContent
+                }
             }
         }
+        .frame(maxWidth: .infinity)
         // simplified: use a straightforward opacity transition
         .transition(.opacity)
+        .onChange(of: timerManager.isCreatingTimer) { _, isCreating in
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                vm.notchSize = isCreating
+                    ? CGSize(width: WidgetWidth.timerSlider, height: vm.notchSize.height)
+                    : vm.computedHomeSize
+            }
+        }
     }
 
     private var shouldShowCamera: Bool {

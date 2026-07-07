@@ -305,11 +305,11 @@ final class LiveAudioMeter {
             Int(Float(binCount) * 0.14),   // low-mid   1.2–3.4kHz
             Int(Float(binCount) * 0.30),   // mid       3.4–7.2kHz
             Int(Float(binCount) * 0.58),   // high-mid  7.2–13.9kHz
-            binCount                        // high      13.9–24kHz
+            binCount                       // high      13.9–24kHz
         ]
 
         // Per-band gain: low bands get less gain, high bands get more
-        let bandGains: [Float] = [0.05, 1.0, 3.0, 3.8, 0.05]
+        let bandGains: [Float] = [0.05, 1.0, 2.0, 2.8, 0.05]
 
 
         var newAmplitudes = [Float](repeating: 0, count: bandCount)

@@ -32,6 +32,13 @@ struct TimerCompactPill: View {
     }
 
     private func formatted(_ seconds: TimeInterval) -> String {
-        String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        guard hours > 0 else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
+        return String(format: "%d:%02d:%02d", hours, minutes, secs)
     }
 }

@@ -5,18 +5,18 @@ import Defaults
 struct TimerSliderView: View {
     @ObservedObject var timerManager = TimerManager.shared
 
-    // 👉 Tune the ruler's range/granularity here.
+    // Tune the ruler's range/granularity here
     private let minMinutes: Double = 0
-    private let maxMinutes: Double = 30
+    private let maxMinutes: Double = 120
     private let stepMinutes: Double = 1
 
     @State private var selectedMinutes: Double = 15
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             RulerTimerScrubber(value: $selectedMinutes, range: minMinutes...maxMinutes, step: stepMinutes)
                 .frame(maxWidth: .infinity)
-                .frame(height: 90)
+                .frame(height: 78)
 
             HStack {
                 Button {
@@ -36,20 +36,41 @@ struct TimerSliderView: View {
                 Spacer(minLength: 8)
 
                 Text(timeString(from: selectedMinutes * 60))
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .light, design: .default))
                     .contentTransition(.numericText())
                     .fixedSize()
             }
             .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 1)
-        .padding(.vertical, 16)
+        .padding(.vertical, 11)
         .frame(maxWidth: .infinity)
         .foregroundStyle(.orange)
+        .overlay(alignment: .topTrailing) {
+            Button {
+                timerManager.isCreatingTimer = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.orange)
+                    .padding(6)
+                    .background(Circle().fill(Color.orange.opacity(0.18)))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+            .padding(.trailing, 8)
+        }
     }
 
     private func timeString(from seconds: Double) -> String {
-        String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        guard hours > 0 else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
+        return String(format: "%d:%02d:%02d", hours, minutes, secs)
     }
 }
 // MARK: - Ruler-style scrubber
@@ -81,17 +102,6 @@ private struct RulerTimerScrubber: View {
             ZStack(alignment: .leading) {
                 RulerStrip(minValue: range.lowerBound, maxValue: range.upperBound, step: step, pointsPerStep: pointsPerStep, currentValue: value)
                     .offset(x: stripOffset)
-                    .mask(
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0),
-                                .init(color: .black, location: 0.18),
-                                .init(color: .black, location: 0.82),
-                                .init(color: .clear, location: 1)
-                            ],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
 
                 VStack {
                     Spacer()
@@ -102,6 +112,17 @@ private struct RulerTimerScrubber: View {
                 .frame(width: geo.size.width, alignment: .center)
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.3),
+                        .init(color: .black, location: 0.7),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
             .clipped()
             .contentShape(Rectangle())
             .gesture(
@@ -156,9 +177,14 @@ private struct RulerStrip: View {
     let pointsPerStep: CGFloat
     let currentValue: Double
 
-    // Tune the dial curvature here
-    private let maxAngle: Double = 65        // rotation applied at the edge of the curve, in degrees
+    // Wheel curvature via a single Y-axis rotation — this is what actually
+    // "wraps" the ticks around a cylinder facing the viewer. No extra
+    // vertical scale/offset is stacked on top of it: doing so double-
+    // compresses the glyphs (the rotation already foreshortens them via its
+    // own perspective), which is what made earlier attempts look warped.
+    private let maxAngle: Double = 60        // rotation applied at the edge of the curve, in degrees
     private let curveRange: CGFloat = 220    // px from center over which the full curve ramps up
+    private let maxEdgeBlur: CGFloat = 3      // blur radius at the far edges, for the soft fade-out
 
     var body: some View {
         let selectedIndex = (currentValue - minValue) / step
@@ -168,9 +194,6 @@ private struct RulerStrip: View {
                 let tickValue = minValue + Double(i) * step
                 let isMajor = tickValue.truncatingRemainder(dividingBy: 5) == 0
 
-                // Because the strip is offset so the selected tick always sits at
-                // screen-center, each tick's on-screen distance from center is just
-                // its index distance from the selected tick, in points.
                 let distance = (Double(i) - selectedIndex) * Double(pointsPerStep)
                 let normalized = min(max(distance / Double(curveRange), -1), 1)
                 let angle = normalized * maxAngle
@@ -185,16 +208,16 @@ private struct RulerStrip: View {
                         Color.clear.frame(height: 18)
                     }
                     Rectangle()
-                        .frame(width: 2, height: isMajor ? 26 : 16)
+                        .frame(width: isMajor ? 2.5 : 1.5, height: 22)
                 }
                 .frame(width: pointsPerStep)
                 .foregroundStyle(tickValue <= currentValue ? Color.orange : Color.orange.opacity(0.35))
-                .scaleEffect(y: cos(angle * .pi / 180), anchor: .center)
+                .blur(radius: pow(abs(normalized), 3) * maxEdgeBlur)
                 .rotation3DEffect(
                     .degrees(angle),
                     axis: (x: 0, y: 1, z: 0),
                     anchor: .center,
-                    perspective: 0.35
+                    perspective: 0.3
                 )
                 .opacity(1 - abs(normalized) * 0.55)
             }

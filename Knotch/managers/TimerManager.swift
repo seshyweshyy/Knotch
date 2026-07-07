@@ -42,6 +42,13 @@ final class TimerManager: ObservableObject {
         persist()
     }
 
+    func rename(id: UUID, name: String) {
+        guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        timers[i].name = trimmed.isEmpty ? "Timer" : trimmed
+        persist()
+    }
+
     func pause(id: UUID) {
         guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
         timers[i].remainingAtPause = timers[i].remaining()
@@ -61,6 +68,11 @@ final class TimerManager: ObservableObject {
     func cancel(id: UUID) {
         timers.removeAll { $0.id == id }
         persist()
+        if timers.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                self?.showTimerList = false
+            }
+        }
     }
 
     private func tick() {
@@ -69,6 +81,11 @@ final class TimerManager: ObservableObject {
             expired.forEach(fireCompletionNotification)
             timers.removeAll { $0.isExpired }
             persist()
+            if timers.isEmpty {
+                DispatchQueue.main.async { [weak self] in
+                    self?.showTimerList = false
+                }
+            }
         }
         objectWillChange.send() // keep countdown text updating every second
     }

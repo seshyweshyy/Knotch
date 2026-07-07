@@ -12,6 +12,7 @@ struct KnotchHeader: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @ObservedObject var timerManager = TimerManager.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     var body: some View {
         HStack(spacing: 0) {
@@ -42,6 +43,39 @@ struct KnotchHeader: View {
                         OpenNotchHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon)
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        if Defaults[.showTimer] {
+                            Button(action: {
+                                if timerManager.timers.isEmpty {
+                                    timerManager.isCreatingTimer = true
+                                } else {
+                                    timerManager.showTimerList.toggle()
+                                }
+                            }) {
+                                Capsule()
+                                    .fill(.black)
+                                    .frame(width: timerManager.timers.isEmpty ? 30 : 60, height: 30)
+                                    .overlay {
+                                        if let timer = timerManager.soonestActiveTimer {
+                                            Text(formatted(timer.remaining()))
+                                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.orange)
+                                                .contentTransition(.numericText())
+                                        } else {
+                                            Image(systemName: "timer")
+                                                .foregroundColor(.white)
+                                                .padding()
+                                                .imageScale(.medium)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .popover(isPresented: $timerManager.showTimerList, arrowEdge: .bottom) {
+                                TimerListView()
+                            }
+                            .onChange(of: timerManager.showTimerList) { _, presented in
+                                vm.isMediaOutputPopoverActive = presented
+                            }
+                        }
                         if Defaults[.showMirror] {
                             Button(action: {
                                 vm.toggleCameraPreview()
@@ -58,26 +92,26 @@ struct KnotchHeader: View {
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
-                        if Defaults[.settingsIconInNotch] {
-                            Button(action: {
-                                DispatchQueue.main.async {
-                                    SettingsWindowController.shared.showWindow()
-                                }
-                                
-                            }) {
-                                Capsule()
-                                    .fill(.black)
-                                    .frame(width: 30, height: 30)
-                                    .overlay {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.white)
-                                            .padding()
-                                            .imageScale(.medium)
+                            if Defaults[.settingsIconInNotch] {
+                                Button(action: {
+                                    DispatchQueue.main.async {
+                                        SettingsWindowController.shared.showWindow()
                                     }
+
+                                }) {
+                                    Capsule()
+                                        .fill(.black)
+                                        .frame(width: 30, height: 30)
+                                        .overlay {
+                                            Image(systemName: "gearshape.fill")
+                                                .foregroundColor(.white)
+                                                .padding()
+                                                .imageScale(.medium)
+                                        }
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        if Defaults[.showBatteryIndicator] {
+                            if Defaults[.showBatteryIndicator] {
                             KnotchBatteryView(
                                 batteryWidth: 30,
                                 isCharging: batteryModel.isCharging,
@@ -109,6 +143,17 @@ struct KnotchHeader: View {
         default:
             return false
         }
+    }
+
+    func formatted(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        guard hours > 0 else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
+        return String(format: "%d:%02d:%02d", hours, minutes, secs)
     }
 }
 
