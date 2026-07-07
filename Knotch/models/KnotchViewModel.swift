@@ -139,7 +139,7 @@ class KnotchViewModel: NSObject, ObservableObject {
                 cameraAvailable: self.webcamManager.cameraAvailable
             )
             self.openHomeWidth = w
-            if self.notchState == .open && self.coordinator.currentView == .home {
+            if self.notchState == .open && self.coordinator.currentView == .home && !TimerManager.shared.isCreatingTimer {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
                     self.notchSize = self.computedHomeSize
                 }
@@ -153,7 +153,7 @@ class KnotchViewModel: NSObject, ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] in
                 guard let self else { return }
-                guard self.notchState == .open && self.coordinator.currentView == .home else { return }
+                guard self.notchState == .open && self.coordinator.currentView == .home && !TimerManager.shared.isCreatingTimer else { return }
                 let w = computedOpenNotchHomeWidth(
                     showMusic: self.coordinator.musicLiveActivityEnabled,
                     showCalendar: Defaults[.showCalendar],
@@ -258,7 +258,11 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     func open() {
         guard !isScreenLocked else { return }
-        self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
+        if TimerManager.shared.isCreatingTimer {
+            self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
+        } else {
+            self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
+        }
         self.notchState = .open
         MusicManager.shared.forceUpdate()
     }
@@ -282,6 +286,14 @@ class KnotchViewModel: NSObject, ObservableObject {
         } else if !coordinator.openLastTabByDefault {
             // Ensure we land on an enabled view
             coordinator.currentView = Defaults[.showHomeView] ? .home : .shelf
+        }
+
+        // Never leave the remembered tab pointed at a view the user has disabled
+        // (e.g. "open last tab" kept it on Home after Home view was turned off).
+        if coordinator.currentView == .home && !Defaults[.showHomeView] {
+            coordinator.currentView = .shelf
+        } else if coordinator.currentView == .shelf && !Defaults[.showShelfView] {
+            coordinator.currentView = .home
         }
     }
 

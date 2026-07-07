@@ -360,7 +360,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "General", title: "Swipe to cycle views", keywords: ["swipe", "cycle", "views"], highlightID: "General-Swipe to cycle views"),
             SettingsSearchEntry(tabID: "General", title: "Gesture sensitivity", keywords: ["gesture", "sensitivity", "speed"], highlightID: "General-Gesture sensitivity"),
             // Appearance
-            SettingsSearchEntry(tabID: "Appearance", title: "Always show tabs", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tabs"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Colored spectrogram", keywords: ["color", "spectrogram", "music"], highlightID: "Media-Colored spectrograms"),
             SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
@@ -1385,8 +1385,8 @@ struct Appearance: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Always show tabs", isOn: $coordinator.alwaysShowTabs)
-                    .settingsHighlight(id: "Appearance-Always show tabs")
+                Toggle("Always show tab bar", isOn: $coordinator.alwaysShowTabs)
+                    .settingsHighlight(id: "Appearance-Always show tab bar")
                 Defaults.Toggle(key: .settingsIconInNotch) {
                     Text("Show settings icon in notch")
                 }
@@ -1720,6 +1720,7 @@ struct Triangle: Shape {
 struct Widgets: View {
     @Default(.showCalendar) var showCalendar
     @Default(.showMirror) var showMirror
+    @Default(.showTimer) var showTimer
     @Default(.showHomeView) var showHomeView
     @Default(.showShelfView) var showShelfView
     @Default(.swipeToCycleViews) var swipeToCycleViews
@@ -1777,6 +1778,10 @@ struct Widgets: View {
                 }
                 .disabled(AVCaptureDevice.default(for: .video) == nil)
                 .settingsHighlight(id: "Widgets-Mirror widget")
+                Defaults.Toggle(key: .showTimer) {
+                    Text("Timer")
+                }
+                .settingsHighlight(id: "Widgets-Timer widget")
             } header: {
                 HStack(spacing: 6) {
                     Text("Toggle expanded notch widgets")

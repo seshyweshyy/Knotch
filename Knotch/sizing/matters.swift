@@ -95,6 +95,7 @@ enum WidgetWidth {
     static let spacing: CGFloat  = 12
     static let dividerWidth: CGFloat = 1
     static let horizontalPad: CGFloat = 60  // ContentView's horizontal padding * 2
+    static let timerSlider: CGFloat = 440   // notch width while the timer ruler is showing
 }
 
 func computedOpenNotchHomeWidth(

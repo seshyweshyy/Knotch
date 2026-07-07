@@ -123,6 +123,11 @@
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
 		435517E92FF7538700696038 /* LocalSendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517E82FF7537F00696038 /* LocalSendService.swift */; };
 		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
+		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
+		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
+		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
+		437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */; };
+		437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18FA2FFA964B000E4E6B /* TimerListView.swift */; };
 		4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */; };
 		43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */; };
 		43A141962FA2D8D4007AF2AE /* volume_animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 43A141952FA2D8D4007AF2AE /* volume_animation.json */; };
@@ -320,6 +325,11 @@
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
 		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
 		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
+		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
+		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
+		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
+		437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerCompactPill.swift; sourceTree = "<group>"; };
+		437B18FA2FFA964B000E4E6B /* TimerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerListView.swift; sourceTree = "<group>"; };
 		4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAudioMeter.swift; sourceTree = "<group>"; };
 		43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDLottieView.swift; sourceTree = "<group>"; };
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
@@ -545,6 +555,7 @@
 		1471639B2C5D362F0068B555 /* components */ = {
 			isa = PBXGroup;
 			children = (
+				437B18F52FFA962A000E4E6B /* Timer */,
 				B141C23B2CA5F50900AC8CC8 /* Onboarding */,
 				B1C448992C97375A001F0858 /* Tips */,
 				14C08BB72C8DE49E000F8AA0 /* Calendar */,
@@ -569,6 +580,7 @@
 		147163B52C5D804B0068B555 /* managers */ = {
 			isa = PBXGroup;
 			children = (
+				437B18F32FFA9612000E4E6B /* TimerManager.swift */,
 				4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */,
 				43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */,
 				43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */,
@@ -691,6 +703,7 @@
 		14D570C72C5F38760011E668 /* models */ = {
 			isa = PBXGroup;
 			children = (
+				437B18F12FFA9603000E4E6B /* KnotchTimer.swift */,
 				43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */,
 				11F748812ECB07A400F841DB /* MusicControlButton.swift */,
 				118D1FD02E98FF5F00A2FF63 /* SharingStateManager.swift */,
@@ -726,6 +739,16 @@
 				430263E22F9AEF5D00F9722E /* beatsstudio.mov */,
 			);
 			path = BluetoothAnimations;
+			sourceTree = "<group>";
+		};
+		437B18F52FFA962A000E4E6B /* Timer */ = {
+			isa = PBXGroup;
+			children = (
+				437B18FA2FFA964B000E4E6B /* TimerListView.swift */,
+				437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */,
+				437B18F62FFA9631000E4E6B /* TimerSliderView.swift */,
+			);
+			path = Timer;
 			sourceTree = "<group>";
 		};
 		43A141902FA2B0F7007AF2AE /* Lottie Animations */ = {
@@ -1054,6 +1077,7 @@
 				11EFCD702E8E92D600D0B974 /* ShelfItemViewModel.swift in Sources */,
 				1153BDA72D99B22200979FB0 /* YouTubeMusicController.swift in Sources */,
 				1163988F2DF5CC870052E6AF /* CalendarModel.swift in Sources */,
+				437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */,
 				43130CB62F8F37EF00BA14A1 /* ExpandedAlbumArtView.swift in Sources */,
 				1153BD9A2D98824300979FB0 /* SpotifyController.swift in Sources */,
 				118EBE292E946B3F00D54B5A /* ShareServiceFinder.swift in Sources */,
@@ -1082,6 +1106,7 @@
 				118EBE312E9717DB00D54B5A /* URL+SecurityScoped.swift in Sources */,
 				1132E5162E777C140068732D /* YouTubeMusicAuthentication.swift in Sources */,
 				14A7E5882C64A89C008C1BE9 /* HelloAnimation.swift in Sources */,
+				437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */,
 				111BEA612ED09B1B0079DD4E /* NSScreen+UUID.swift in Sources */,
 				1153BD8F2D986B1F00979FB0 /* MediaControllerProtocol.swift in Sources */,
 				9AB0C6BD2C73C9CB00F7CD30 /* NotchHomeView.swift in Sources */,
@@ -1097,6 +1122,7 @@
 				14D570BC2C5E98EB0011E668 /* generic.swift in Sources */,
 				118EBE272E92DE8400D54B5A /* NSMenu+AssociatedObject.swift in Sources */,
 				B1CE8CFE2C6F659400DD9871 /* KeyboardShortcutsHelper.swift in Sources */,
+				437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */,
 				14D570C62C5F38210011E668 /* KnotchHeader.swift in Sources */,
 				B17266E32C65F7FB0031BA0D /* WhatsNewView.swift in Sources */,
 				14C08BB62C8DE42D000F8AA0 /* CalendarManager.swift in Sources */,
@@ -1120,6 +1146,7 @@
 				11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */,
 				43494D4C2F90EF28002CB138 /* AudioRouteManager.swift in Sources */,
 				14CEF4162C5CAED300855D72 /* KnotchApp.swift in Sources */,
+				437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */,
 				B17266DF2C64DFA00031BA0D /* BundleInfos.swift in Sources */,
 				118EBE3B2E9720C500D54B5A /* ShelfStateViewModel.swift in Sources */,
 				11F747CE2EC75CEA00F841DB /* DragPreviewView.swift in Sources */,
@@ -1151,6 +1178,7 @@
 				14288E0C2C6F8EC000B9F80C /* AppIcons.swift in Sources */,
 				B1C448982C972CC4001F0858 /* ListItemPopover.swift in Sources */,
 				B19016242CC15B5000E3F12E /* Constants.swift in Sources */,
+				437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */,
 				1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */,
 				11CFC6632E09918400748C80 /* MusicControllerSelectionView.swift in Sources */,
 				B1F0A0022E60000100000001 /* BrightnessManager.swift in Sources */,
