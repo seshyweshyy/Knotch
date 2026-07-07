@@ -61,26 +61,38 @@ struct NotchStylePreview: View {
             Color.black
 
         case .semiLiquidGlass:
-            if #available(macOS 26, *) {
-                ZStack {
-                    KnotchVariant11Glass()
-                    Color.black
-                        .mask {
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .black, location: 0),
-                                    .init(color: .black, location: 0.42),
-                                    .init(color: .black.opacity(0.6), location: 0.5),
-                                    .init(color: .clear, location: 0.58),
-                                    .init(color: .clear, location: 1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        }
+            ZStack {
+                // Thumbnail-only stand-in for the real glass material:
+                // a blurred copy of the same wallpaper, since the private
+                // NSGlassEffectView backdrop sampler doesn't reliably
+                // render at this size/depth inside a Form row.
+                Group {
+                    if let wallpaperImage {
+                        Image(nsImage: wallpaperImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .blur(radius: 6)
+                    } else {
+                        Color.gray.opacity(0.5)
+                    }
                 }
-            } else {
+                .frame(width: 84, height: 34)
+                .clipped()
+
                 Color.black
+                    .mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: 0.42),
+                                .init(color: .black.opacity(0.6), location: 0.5),
+                                .init(color: .clear, location: 0.58),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
             }
         }
     }

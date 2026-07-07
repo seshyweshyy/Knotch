@@ -90,6 +90,7 @@ private struct RulerTimerScrubber: View {
     @State private var scrollBaseValue: Double?
     @State private var scrollAccumulated: CGFloat = 0
     @State private var lastHapticIndex: Int?
+    @State private var isMoving = false
 
     var body: some View {
         GeometryReader { geo in
@@ -100,7 +101,7 @@ private struct RulerTimerScrubber: View {
             let stripOffset = geo.size.width / 2 - (CGFloat(selectedIndex) + 0.5) * pointsPerStep
 
             ZStack(alignment: .leading) {
-                RulerStrip(minValue: range.lowerBound, maxValue: range.upperBound, step: step, pointsPerStep: pointsPerStep, currentValue: value)
+                RulerStrip(minValue: range.lowerBound, maxValue: range.upperBound, step: step, pointsPerStep: pointsPerStep, currentValue: value, isMoving: isMoving)
                     .offset(x: stripOffset)
 
                 VStack {
@@ -134,6 +135,7 @@ private struct RulerTimerScrubber: View {
                     .onEnded { _ in
                         dragStartValue = nil
                         lastHapticIndex = nil
+                        withAnimation(.easeOut(duration: 0.3)) { isMoving = false }
                     }
             )
             .background(
@@ -142,6 +144,7 @@ private struct RulerTimerScrubber: View {
                         scrollBaseValue = nil
                         scrollAccumulated = 0
                         lastHapticIndex = nil
+                        withAnimation(.easeOut(duration: 0.3)) { isMoving = false }
                         return
                     }
                     if scrollBaseValue == nil { scrollBaseValue = value }
@@ -161,6 +164,7 @@ private struct RulerTimerScrubber: View {
         let clamped = min(max(stepped, range.lowerBound), range.upperBound)
         guard clamped != value else { return }
         value = clamped
+        isMoving = true
 
         let index = Int((clamped - range.lowerBound) / step)
         if Defaults[.enableHaptics], lastHapticIndex != index {
@@ -176,6 +180,7 @@ private struct RulerStrip: View {
     let step: Double
     let pointsPerStep: CGFloat
     let currentValue: Double
+    let isMoving: Bool
 
     // Wheel curvature via a single Y-axis rotation — this is what actually
     // "wraps" the ticks around a cylinder facing the viewer. No extra
@@ -185,6 +190,11 @@ private struct RulerStrip: View {
     private let maxAngle: Double = 60        // rotation applied at the edge of the curve, in degrees
     private let curveRange: CGFloat = 220    // px from center over which the full curve ramps up
     private let maxEdgeBlur: CGFloat = 3      // blur radius at the far edges, for the soft fade-out
+
+    // As each tick crosses the center pointer it briefly lights up whiter and
+    // glows, then fades back over `highlightRange` — the same "passing under
+    // the reticle" glow iOS uses on its ruler/date pickers.
+    private let highlightRange: CGFloat = 22
 
     var body: some View {
         let selectedIndex = (currentValue - minValue) / step
@@ -198,30 +208,59 @@ private struct RulerStrip: View {
                 let normalized = min(max(distance / Double(curveRange), -1), 1)
                 let angle = normalized * maxAngle
 
+                let highlight = isMoving ? pow(max(0, 1 - abs(distance) / highlightRange), 2) : 0
+                let baseColor = tickValue <= currentValue ? Color.orange : Color.orange.opacity(0.35)
+                let tickColor = baseColor.mixed(with: .white, amount: highlight * 0.85)
+
                 VStack(spacing: 6) {
-                    if isMajor {
-                        Text("\(Int(tickValue))")
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .lineLimit(1)
-                            .fixedSize()
-                    } else {
-                        Color.clear.frame(height: 18)
+                    Group {
+                        if isMajor {
+                            Text("\(Int(tickValue))")
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .lineLimit(1)
+                                .fixedSize()
+                        } else {
+                            Color.clear
+                        }
                     }
+                    .frame(height: 18)
+                    .blur(radius: pow(abs(normalized), 3) * maxEdgeBlur)
+                    .rotation3DEffect(
+                        .degrees(angle),
+                        axis: (x: 0, y: 1, z: 0),
+                        anchor: .center,
+                        perspective: 0.3
+                    )
+
+                    // Ticks stay flat/unrotated so they always sit on one
+                    // straight baseline — only the numbers get the wheel curve.
                     Rectangle()
                         .frame(width: isMajor ? 2.5 : 1.5, height: 22)
                 }
                 .frame(width: pointsPerStep)
-                .foregroundStyle(tickValue <= currentValue ? Color.orange : Color.orange.opacity(0.35))
-                .blur(radius: pow(abs(normalized), 3) * maxEdgeBlur)
-                .rotation3DEffect(
-                    .degrees(angle),
-                    axis: (x: 0, y: 1, z: 0),
-                    anchor: .center,
-                    perspective: 0.3
-                )
+                .foregroundStyle(tickColor)
+                .shadow(color: Color.orange.opacity(highlight * 0.9), radius: 4 * highlight)
                 .opacity(1 - abs(normalized) * 0.55)
+                .animation(.easeOut(duration: 0.3), value: isMoving)
             }
         }
+    }
+}
+
+private extension Color {
+    /// Linearly interpolates toward `other` in device RGB space, used to
+    /// brighten a tick as it passes under the ruler's center pointer.
+    func mixed(with other: Color, amount: Double) -> Color {
+        let amount = min(max(amount, 0), 1)
+        guard amount > 0 else { return self }
+        let c1 = NSColor(self).usingColorSpace(.deviceRGB) ?? NSColor(self)
+        let c2 = NSColor(other).usingColorSpace(.deviceRGB) ?? NSColor(other)
+        return Color(
+            red: c1.redComponent + (c2.redComponent - c1.redComponent) * amount,
+            green: c1.greenComponent + (c2.greenComponent - c1.greenComponent) * amount,
+            blue: c1.blueComponent + (c2.blueComponent - c1.blueComponent) * amount,
+            opacity: c1.alphaComponent + (c2.alphaComponent - c1.alphaComponent) * amount
+        )
     }
 }
 

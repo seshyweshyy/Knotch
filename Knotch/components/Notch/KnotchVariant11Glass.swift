@@ -29,10 +29,6 @@ final class Variant11GlassView: NSView {
         setVariant(11, on: glass)
     }
 
-    /// Calls the private `set_variant:` selector safely. NSGlassEffectView
-    /// takes a primitive Int, so perform(_:with:) can't be used (it only
-    /// passes object pointers) — instead we cast the method's IMP to a
-    /// C function pointer with the correct signature and call it directly.
     private func setVariant(_ variant: Int, on view: NSView) {
         let selector = NSSelectorFromString("set_variant:")
         guard view.responds(to: selector),
@@ -48,6 +44,17 @@ final class Variant11GlassView: NSView {
         super.layout()
         glassView?.frame = bounds
     }
+
+    // Private compositing views like NSGlassEffectView only fully render
+    // once attached to a real window — force a refresh at that point so
+    // the preview doesn't start out faint/half-rendered.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else { return }
+        needsLayout = true
+        glassView?.needsDisplay = true
+        needsDisplay = true
+    }
 }
 
 struct KnotchVariant11Glass: NSViewRepresentable {
@@ -55,5 +62,8 @@ struct KnotchVariant11Glass: NSViewRepresentable {
         Variant11GlassView()
     }
 
-    func updateNSView(_ nsView: Variant11GlassView, context: Context) {}
+    func updateNSView(_ nsView: Variant11GlassView, context: Context) {
+        nsView.needsLayout = true
+        nsView.needsDisplay = true
+    }
 }
