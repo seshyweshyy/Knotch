@@ -99,6 +99,11 @@ enum BluetoothHUDIconStyle: String, Defaults.Serializable, CaseIterable {
     case threeDimensional = "3D"
 }
 
+enum NotchAppearanceStyle: String, Defaults.Serializable, CaseIterable {
+    case solidBlack = "Solid Black"
+    case semiLiquidGlass = "Semi Liquid Glass"
+}
+
 extension Defaults.Keys {
     // MARK: General
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
@@ -133,6 +138,8 @@ extension Defaults.Keys {
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
+    static let notchAppearanceStyle = Key<NotchAppearanceStyle>("notchAppearanceStyle", default: .solidBlack)
+    static let semiLiquidGlassTransition = Key<Double>("semiLiquidGlassTransition", default: 0.5)
     
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)

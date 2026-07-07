@@ -123,6 +123,7 @@
 		43494D4E2F90EF57002CB138 /* MediaOutputVolumeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */; };
 		435517E92FF7538700696038 /* LocalSendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517E82FF7537F00696038 /* LocalSendService.swift */; };
 		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
+		435D85EA2FFCD1F500803FF3 /* KnotchVariant11Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
@@ -325,6 +326,7 @@
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
 		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
 		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
+		435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchVariant11Glass.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
 		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
@@ -817,6 +819,7 @@
 		B186542E2C6F453B000B926A /* Music */ = {
 			isa = PBXGroup;
 			children = (
+				435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */,
 				43130CB52F8F37EE00BA14A1 /* ExpandedAlbumArtView.swift */,
 				432CB8F02F8DCAD000D5FE00 /* LiquidGlassWidgetWindow.swift */,
 				432CB8EE2F8DC2FB00D5FE00 /* LiquidGlassMusicWidget.swift */,
@@ -1132,6 +1135,7 @@
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
 				1153BD932D986E4300979FB0 /* AppleMusicController.swift in Sources */,
 				11C5E3132DFE85970065821E /* SettingsWindowController.swift in Sources */,
+				435D85EA2FFCD1F500803FF3 /* KnotchVariant11Glass.swift in Sources */,
 				110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */,
 				11CFC6652E09C7B300748C80 /* OnboardingFinishView.swift in Sources */,
 				507266DB2C908E2E00A2D00D /* HoverButton.swift in Sources */,

@@ -629,6 +629,8 @@ struct GeneralSettings: View {
     @Default(.gestureSensitivity) var gestureSensitivity
     @Default(.minimumHoverDuration) var minimumHoverDuration
     @Default(.nonNotchHeight) var nonNotchHeight
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.semiLiquidGlassTransition) var semiLiquidGlassTransition
     @Default(.nonNotchHeightMode) var nonNotchHeightMode
     @Default(.notchHeight) var notchHeight
     @Default(.notchHeightMode) var notchHeightMode
@@ -731,6 +733,7 @@ struct GeneralSettings: View {
                 Text("Notch sizing")
             }
 
+            NotchAppearance()
             NotchBehaviour()
             gestureControls()
         }
@@ -786,6 +789,54 @@ struct GeneralSettings: View {
             .multilineTextAlignment(.trailing)
             .foregroundStyle(.secondary)
             .font(.caption)
+        }
+    }
+    
+    @ViewBuilder
+    func NotchAppearance() -> some View {
+        Section {
+            HStack(spacing: 12) {
+                ForEach(NotchAppearanceStyle.allCases, id: \.self) { style in
+                    Button {
+                        notchAppearanceStyle = style
+                    } label: {
+                        VStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(style == .solidBlack ? Color.black : Color.black.opacity(0.45))
+                                .frame(width: 100, height: 52)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(notchAppearanceStyle == style ? Color.accentColor : Color.clear, lineWidth: 2.5)
+                                )
+                            Text(style.rawValue)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 4)
+
+            if notchAppearanceStyle == .semiLiquidGlass {
+                Slider(value: $semiLiquidGlassTransition, in: 0.05...0.8, step: 0.05) {
+                    HStack {
+                        Text("Semi Liquid Glass Amount")
+                        Spacer()
+                        Text("\(Int(semiLiquidGlassTransition * 100))%")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .settingsHighlight(id: "Appearance-Semi liquid glass amount")
+            }
+        } header: {
+            Text("Notch appearance")
+        } footer: {
+            Text("Semi Liquid Glass shows part of the notch as frosted glass, capped at 80% to keep content legible.")
+                .foregroundStyle(.secondary)
+                .font(.caption)
         }
     }
 

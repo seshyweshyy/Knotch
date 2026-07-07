@@ -556,6 +556,31 @@ struct ContentView: View {
 
         return chinWidth
     }
+    
+    private var semiLiquidGlassTransition: Double {
+        Defaults[.semiLiquidGlassTransition]
+    }
+
+    private var semiLiquidGlassGradientMask: LinearGradient {
+        // semiLiquidGlassTransition is the "glass amount" (0 = none, 0.8 = max).
+        // The mask logic below is driven by "black amount" instead, so invert it.
+        let glassAmount: Double = semiLiquidGlassTransition
+        let transition: Double = 1 - glassAmount
+
+        let fadeStart: Double = max(0, transition - 0.15)
+        let fadeEnd: Double = min(1, transition + 0.15)
+        let mid: Double = (fadeStart + fadeEnd) / 2
+
+        let stops: [Gradient.Stop] = [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: fadeStart),
+            .init(color: .black.opacity(0.6), location: mid),
+            .init(color: .clear, location: fadeEnd),
+            .init(color: .clear, location: 1)
+        ]
+
+        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+    }
 
     var body: some View {
         // Calculate scale based on gesture progress only
@@ -576,7 +601,27 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
-                    .background(.black)
+                    .background {
+                        ZStack {
+                            let glassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass
+                                && (vm.notchState == .open || coordinator.sneakPeek.show)
+
+                            if #available(macOS 26, *), glassActive {
+                                ZStack {
+                                    KnotchVariant11Glass()
+                                    Color.black.opacity(0.35)
+                                }
+                                .clipShape(currentNotchShape)
+                            } else {
+                                Color.black
+                            }
+
+                            if #available(macOS 26, *), glassActive {
+                                Color.black
+                                    .mask { semiLiquidGlassGradientMask }
+                            }
+                        }
+                    }
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
