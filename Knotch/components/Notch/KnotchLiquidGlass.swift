@@ -1,12 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Wraps Apple's private NSGlassEffectView pinned to a specific undocumented
-/// "variant" (0–19) via runtime invocation of set_variant: — Atoll's
-/// technique, bypassing the public .glassEffect() API which only exposes
-/// .regular/.clear.
-final class Variant11GlassView: NSView {
+
+final class KnotchLiquidGlassView: NSView {
     private weak var glassView: NSView?
+
+    /// 2 = Dock material
+    var variant: Int = 2
+    var glassCornerRadius: CGFloat = 16.0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -26,7 +27,14 @@ final class Variant11GlassView: NSView {
         glass.autoresizingMask = [.width, .height]
         addSubview(glass)
         glassView = glass
-        setVariant(11, on: glass)
+
+        setVariant(variant, on: glass)
+
+        // Confirmed-valid keys — plain Swift KVC is safe here since these
+        // are real properties, not guesses. No ObjC exception wrapper needed.
+        glass.setValue(0, forKey: "_scrimState")
+        glass.setValue(false, forKey: "_subduedState")
+        glass.setValue(glassCornerRadius, forKey: "cornerRadius")
     }
 
     private func setVariant(_ variant: Int, on view: NSView) {
@@ -45,9 +53,6 @@ final class Variant11GlassView: NSView {
         glassView?.frame = bounds
     }
 
-    // Private compositing views like NSGlassEffectView only fully render
-    // once attached to a real window — force a refresh at that point so
-    // the preview doesn't start out faint/half-rendered.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard window != nil else { return }
@@ -57,12 +62,18 @@ final class Variant11GlassView: NSView {
     }
 }
 
-struct KnotchVariant11Glass: NSViewRepresentable {
-    func makeNSView(context: Context) -> Variant11GlassView {
-        Variant11GlassView()
+struct KnotchLiquidGlass: NSViewRepresentable {
+    var variant: Int = 2
+    var glassCornerRadius: CGFloat = 16.0
+
+    func makeNSView(context: Context) -> KnotchLiquidGlassView {
+        let view = KnotchLiquidGlassView()
+        view.variant = variant
+        view.glassCornerRadius = glassCornerRadius
+        return view
     }
 
-    func updateNSView(_ nsView: Variant11GlassView, context: Context) {
+    func updateNSView(_ nsView: KnotchLiquidGlassView, context: Context) {
         nsView.needsLayout = true
         nsView.needsDisplay = true
     }
