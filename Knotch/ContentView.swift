@@ -510,7 +510,7 @@ struct ContentView: View {
             vm.notchState == .open ? cornerRadiusInsets.opened.top : cornerRadiusInsets.closed.top
         }
 
-    private var currentNotchShape: NotchShape {
+    private var currentBottomCornerRadius: CGFloat {
         let batteryModel = BatteryStatusViewModel.shared
         let isExpandedBatteryBanner = coordinator.expandingView.type == .battery
             && coordinator.expandingView.show
@@ -518,20 +518,21 @@ struct ContentView: View {
             && ((batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn)))
 
-        return NotchShape(
-            topCornerRadius: topCornerRadius,
-            bottomCornerRadius: coordinator.helloAnimationRunning
-                ? 28
-                : vm.notchState == .open
-                    ? cornerRadiusInsets.opened.bottom
-                    : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
-                        ? 22
-                        : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-                            ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
-                                : isExpandedBatteryBanner
-                                    ? 28
-                                    : cornerRadiusInsets.closed.bottom
-        )
+        return coordinator.helloAnimationRunning
+            ? 28
+            : vm.notchState == .open
+                ? cornerRadiusInsets.opened.bottom
+                : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
+                    ? 22
+                    : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
+                        ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
+                            : isExpandedBatteryBanner
+                                ? 28
+                                : cornerRadiusInsets.closed.bottom
+    }
+
+    private var currentNotchShape: NotchShape {
+        NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: currentBottomCornerRadius)
     }
 
     private var computedChinWidth: CGFloat {
@@ -607,10 +608,11 @@ struct ContentView: View {
                                 && (vm.notchState == .open || coordinator.sneakPeek.show)
 
                             if #available(macOS 26, *), glassActive {
-                                ZStack {
-                                    KnotchVariant11Glass()
-                                    Color.black.opacity(0.35)
-                                }
+                                KnotchLiquidGlass(
+                                    topCornerRadius: topCornerRadius,
+                                    bottomCornerRadius: currentBottomCornerRadius
+                                )
+                                Color.black.opacity(0.25)
                                 .clipShape(currentNotchShape)
                             } else {
                                 Color.black

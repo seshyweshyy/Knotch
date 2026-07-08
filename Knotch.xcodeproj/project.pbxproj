@@ -124,7 +124,7 @@
 		435517E92FF7538700696038 /* LocalSendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517E82FF7537F00696038 /* LocalSendService.swift */; };
 		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
 		435D85EC2FFCDE3E00803FF3 /* NotchStylePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */; };
-		435D85ED2FFCDE5F00803FF3 /* KnotchVariant11Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */; };
+		435D85ED2FFCDE5F00803FF3 /* KnotchLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
@@ -327,7 +327,7 @@
 		43494D4D2F90EF56002CB138 /* MediaOutputVolumeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaOutputVolumeViewModel.swift; sourceTree = "<group>"; };
 		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
 		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
-		435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchVariant11Glass.swift; sourceTree = "<group>"; };
+		435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchLiquidGlass.swift; sourceTree = "<group>"; };
 		435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchStylePreview.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
@@ -834,7 +834,7 @@
 			isa = PBXGroup;
 			children = (
 				435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */,
-				435D85E82FFCD02A00803FF3 /* KnotchVariant11Glass.swift */,
+				435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */,
 				43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */,
 				1194E8862EA6DDA7009C82D6 /* KnotchSkyLightWindow.swift */,
 				1160F8D72DD98230006FBB94 /* NotchShape.swift */,
@@ -970,7 +970,7 @@
 					};
 					14CEF4112C5CAED300855D72 = {
 						CreatedOnToolsVersion = 15.4;
-						LastSwiftMigration = 1540;
+						LastSwiftMigration = 2700;
 					};
 				};
 			};
@@ -1177,7 +1177,7 @@
 				11CFC6612E097F6800748C80 /* PermissionsRequestView.swift in Sources */,
 				14D570D22C5F6C6A0011E668 /* KnotchExtrasMenu.swift in Sources */,
 				11D58EA22E760AE100FA8377 /* ImageService.swift in Sources */,
-				435D85ED2FFCDE5F00803FF3 /* KnotchVariant11Glass.swift in Sources */,
+				435D85ED2FFCDE5F00803FF3 /* KnotchLiquidGlass.swift in Sources */,
 				432A89E02F8A7C7500237ABF /* BottomRoundedRectangle.swift in Sources */,
 				11F748822ECB07A400F841DB /* MusicControlButton.swift in Sources */,
 				432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */,
@@ -1455,6 +1455,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = targeted;
 				SWIFT_VERSION = 5.0;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
