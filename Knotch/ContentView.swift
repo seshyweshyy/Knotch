@@ -154,9 +154,17 @@ struct MusicLiveActivity: View {
 private struct BatteryNotchBanner: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @EnvironmentObject var vm: KnotchViewModel
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
 
     private let bannerWidth: CGFloat = 280
     private let bannerContentHeight: CGFloat = 60
+
+    // When glass is active, the genericBanner's middle strip should let the
+    // shared notch background (glass + gradient mask) show through instead
+    // of covering it with an opaque black rectangle.
+    private var glassActive: Bool {
+        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
 
     private enum BannerKind: Equatable {
         case lowBattery
@@ -203,7 +211,7 @@ private struct BatteryNotchBanner: View {
             .frame(width: 110, alignment: .leading)
 
             Rectangle()
-                .fill(.black)
+                .fill(glassActive ? Color.clear : Color.black)
                 .frame(width: vm.closedNotchSize.width + 40)
 
             HStack {
@@ -521,6 +529,16 @@ struct ContentView: View {
             && !vm.hideOnClosed
     }
 
+    // Matches the condition that shows BatteryNotchBanner below — it's
+    // driven by coordinator.expandingView, not coordinator.sneakPeek, so
+    // it isn't covered by glassVisible's sneakPeek.show check either.
+    private var batteryBannerShowing: Bool {
+        coordinator.expandingView.type == .battery
+            && coordinator.expandingView.show
+            && vm.notchState == .closed
+            && Defaults[.showPowerStatusNotifications]
+    }
+
     private var currentBottomCornerRadius: CGFloat {
         let batteryModel = BatteryStatusViewModel.shared
         let isExpandedBatteryBanner = coordinator.expandingView.type == .battery
@@ -632,7 +650,7 @@ struct ContentView: View {
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background {
                         ZStack {
-                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing
+                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing
                             let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
                             let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
@@ -649,7 +667,7 @@ struct ContentView: View {
                             if #available(macOS 26, *), semiGlassActive {
                                 Color.black
                                     .mask {
-                                        musicLiveActivityShowing
+                                        vm.notchState == .closed
                                             ? closedLiquidGlassGradientMask
                                             : semiLiquidGlassGradientMask
                                     }

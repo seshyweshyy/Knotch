@@ -15,6 +15,15 @@ struct InlineHUD: View {
     @Binding var icon: String
     @Binding var hoverAnimation: Bool
     @Binding var gestureProgress: CGFloat
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
+
+    // When glass is active, this middle strip should let the shared notch
+    // background (glass + gradient mask) show through instead of covering
+    // it with an opaque black rectangle.
+    private var glassActive: Bool {
+        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
+
     var body: some View {
         HStack {
             HStack(spacing: 5) {
@@ -61,7 +70,7 @@ struct InlineHUD: View {
             .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
             
             Rectangle()
-                .fill(.black)
+                .fill(glassActive ? Color.clear : Color.black)
                 .frame(width: vm.closedNotchSize.width - 20)
             
             HStack {
