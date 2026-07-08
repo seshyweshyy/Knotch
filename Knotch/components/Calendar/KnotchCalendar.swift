@@ -62,6 +62,15 @@ struct WheelPicker: View {
         .scrollTargetBehavior(.viewAligned)  // Ensures scroll view snaps the centered view
         .safeAreaPadding(.horizontal)
         .sensoryFeedback(.alignment, trigger: haptics)
+        // A two-finger swipe doesn't move the cursor, so onHover's state can lag
+        // behind an active scroll gesture here. Reinforce it explicitly so the
+        // notch's own left/right pan gesture (which shares the window-wide scroll
+        // monitor) reliably stays suppressed while scrubbing through days.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in vm.isHoveringCalendar = true }
+                .onEnded { _ in vm.isHoveringCalendar = false }
+        )
         .onChange(of: scrollPosition) { oldValue, newValue in
             if !byClick {
                 handleScrollChange(newValue: newValue, config: config)

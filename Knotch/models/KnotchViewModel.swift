@@ -37,8 +37,38 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
-    
-    
+
+    // Cosmetic "liquid pull" stretch amount, shared so any gesture surface
+    // inside the notch (not just the notch body itself) can drive it —
+    // e.g. the calendar day scroller's own horizontal drag.
+    @Published var liquidPull: CGFloat = .zero
+    @Published var liquidPullHorizontal: CGFloat = .zero
+
+    private var liquidVerticalFactor: CGFloat {
+        min(liquidPull, liquidPullClamp) / liquidPullClamp
+    }
+
+    private var liquidHorizontalFactor: CGFloat {
+        min(abs(liquidPullHorizontal), liquidPullClamp) / liquidPullClamp
+    }
+
+    var liquidStretchScale: (x: CGFloat, y: CGFloat) {
+        // Kept modest — content is still clipped by the notch's own bezel, so
+        // too large a stretch runs past those bounds and gets cut off.
+        (x: 1 + liquidHorizontalFactor * 0.015, y: 1 + liquidVerticalFactor * 0.05)
+    }
+
+    // Edge opposite the horizontal pull direction, so content only grows
+    // toward wherever the cursor dragged rather than away from it too.
+    var liquidHorizontalAnchorX: CGFloat {
+        liquidPullHorizontal >= 0 ? 0 : 1
+    }
+
+    var liquidBlurRadius: CGFloat {
+        max(liquidVerticalFactor, liquidHorizontalFactor) * 1.5
+    }
+
+
     let webcamManager = WebcamManager.shared
     @Published var isScreenLocked: Bool = false
     @Published var isCameraExpanded: Bool = false
@@ -304,5 +334,26 @@ class KnotchViewModel: NSObject, ObservableObject {
                 close()
             }
         }
+    }
+}
+
+extension View {
+    // Vertical-only stretch/blur, applied per-widget (header, album art, controls
+    // row, etc.) anchored to each widget's own top edge. A down-pull stacks
+    // widgets vertically with no overlap, so each one independently growing
+    // downward from where it already sits still reads as one cohesive group
+    // moving together — no shared anchor needed on this axis.
+    func liquidStretch(_ vm: KnotchViewModel) -> some View {
+        self
+            .scaleEffect(x: 1, y: vm.liquidStretchScale.y, anchor: UnitPoint(x: 0.5, y: 0))
+            .blur(radius: vm.liquidBlurRadius)
+    }
+
+    // Horizontal-only lean, applied ONCE around the whole header+content group
+    // (not per-widget) — side-by-side widgets each stretching from their own
+    // edge looks disjointed, whereas one shared anchor makes everything lean
+    // toward the pull direction together, like the group is being dragged.
+    func liquidHorizontalGroup(_ vm: KnotchViewModel) -> some View {
+        self.scaleEffect(x: vm.liquidStretchScale.x, y: 1, anchor: UnitPoint(x: vm.liquidHorizontalAnchorX, y: 0.5))
     }
 }

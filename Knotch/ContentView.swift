@@ -550,7 +550,9 @@ struct ContentView: View {
         return coordinator.helloAnimationRunning
             ? 28
             : vm.notchState == .open
-                ? cornerRadiusInsets.opened.bottom
+                // Kept small — the album art hugs this corner with minimal padding,
+                // so a larger boost here clips straight into it during a hard pull.
+                ? cornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
                 : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
@@ -696,11 +698,12 @@ struct ContentView: View {
                 
                 mainLayout
                     .frame(
-                        width: vm.notchState == .open ? vm.notchSize.width : nil,
+                        width: vm.notchState == .open ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
                         height: coordinator.helloAnimationRunning
                             ? 150
-                            : (vm.notchState == .open ? vm.notchSize.height : nil)
+                            : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.4 : nil)
                     )
+                    .offset(x: vm.liquidPullHorizontal * 0.25)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -726,6 +729,15 @@ struct ContentView: View {
                         view
                             .panGesture(direction: .up) { translation, phase in
                                 handleUpGesture(translation: translation, phase: phase)
+                            }
+                    }
+                    .conditionalModifier(Defaults[.enableGestures]) { view in
+                        view
+                            .panGesture(direction: .left) { translation, phase in
+                                handleHorizontalGesture(translation: translation, phase: phase, sign: -1)
+                            }
+                            .panGesture(direction: .right) { translation, phase in
+                                handleHorizontalGesture(translation: translation, phase: phase, sign: 1)
                             }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
@@ -912,6 +924,7 @@ struct ContentView: View {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
                                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                                .liquidStretch(vm)
                         } else {
                             Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                         }
@@ -964,12 +977,19 @@ struct ContentView: View {
                 VStack {
                     switch coordinator.currentView {
                     case .home:
+                        // NotchHomeView applies the stretch per-widget internally,
+                        // so each element stays in place relative to its neighbors.
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         ShelfView()
+                            .liquidStretch(vm)
                     }
                 }
-                .frame(maxWidth: .infinity)
+                // Pin content to the un-stretched target height so the liquid pull only
+                // inflates the bezel around it — flexible children like the album art
+                // image would otherwise grow into the offered extra height and get
+                // clipped by the shape's rounded top corner.
+                .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
                 .onChange(of: coordinator.currentView) { _, newView in
                     if vm.notchState == .open {
                         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
@@ -987,6 +1007,11 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
+        // Shared across the whole header+content group so a left/right pull
+        // leans everything together in one direction, instead of each widget
+        // independently bulging from its own edge (which the per-widget
+        // vertical stretch below is fine doing, since nothing overlaps there).
+        .liquidHorizontalGroup(vm)
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
     }
 
@@ -1076,15 +1101,21 @@ struct ContentView: View {
                 return
             }
 
-            if hasTriggeredSwipe {
-                if phase == .ended {
+            if phase == .ended {
+                withAnimation(liquidReleaseSpring) { vm.liquidPull = .zero }
+                if hasTriggeredSwipe {
                     gestureProgress = .zero
+                } else {
+                    withAnimation(animationSpring) { gestureProgress = .zero }
                 }
                 return
             }
 
-            if phase == .ended {
-                withAnimation(animationSpring) { gestureProgress = .zero }
+            // Liquid stretch follows the cursor 1:1 for the whole gesture, even after
+            // the tab switch itself has already committed on the initial movement.
+            vm.liquidPull = min(translation, liquidPullClamp)
+
+            if hasTriggeredSwipe {
                 return
             }
 
@@ -1151,6 +1182,19 @@ struct ContentView: View {
                 haptics.toggle()
             }
         }
+    }
+
+    // Purely cosmetic — left/right swipes don't lead to anything, they just
+    // let the notch stretch sideways like it's being pulled.
+    private func handleHorizontalGesture(translation: CGFloat, phase: NSEvent.Phase, sign: CGFloat) {
+        guard vm.notchState == .open, !vm.isHoveringCalendar else { return }
+
+        if phase == .ended {
+            withAnimation(liquidReleaseSpring) { vm.liquidPullHorizontal = .zero }
+            return
+        }
+
+        vm.liquidPullHorizontal = sign * min(translation, liquidPullClamp)
     }
 }
 

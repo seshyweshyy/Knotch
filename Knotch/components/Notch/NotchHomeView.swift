@@ -19,7 +19,11 @@ struct MusicPlayerView: View {
 
     var body: some View {
         HStack {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
+                .padding(.all, 5)
+                .liquidStretch(vm)
+            // Stretched internally per-row (song info+slider, then the button
+            // row) inside MusicControlsView, so they don't drift apart.
             MusicControlsWithVisualizer()
         }
     }
@@ -79,6 +83,11 @@ struct AlbumArtView: View {
             }
             albumArtButton
         }
+        // Fixed size independent of ambient layout proposals, so the liquid pull
+        // (or anything else that briefly offers more space) can never resize this —
+        // it previously filled whatever height it was given and clipped on the notch's
+        // rounded corner during a hard pull.
+        .frame(width: 132, height: 132)
     }
     
     @State private var blurredArt: NSImage = MusicManager.shared.albumArt
@@ -189,7 +198,9 @@ struct MusicControlsView: View {
     var body: some View {
         VStack(alignment: .leading) {
             songInfoAndSlider
+                .liquidStretch(vm)
             slotToolbar
+                .liquidStretch(vm)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -791,6 +802,7 @@ struct NotchHomeView: View {
             if showMusic {
                 MusicPlayerView(albumArtNamespace: albumArtNamespace)
                     .frame(width: WidgetWidth.music)
+                    .liquidStretch(vm)
             }
             if showCal {
                 if showMusic {
@@ -804,6 +816,7 @@ struct NotchHomeView: View {
                     }
                     .environmentObject(vm)
                     .transition(.opacity)
+                    .liquidStretch(vm)
             }
             if showCam {
                 CameraPreviewView(webcamManager: webcamManager)

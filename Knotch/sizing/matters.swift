@@ -14,6 +14,16 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 let shadowPadding: CGFloat = 20
 
+// Max extra height the notch can stretch to when pulled during the
+// swipe-down tab-switch gesture (clamp * height factor in ContentView).
+let liquidPullMaxStretch: CGFloat = 30
+
+// How far a drag can push liquidPull/liquidPullHorizontal before it clamps.
+let liquidPullClamp: CGFloat = 70
+
+// Bouncy release used everywhere the liquid pull snaps back to zero.
+let liquidReleaseSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
+
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 // Add a wider size specifically for the home view
 let openNotchHomeSize: CGSize = .init(width: 680, height: 190)
@@ -22,7 +32,7 @@ let openNotchHomeSize: CGSize = .init(width: 680, height: 190)
 let windowSize: CGSize = .init(
     width: WidgetWidth.music + WidgetWidth.calendar + WidgetWidth.camera
            + WidgetWidth.spacing * 2 + WidgetWidth.dividerWidth + WidgetWidth.horizontalPad + 40,
-    height: openNotchHomeSize.height + shadowPadding
+    height: openNotchHomeSize.height + shadowPadding + liquidPullMaxStretch
 )
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 39), closed: (top: 6, bottom: 14))
 
