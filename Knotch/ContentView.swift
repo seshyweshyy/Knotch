@@ -510,6 +510,17 @@ struct ContentView: View {
             vm.notchState == .open ? cornerRadiusInsets.opened.top : cornerRadiusInsets.closed.top
         }
 
+    // Matches the condition that shows MusicLiveActivity below — the
+    // persistent closed-state music bar isn't part of vm.notchState == .open
+    // or coordinator.sneakPeek.show, so it needs its own check to get glass.
+    private var musicLiveActivityShowing: Bool {
+        (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
+            && vm.notchState == .closed
+            && (musicManager.isPlaying || !musicManager.isPlayerIdle)
+            && coordinator.musicLiveActivityEnabled
+            && !vm.hideOnClosed
+    }
+
     private var currentBottomCornerRadius: CGFloat {
         let batteryModel = BatteryStatusViewModel.shared
         let isExpandedBatteryBanner = coordinator.expandingView.type == .battery
@@ -583,6 +594,23 @@ struct ContentView: View {
         return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
     }
 
+    // The persistent closed-state music bar is much shorter than the open
+    // notch, so the user-configurable semiLiquidGlassGradientMask (tuned for
+    // the open state) reads as mostly-glass there. This pushes the black
+    // region further down, keeping only a thin hint of glass at the bottom
+    // edge, independent of the Semi Liquid Glass Amount slider.
+    private var closedLiquidGlassGradientMask: LinearGradient {
+        let stops: [Gradient.Stop] = [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: 0.7),
+            .init(color: .black.opacity(0.6), location: 0.8),
+            .init(color: .clear, location: 0.9),
+            .init(color: .clear, location: 1)
+        ]
+
+        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+    }
+
     var body: some View {
         // Calculate scale based on gesture progress only
         let gestureScale: CGFloat = {
@@ -604,23 +632,31 @@ struct ContentView: View {
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background {
                         ZStack {
-                            let glassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass
-                                && (vm.notchState == .open || coordinator.sneakPeek.show)
+                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing
+                            let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
+                            let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
-                            if #available(macOS 26, *), glassActive {
+                            if #available(macOS 26, *), semiGlassActive || fullGlassActive {
                                 KnotchLiquidGlass(
                                     topCornerRadius: topCornerRadius,
                                     bottomCornerRadius: currentBottomCornerRadius
                                 )
                                 Color.black.opacity(0.25)
-                                .clipShape(currentNotchShape)
                             } else {
                                 Color.black
                             }
 
-                            if #available(macOS 26, *), glassActive {
+                            if #available(macOS 26, *), semiGlassActive {
                                 Color.black
-                                    .mask { semiLiquidGlassGradientMask }
+                                    .mask {
+                                        musicLiveActivityShowing
+                                            ? closedLiquidGlassGradientMask
+                                            : semiLiquidGlassGradientMask
+                                    }
+                            }
+
+                            if #available(macOS 26, *), fullGlassActive {
+                                Color.black.opacity(0.25)
                             }
                         }
                     }

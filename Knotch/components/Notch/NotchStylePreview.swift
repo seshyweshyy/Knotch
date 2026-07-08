@@ -94,6 +94,27 @@ struct NotchStylePreview: View {
                         )
                     }
             }
+
+        case .fullLiquidGlass:
+            ZStack {
+                // Same thumbnail-only stand-in as semiLiquidGlass above, but
+                // uniformly darkened instead of gradient-masked, matching
+                // the flat Color.black.opacity(0.25) used over the real glass.
+                Group {
+                    if let wallpaperImage {
+                        Image(nsImage: wallpaperImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .blur(radius: 6)
+                    } else {
+                        Color.gray.opacity(0.5)
+                    }
+                }
+                .frame(width: 84, height: 34)
+                .clipped()
+
+                Color.black.opacity(0.25)
+            }
         }
     }
 }
@@ -102,6 +123,7 @@ struct NotchStylePreview: View {
     HStack {
         NotchStylePreview(style: .solidBlack)
         NotchStylePreview(style: .semiLiquidGlass)
+        NotchStylePreview(style: .fullLiquidGlass)
     }
     .frame(width: 300, height: 100)
 }

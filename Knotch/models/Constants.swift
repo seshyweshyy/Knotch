@@ -102,6 +102,7 @@ enum BluetoothHUDIconStyle: String, Defaults.Serializable, CaseIterable {
 enum NotchAppearanceStyle: String, Defaults.Serializable, CaseIterable {
     case solidBlack = "Solid Black"
     case semiLiquidGlass = "Semi Liquid Glass"
+    case fullLiquidGlass = "Full Liquid Glass"
 }
 
 extension Defaults.Keys {
