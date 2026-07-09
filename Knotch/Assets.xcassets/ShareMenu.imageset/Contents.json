@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "shareappicon-iOS-Dark-1024@1x.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
