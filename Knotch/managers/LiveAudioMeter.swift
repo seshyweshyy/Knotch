@@ -309,7 +309,7 @@ final class LiveAudioMeter {
         ]
 
         // Per-band gain: low bands get less gain, high bands get more
-        let bandGains: [Float] = [0.05, 1.0, 2.0, 2.8, 0.05]
+        let bandGains: [Float] = [0.05, 0.5, 1.2, 2.8, 0.05]
 
 
         var newAmplitudes = [Float](repeating: 0, count: bandCount)

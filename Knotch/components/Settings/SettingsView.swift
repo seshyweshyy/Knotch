@@ -359,6 +359,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "General", title: "Close gesture", keywords: ["close", "gesture", "swipe"], highlightID: "General-Close gesture"),
             SettingsSearchEntry(tabID: "General", title: "Swipe to cycle views", keywords: ["swipe", "cycle", "views"], highlightID: "General-Swipe to cycle views"),
             SettingsSearchEntry(tabID: "General", title: "Gesture sensitivity", keywords: ["gesture", "sensitivity", "speed"], highlightID: "General-Gesture sensitivity"),
+            SettingsSearchEntry(tabID: "General", title: "Notch appearance", keywords: ["notch appearance", "solid black", "semi liquid glass", "full liquid glass", "style"], highlightID: "General-Notch appearance style"),
+            SettingsSearchEntry(tabID: "General", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
             // Appearance
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
@@ -822,6 +824,7 @@ struct GeneralSettings: View {
                 Spacer()
             }
             .padding(.vertical, 4)
+            .settingsHighlight(id: "General-Notch appearance style")
 
             if notchAppearanceStyle == .semiLiquidGlass {
                 Slider(value: $semiLiquidGlassTransition, in: 0.05...0.8, step: 0.05) {

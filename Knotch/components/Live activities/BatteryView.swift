@@ -95,12 +95,13 @@ struct BatteryView: View {
                             .lineLimit(1)
                             .foregroundColor(.black)
 
-                        if percentageIconStatus != "" && Int32(levelBattery) < 100 {
+                        if percentageIconStatus != "" {
                             Image(percentageIconStatus)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .foregroundColor(.black)
                                 .frame(width: bodyHeight * 0.8, height: bodyHeight * 0.8)
+                                .offset(x: bodyHeight * 0.05)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

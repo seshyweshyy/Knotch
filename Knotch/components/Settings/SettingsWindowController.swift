@@ -122,15 +122,17 @@ class SettingsWindowController: NSWindowController {
     func showWindow() {
         loadContentIfNeeded()
         
-        // If window is already visible, bring it to front
+        // If window is already visible, bring it (and the app) to the front
         if window?.isVisible == true {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
             window?.makeKeyAndOrderFront(nil)
             return
         }
-        
+
         window?.center()
         window?.makeKeyAndOrderFront(nil)
-        
+
         // Defer activation policy change to avoid a CPU spike on open
         DispatchQueue.main.async {
             NSApp.setActivationPolicy(.regular)

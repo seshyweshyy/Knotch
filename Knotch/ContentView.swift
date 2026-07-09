@@ -721,7 +721,8 @@ struct ContentView: View {
                         width: vm.notchState == .open ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
                         height: coordinator.helloAnimationRunning
                             ? 150
-                            : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.4 : nil)
+                            : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.4 : nil),
+                        alignment: .top
                     )
                     .offset(x: vm.liquidPullHorizontal * 0.25)
                     .conditionalModifier(true) { view in

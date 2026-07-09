@@ -95,9 +95,7 @@ struct FileShareView: View {
     private var dropArea: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 32)
-                .fill(
-                    LinearGradient(colors: [Color.black.opacity(0.35), Color.black.opacity(0.20)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
+                .fill(Color.clear)
                 .overlay(
                     RoundedRectangle(cornerRadius: 32)
                         .stroke(
@@ -107,7 +105,6 @@ struct FileShareView: View {
                             style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
                         )
                 )
-                .shadow(color: Color.black.opacity(0.6), radius: 6, x: 0, y: 2)
 
             // Content
             VStack(spacing: 5) {

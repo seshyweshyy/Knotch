@@ -69,7 +69,7 @@ class AudioSpectrum: NSView {
             updateBars(amplitudes: nil)
             meterCancellable = LiveAudioMeter.shared.$amplitudes
                 .receive(on: DispatchQueue.main)
-                .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
+                .throttle(for: .milliseconds(70), scheduler: DispatchQueue.main, latest: true)
                 .sink { [weak self] amplitudes in
                     guard let self, self.currentIsPlaying else { return }
                     let hasSignal = amplitudes.contains { $0 > 0.01 }

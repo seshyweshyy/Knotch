@@ -141,7 +141,11 @@ struct AlbumArtView: View {
     private var albumArtImage: some View {
         Image(nsImage: displayedArt)
             .resizable()
-            .aspectRatio(1, contentMode: .fit)
+            // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
+            // ratio, not 1:1 — scale to fill and let the frame + clip crop it
+            // to a centered square instead of squashing it into one.
+            .scaledToFill()
+            .frame(width: 132, height: 132)
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipped()
             .clipShape(
