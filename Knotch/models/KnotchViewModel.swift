@@ -288,6 +288,11 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     func open() {
         guard !isScreenLocked else { return }
+        // openHomeWidth is normally kept current by a reactive observer, but that
+        // observer can lag by a beat behind state that just changed (e.g. right as
+        // the notch opens) — recomputing it fresh here avoids opening to a stale
+        // width and then visibly correcting to the right one a moment later.
+        refreshOpenHomeWidth()
         if TimerManager.shared.isCreatingTimer {
             self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
         } else {
@@ -295,6 +300,16 @@ class KnotchViewModel: NSObject, ObservableObject {
         }
         self.notchState = .open
         MusicManager.shared.forceUpdate()
+    }
+
+    private func refreshOpenHomeWidth() {
+        openHomeWidth = computedOpenNotchHomeWidth(
+            showMusic: coordinator.musicLiveActivityEnabled,
+            showCalendar: Defaults[.showCalendar],
+            showMirror: Defaults[.showMirror],
+            cameraExpanded: isCameraExpanded,
+            cameraAvailable: webcamManager.cameraAvailable
+        )
     }
 
     func close() {

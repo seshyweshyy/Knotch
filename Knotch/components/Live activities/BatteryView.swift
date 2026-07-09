@@ -13,13 +13,26 @@ struct BatteryView: View {
 
     var icon: String = "battery.0"
 
-    /// Determines the icon to display when charging.
+    /// Determines the icon to display when charging (used for the white glyph shown when percentage-in-icon is off).
     var iconStatus: String {
         if isCharging {
             return "bolt"
         }
         else if isPluggedIn {
             return "plug"
+        }
+        else {
+            return ""
+        }
+    }
+
+    /// Determines the icon to display inside the percentage icon (black, when "show battery percentage as icon" is on).
+    var percentageIconStatus: String {
+        if isCharging {
+            return "boltblack"
+        }
+        else if isPluggedIn {
+            return "plugblack"
         }
         else {
             return ""
@@ -75,15 +88,15 @@ struct BatteryView: View {
                 }
 
                 if showsPercentageInIcon {
-                    HStack(spacing: -bodyHeight * 0.08) {
+                    HStack(spacing: -bodyHeight * 0.2) {
                         Text("\(Int32(levelBattery))")
                             .font(.system(size: bodyHeight * 0.9, weight: .bold, design: .rounded))
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
                             .foregroundColor(.black)
 
-                        if iconStatus != "" && Int32(levelBattery) < 100 {
-                            Image(iconStatus)
+                        if percentageIconStatus != "" && Int32(levelBattery) < 100 {
+                            Image(percentageIconStatus)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .foregroundColor(.black)

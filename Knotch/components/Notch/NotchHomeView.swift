@@ -811,9 +811,11 @@ struct NotchHomeView: View {
                 CalendarView()
                     .frame(width: showCam ? WidgetWidth.calendarWithCam : WidgetWidth.calendar)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .onHover { isHovering in
-                        vm.isHoveringCalendar = isHovering
-                    }
+                    .background(
+                        StableHoverTracker { isHovering in
+                            vm.isHoveringCalendar = isHovering
+                        }
+                    )
                     .environmentObject(vm)
                     .transition(.opacity)
                     .liquidStretch(vm)

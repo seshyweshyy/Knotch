@@ -491,7 +491,7 @@ struct ContentView: View {
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
-    
+
     @State private var hasTriggeredSwipe = false
     @State private var lockedView: NotchViews? = nil
 
@@ -537,6 +537,26 @@ struct ContentView: View {
             && coordinator.expandingView.show
             && vm.notchState == .closed
             && Defaults[.showPowerStatusNotifications]
+    }
+
+    // Matches the condition that shows TimerCompactPill below — the
+    // persistent closed-state timer pill isn't part of vm.notchState == .open
+    // or coordinator.sneakPeek.show, so it needs its own check to get glass.
+    private var timerLiveActivityShowing: Bool {
+        vm.notchState == .closed
+            && !TimerManager.shared.timers.isEmpty
+            && !vm.hideOnClosed
+    }
+
+    // Matches the condition that shows LockNotchOverlay below — it's driven
+    // by vm.isScreenLocked/isUnlockAnimating, not coordinator.sneakPeek, so
+    // it isn't covered by glassVisible's sneakPeek.show check either.
+    private var lockActivityShowing: Bool {
+        let hudIsActive = coordinator.sneakPeek.show
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .bluetoothAudio
+            && vm.notchState == .closed
+        return (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive
     }
 
     private var currentBottomCornerRadius: CGFloat {
@@ -652,7 +672,7 @@ struct ContentView: View {
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background {
                         ZStack {
-                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing
+                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || lockActivityShowing
                             let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
                             let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
@@ -661,7 +681,6 @@ struct ContentView: View {
                                     topCornerRadius: topCornerRadius,
                                     bottomCornerRadius: currentBottomCornerRadius
                                 )
-                                Color.black.opacity(0.25)
                             } else {
                                 Color.black
                             }
@@ -673,6 +692,7 @@ struct ContentView: View {
                                             ? closedLiquidGlassGradientMask
                                             : semiLiquidGlassGradientMask
                                     }
+                                Color.black.opacity(0.25)
                             }
 
                             if #available(macOS 26, *), fullGlassActive {
@@ -705,11 +725,12 @@ struct ContentView: View {
                     )
                     .offset(x: vm.liquidPullHorizontal * 0.25)
                     .conditionalModifier(true) { view in
-                        let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
+                        // Same bouncy spring as the liquid pull's release snap-back,
+                        // so opening the notch has that same overshoot/bounce feel.
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-                        
+
                         return view
-                            .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
+                            .animation(vm.notchState == .open ? liquidReleaseSpring : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                     }
                     .contentShape(Rectangle())
@@ -817,6 +838,11 @@ struct ContentView: View {
                             Label("Quit Knotch", systemImage: "xmark.rectangle")
                         }
                     }
+                    // Explicitly centered within the full (fixed) window width, rather
+                    // than relying on the ambient VStack/ZStack alignment above — the
+                    // notch was drifting off-center slightly as its width animated
+                    // between closed and open sizes.
+                    .frame(width: windowSize.width, alignment: .center)
                 if vm.chinHeight > 0 {
                     Rectangle()
                         .fill(Color.black.opacity(0.01))
@@ -919,7 +945,7 @@ struct ContentView: View {
                                 .frame(alignment: .center)
                         } else if vm.notchState == .closed && !TimerManager.shared.timers.isEmpty && !vm.hideOnClosed {
                             TimerCompactPill()
-                                .frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight, alignment: .center)
+                                .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
                         } else if vm.notchState == .open {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
@@ -1033,7 +1059,7 @@ struct ContentView: View {
 
     private func doOpen() {
         guard !vm.isScreenLocked else { return }
-        withAnimation(animationSpring) {
+        withAnimation(liquidReleaseSpring) {
             vm.open()
         }
     }
@@ -1113,7 +1139,10 @@ struct ContentView: View {
 
             // Liquid stretch follows the cursor 1:1 for the whole gesture, even after
             // the tab switch itself has already committed on the initial movement.
-            vm.liquidPull = min(translation, liquidPullClamp)
+            // Clamped tighter while the timer ruler is up — its content doesn't
+            // fill the extra height, so a full stretch left a visible gap below it.
+            let pullClamp = TimerManager.shared.isCreatingTimer ? liquidPullClamp * 0.3 : liquidPullClamp
+            vm.liquidPull = min(translation, pullClamp)
 
             if hasTriggeredSwipe {
                 return

@@ -12,6 +12,8 @@ import SwiftUI
 let downloadSneakSize: CGSize = .init(width: 65, height: 1)
 let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
+let timerCompactPillExtraWidth: CGFloat = 125
+
 let shadowPadding: CGFloat = 20
 
 // Max extra height the notch can stretch to when pulled during the

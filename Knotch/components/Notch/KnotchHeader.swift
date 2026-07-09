@@ -51,22 +51,28 @@ struct KnotchHeader: View {
                                     timerManager.showTimerList.toggle()
                                 }
                             }) {
-                                Capsule()
-                                    .fill(.black)
-                                    .frame(width: timerManager.timers.isEmpty ? 30 : 60, height: 30)
-                                    .overlay {
-                                        if let timer = timerManager.soonestActiveTimer {
-                                            Text(formatted(timer.remaining()))
-                                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                                .foregroundColor(.orange)
-                                                .contentTransition(.numericText())
-                                        } else {
+                                if let timer = timerManager.soonestActiveTimer {
+                                    // Sized to hug the digits — a fixed-width capsule left a
+                                    // black (invisible) gap before the next icon.
+                                    Text(formatted(timer.remaining()))
+                                        .font(.system(size: 13, weight: .light, design: .rounded))
+                                        .foregroundColor(.orange)
+                                        .contentTransition(.numericText())
+                                        .fixedSize()
+                                        .padding(.horizontal, 10)
+                                        .frame(height: 30)
+                                        .background(Capsule().fill(.black))
+                                } else {
+                                    Capsule()
+                                        .fill(.black)
+                                        .frame(width: 30, height: 30)
+                                        .overlay {
                                             Image(systemName: "timer")
                                                 .foregroundColor(.white)
                                                 .padding()
                                                 .imageScale(.medium)
                                         }
-                                    }
+                                }
                             }
                             .buttonStyle(PlainButtonStyle())
                             .popover(isPresented: $timerManager.showTimerList, arrowEdge: .bottom) {
