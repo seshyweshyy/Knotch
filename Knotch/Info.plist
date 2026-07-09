@@ -14,7 +14,7 @@
 	<key>SUPublicEDKey</key>
 	<string>NfT6BbaZWutp9rg2XfAbT3XoBl9ooB9XYJjmDS+4MQk=</string>
 	<key>SUFeedURL</key>
-	<string>https://seshyweshyy.github.io/Knotch/updater/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/appcast.xml</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Knotch uses Bluetooth to read the battery level of your connected AirPods and other accessories.</string>
 	<key>UTImportedTypeDeclarations</key>
