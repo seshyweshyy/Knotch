@@ -99,7 +99,8 @@ class QuickShareService: ObservableObject {
         }
 
         if !providers.contains(where: { $0.id == "Share Menu" }) {
-            providers.append(QuickShareProvider(id: "Share Menu", imageData: nil, supportsRawText: true))
+            let icon = NSImage(named: "ShareMenu").flatMap { Self.resizedIconData(from: $0) }
+            providers.append(QuickShareProvider(id: "Share Menu", imageData: icon, supportsRawText: true))
         }
 
         self.availableProviders = providers

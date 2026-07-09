@@ -196,7 +196,7 @@ struct FileShareView: View {
 
             Picker("Quick Share Service", selection: $quickShareProvider) {
                 ForEach(quickShare.availableProviders, id: \.id) { provider in
-                    QuickShareProviderRow(provider: provider)
+                    QuickShareProviderRow(provider: provider, iconSize: 25)
                         .tag(provider.id)
                 }
             }

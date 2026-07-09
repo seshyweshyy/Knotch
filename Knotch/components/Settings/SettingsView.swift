@@ -2168,7 +2168,7 @@ struct Shelf: View {
             Section {
                 Picker("Quick Share Service", selection: $quickShareProvider) {
                     ForEach(quickShareService.availableProviders, id: \.id) { provider in
-                        QuickShareProviderRow(provider: provider)
+                        QuickShareProviderRow(provider: provider, iconSize: 25)
                             .tag(provider.id)
                     }
                 }
