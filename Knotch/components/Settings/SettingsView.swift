@@ -837,7 +837,7 @@ struct GeneralSettings: View {
         } header: {
             Text("Notch appearance")
         } footer: {
-            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider ranging to adjust to your liking.")
+            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider to adjust to your liking.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

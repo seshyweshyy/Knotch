@@ -3,11 +3,17 @@
 //  Knotch
 //
 
+import Defaults
 import SwiftUI
 
 struct TimerCompactPill: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var timerManager = TimerManager.shared
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
+
+    private var activeColor: Color {
+        notchAppearanceStyle == .fullLiquidGlass ? .white : .orange
+    }
 
     var body: some View {
         if let timer = timerManager.soonestActiveTimer {
@@ -19,15 +25,15 @@ struct TimerCompactPill: View {
 
                     ZStack {
                         Circle()
-                            .stroke(Color.orange.opacity(0.25), lineWidth: 2)
+                            .stroke(activeColor.opacity(0.25), lineWidth: 2)
                         // Drains as the timer counts down, rather than filling up.
                         Circle()
                             .trim(from: 0, to: progress)
-                            .stroke(Color.orange, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .stroke(activeColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         // Dial tick riding the drained arc's leading edge.
                         Capsule()
-                            .fill(Color.orange)
+                            .fill(activeColor)
                             .frame(width: 2, height: 5)
                             .offset(y: -3)
                             .frame(width: 16, height: 16)
@@ -44,7 +50,7 @@ struct TimerCompactPill: View {
                     .font(.system(size: 14, weight: .light, design: .rounded))
                     .contentTransition(.numericText())
             }
-            .foregroundStyle(.orange)
+            .foregroundStyle(activeColor)
             .padding(.horizontal, 4)
             .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
         }

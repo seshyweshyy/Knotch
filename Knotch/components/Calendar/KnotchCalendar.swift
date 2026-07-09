@@ -244,21 +244,21 @@ struct CalendarView: View {
                 }
                 .buttonStyle(CalendarHeaderButtonStyle())
 
-                ZStack(alignment: .top) {
-                    WheelPicker(selectedDate: $selectedDate, config: Config())
-                    HStack(alignment: .top) {
-                        LinearGradient(
-                            colors: [Color.black, .clear], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
-                        Spacer()
-                        LinearGradient(
-                            colors: [.clear, Color.black], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
-                    }
-                }
-                .frame(height: 52)
+                // Alpha-mask the edges instead of overlaying a black gradient — an
+                // overlay paints opaque color on top (fine on solid black, but a
+                // visible smear over liquid glass); a mask fades the picker's own
+                // transparency, letting whatever's behind it show through instead.
+                WheelPicker(selectedDate: $selectedDate, config: Config())
+                    .frame(height: 52)
+                    .mask(
+                        HStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                                .frame(width: 20)
+                            Rectangle().fill(Color.black)
+                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                .frame(width: 20)
+                        }
+                    )
             }
 
             let filteredEvents = EventListView.filteredEvents(

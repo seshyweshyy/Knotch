@@ -14,6 +14,7 @@ struct KnotchHeader: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var timerManager = TimerManager.shared
     @StateObject var tvm = ShelfStateViewModel.shared
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -52,19 +53,16 @@ struct KnotchHeader: View {
                                 }
                             }) {
                                 if let timer = timerManager.soonestActiveTimer {
-                                    // Sized to hug the digits — a fixed-width capsule left a
-                                    // black (invisible) gap before the next icon.
                                     Text(formatted(timer.remaining()))
                                         .font(.system(size: 13, weight: .light, design: .rounded))
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(notchAppearanceStyle == .fullLiquidGlass ? .white : .orange)
                                         .contentTransition(.numericText())
                                         .fixedSize()
                                         .padding(.horizontal, 10)
                                         .frame(height: 30)
-                                        .background(Capsule().fill(.black))
                                 } else {
                                     Capsule()
-                                        .fill(.black)
+                                        .fill(.clear)
                                         .frame(width: 30, height: 30)
                                         .overlay {
                                             Image(systemName: "timer")
@@ -87,7 +85,7 @@ struct KnotchHeader: View {
                                 vm.toggleCameraPreview()
                             }) {
                                 Capsule()
-                                    .fill(.black)
+                                    .fill(.clear)
                                     .frame(width: 30, height: 30)
                                     .overlay {
                                         Image(systemName: "web.camera")
@@ -106,7 +104,7 @@ struct KnotchHeader: View {
 
                                 }) {
                                     Capsule()
-                                        .fill(.black)
+                                        .fill(.clear)
                                         .frame(width: 30, height: 30)
                                         .overlay {
                                             Image(systemName: "gearshape.fill")
