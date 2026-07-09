@@ -3,15 +3,6 @@
     <channel>
         <title>Knotch</title>
         <item>
-            <title>1.7.0</title>
-            <pubDate>Thu, 09 Jul 2026 07:29:42 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>18</sparkle:version>
-            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.0/Knotch.v.1.7.0.zip" length="13597389" type="application/octet-stream" sparkle:edSignature="ryS5nvJUYbIdCssvwsieO/1wO4i+NruYcd5rzZBQ2OONDqar1NmkImGaK/mtdls8iU564uEaM4BfPqz67VKiBQ=="/>
-        </item>
-        <item>
             <title>1.6.7</title>
             <pubDate>Thu, 02 Jul 2026 12:29:45 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
