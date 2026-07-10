@@ -43,26 +43,10 @@ private struct MusicControlsWithVisualizer: View {
                 .compositingGroup()
 
             if homeViewVisualizer && musicManager.isPlaying {
-                ZStack {
-                    Image(nsImage: musicManager.albumArt)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 36, height: 22)
-                        .blur(radius: 5)
-                        .saturation(1.1)
-                        .brightness(0.01)
-                    Color.white.opacity(0.05)
-                        .frame(width: 36, height: 22)
-                }
-                .mask {
-                    AudioSpectrumView(isPlaying: .constant(musicManager.isPlaying))
-                        .frame(width: 24, height: 14)
-                }
-                .frame(width: 24, height: 14)
-                .clipped()
-                .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                .padding(.trailing, 4)
-                .padding(.top, 16)
+                AlbumArtWaveformMask(albumArt: musicManager.albumArt, isPlaying: .constant(musicManager.isPlaying))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                    .padding(.trailing, 4)
+                    .padding(.top, 16)
             }
         }
     }

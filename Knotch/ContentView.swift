@@ -113,23 +113,7 @@ struct MusicLiveActivity: View {
 
             HStack {
                 if useMusicVisualizer {
-                    ZStack {
-                        Image(nsImage: displayedArt)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 36, height: 22)
-                            .blur(radius: 5)
-                            .saturation(1.1)
-                            .brightness(0.01)
-                        Color.white.opacity(0.05)
-                            .frame(width: 36, height: 22)
-                    }
-                    .mask {
-                        AudioSpectrumView(isPlaying: $musicManager.isPlaying)
-                            .frame(width: 24, height: 14)
-                    }
-                    .frame(width: 24, height: 14)
-                    .clipped()
+                    AlbumArtWaveformMask(albumArt: displayedArt, isPlaying: $musicManager.isPlaying)
                 } else {
                     LottieAnimationContainer()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -140,6 +124,7 @@ struct MusicLiveActivity: View {
                 height: max(0, vm.effectiveClosedNotchHeight - 12),
                 alignment: .center
             )
+            .offset(y: -3)
         }
         .frame(
             height: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)

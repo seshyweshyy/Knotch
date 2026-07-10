@@ -68,6 +68,15 @@ final class LiveAudioMeter {
     private var rollingPeak: [Float] = Array(repeating: 0.001, count: bandCount)
     private let peakDecay: Float = 0.996  // slow decay so quiet songs self-normalize
 
+    // Ceiling applied after peak normalization. `raw / rollingPeak` always
+    // self-calibrates so the loudest recent moment reads as ~1.0 — gain
+    // cancels out of that ratio entirely, so it can't fix "bars look full
+    // most of the time." Heavily loudness-compressed modern masters have
+    // little dynamic range, so most of a track sits close to its own recent
+    // peak almost constantly. This scales the whole normalized range down so
+    // peaks read as "mostly full" instead of pinned at the very top.
+    private let headroom: Float = 0.85
+
     // CoreAudio objects
     private var processTapID: AudioObjectID = kAudioObjectUnknown
     private var aggregateDeviceID: AudioDeviceID = kAudioObjectUnknown
@@ -84,20 +93,30 @@ final class LiveAudioMeter {
     // MARK: - Biquad filterbank state (persistent IIR delay lines — must
     // survive across IOProc callbacks, unlike the FFT setup this replaced)
 
-    // Center/cutoff freq + Q per band. Bands 0–3 and their gains are the
-    // hand-tuned values from the 5-bar layout, left untouched. The old top
-    // band (highpass at 13.9k) is narrowed into band 4 to make room for a
-    // new band 5 above it — band 4/5 gains are first-pass guesses and will
-    // likely need the same by-ear tuning the first four already got.
+    // Center/cutoff freq + Q per band, mapped to the standard audio-
+    // engineering frequency bands so each bar tracks a recognizable group of
+    // instruments/content instead of an arbitrary slice of the spectrum:
+    //
+    //   0: Sub-bass   0–60 Hz     kick thump, sub bass, rumble
+    //   1: Bass       60–250 Hz   bass guitar/synth, kick body
+    //   2: Low-mid    250–500 Hz  bass harmonics, low vocals/guitar warmth
+    //   3: Mid        500–2k Hz   vocals, snare, guitar/piano body
+    //   4: Upper-mid  2k–4k Hz    vocal clarity/consonants, guitar bite
+    //   5: Presence   4k–24k Hz   cymbals, hi-hats, sibilance, air
+    //
+    // This replaces the previous boundaries (which were inherited from the
+    // old FFT bin-range implementation and never redesigned), so every gain
+    // below is a first-pass guess again, not just the upper bands this time
+    // — expect to re-tune all six by ear like the first attempt.
     private static let bandFilters: [(kind: BiquadKind, freq: Double, q: Double)] = [
-        (.lowPass,  1200,  0.707),
-        (.bandPass, 2019,  0.92),
-        (.bandPass, 4949,  1.30),
-        (.bandPass, 9999,  1.49),
-        (.bandPass, 15818, 3.86),
-        (.highPass, 18000, 0.707)
+        (.lowPass,  60,   0.707),
+        (.bandPass, 123,  0.65),
+        (.bandPass, 354,  1.41),
+        (.bandPass, 1000, 0.67),
+        (.bandPass, 2828, 1.41),
+        (.highPass, 4000, 0.707)
     ]
-    private static let bandGains: [Float] = [0.6, 1.0, 1.0, 1.5, 1.0, 0.5]
+    private static let bandGains: [Float] = [0.3, 0.1, 0.5, 0.9, 0.6, 0.8]
 
     private var biquadSetups: [vDSP_biquad_Setup?] = Array(repeating: nil, count: bandCount)
     private var biquadDelays: [[Float]] = Array(repeating: [Float](repeating: 0, count: 4), count: bandCount)
@@ -406,7 +425,7 @@ final class LiveAudioMeter {
                 // Update rolling peak with slow decay
                 self.rollingPeak[i] = max(self.rollingPeak[i] * self.peakDecay, raw, 0.001)
                 // Normalize against rolling peak so quiet songs still animate fully
-                let normalized = min(raw / self.rollingPeak[i], 1.0)
+                let normalized = min(raw / self.rollingPeak[i], 1.0) * self.headroom
                 // Attack/decay smoothing
                 let coeff = normalized > self.smoothed[i] ? self.attackCoeff : self.decayCoeff
                 self.smoothed[i] = self.smoothed[i] + coeff * (normalized - self.smoothed[i])
