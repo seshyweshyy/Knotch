@@ -68,6 +68,28 @@ class KnotchViewModel: NSObject, ObservableObject {
         max(liquidVerticalFactor, liquidHorizontalFactor) * 1.5
     }
 
+    // One-shot spring bounce applied to the notch's own outer edge when a HUD
+    // value (volume/brightness) hits its 0% or 100% limit — signed so +1 pops
+    // the right edge outward (100%) and -1 pops the left edge (0%). Set directly
+    // to the peak, then released back to zero through liquidReleaseSpring so it
+    // overshoots/wobbles on the way down, same as the liquid pull release.
+    @Published var hudEdgeOvershoot: CGFloat = .zero
+
+    var hudOvershootScale: CGFloat {
+        1 + abs(hudEdgeOvershoot) * 0.03
+    }
+
+    var hudOvershootAnchorX: CGFloat {
+        hudEdgeOvershoot >= 0 ? 0 : 1
+    }
+
+    func triggerHUDLimitBounce(rightEdge: Bool) {
+        hudEdgeOvershoot = rightEdge ? 1 : -1
+        withAnimation(hudLimitBounceSpring) {
+            hudEdgeOvershoot = .zero
+        }
+    }
+
 
     let webcamManager = WebcamManager.shared
     @Published var isScreenLocked: Bool = false

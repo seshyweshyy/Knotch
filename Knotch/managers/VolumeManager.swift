@@ -34,22 +34,22 @@ final class VolumeManager: NSObject, ObservableObject {
     var shouldShowOverlay: Bool { Date().timeIntervalSince(lastChangeAt) < visibleDuration }
 
     // MARK: - Public Control API
-    @MainActor func increase(stepDivisor: Float = 1.0) {
+    @MainActor func increase(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
         let divisor = max(stepDivisor, 0.25)
         let delta = step / Float32(divisor)
         let current = readVolumeInternal() ?? rawVolume
         let target = max(0, min(1, current + delta))
         setAbsolute(target)
-        KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target))
+        KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target), isRepeat: isKeyRepeat)
     }
 
-    @MainActor func decrease(stepDivisor: Float = 1.0) {
+    @MainActor func decrease(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
         let divisor = max(stepDivisor, 0.25)
         let delta = step / Float32(divisor)
         let current = readVolumeInternal() ?? rawVolume
         let target = max(0, min(1, current - delta))
         setAbsolute(target)
-        KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target))
+        KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target), isRepeat: isKeyRepeat)
     }
 
     @MainActor func toggleMuteAction() {

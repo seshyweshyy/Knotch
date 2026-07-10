@@ -94,7 +94,11 @@ class QuickShareService: ObservableObject {
         }
 
         if !providers.contains(where: { $0.id == "LocalSend" }) {
-            let icon = NSImage(named: "LocalSend").flatMap { Self.resizedIconData(from: $0) }
+            // The LocalSend asset is full-bleed (its glyph fills all 1024x1024px),
+            // unlike AirDrop/Mail/Notes/ShareMenu which follow Apple's icon
+            // template with ~84% content and a margin baked in. Scale it down to
+            // match so it doesn't render larger than its siblings in the list.
+            let icon = NSImage(named: "LocalSend").flatMap { Self.resizedIconData(from: $0, contentScale: 0.84) }
             providers.insert(QuickShareProvider(id: "LocalSend", imageData: icon, supportsRawText: true), at: min(1, providers.count))
         }
 
@@ -188,7 +192,7 @@ class QuickShareService: ObservableObject {
     /// Renders `image` into a fixed-size, fixed-resolution PNG so menu items
     /// (which use NSImage's native pixel size, not SwiftUI frame modifiers)
     /// never render oversized.
-    private static func resizedIconData(from image: NSImage, size: CGFloat = 34) -> Data? {
+    private static func resizedIconData(from image: NSImage, size: CGFloat = 34, contentScale: CGFloat = 1.0) -> Data? {
         // Some NSSharingService/NSWorkspace icons come back with a zero size
         // when queried too early — bail out to nil so callers fall back to a
         // placeholder instead of caching a blank transparent icon.
@@ -202,7 +206,12 @@ class QuickShareService: ObservableObject {
         let target = NSSize(width: size, height: size)
         let thumb = NSImage(size: target)
         thumb.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: target),
+        // contentScale < 1 shrinks the drawn image within the target square
+        // (centered) for source assets whose glyph fills the full canvas,
+        // so it visually matches sibling icons that already have margin baked in.
+        let drawSize = NSSize(width: size * contentScale, height: size * contentScale)
+        let drawOrigin = NSPoint(x: (size - drawSize.width) / 2, y: (size - drawSize.height) / 2)
+        image.draw(in: NSRect(origin: drawOrigin, size: drawSize),
                    from: NSRect(origin: .zero, size: image.size),
                    operation: .copy, fraction: 1.0)
         thumb.unlockFocus()

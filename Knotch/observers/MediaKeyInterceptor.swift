@@ -114,27 +114,30 @@ final class MediaKeyInterceptor {
         let data1 = nsEvent.data1
         let keyCode = (data1 & 0xFFFF_0000) >> 16
         let stateByte = ((data1 & 0xFF00) >> 8)
-        
+        // Bit 0 is set by the OS while the physical key is being held down
+        // (auto-repeat), distinguishing it from a fresh discrete press.
+        let isRepeat = (data1 & 0x1) == 0x1
+
         // 0xA = key down, 0xB = key up. Only handle key down.
         guard stateByte == 0xA,
               let keyType = NXKeyType(rawValue: keyCode) else {
             return Unmanaged.passRetained(cgEvent)
         }
-        
+
         let flags = nsEvent.modifierFlags
         let option = flags.contains(.option)
         let shift = flags.contains(.shift)
         let command = flags.contains(.command)
-        
+
         // Handle option key action (without shift)
         if option && !shift {
             if handleOptionAction(for: keyType, command: command) {
                 return nil
             }
         }
-        
+
         // Handle normal key press
-        handleKeyPress(keyType: keyType, option: option, shift: shift, command: command)
+        handleKeyPress(keyType: keyType, option: option, shift: shift, command: command, isRepeat: isRepeat)
         return nil
     }
     
@@ -196,19 +199,19 @@ final class MediaKeyInterceptor {
         player.play()
     }
 
-    private func handleKeyPress(keyType: NXKeyType, option: Bool, shift: Bool, command: Bool) {
+    private func handleKeyPress(keyType: NXKeyType, option: Bool, shift: Bool, command: Bool, isRepeat: Bool) {
         let stepDivisor: Float = (option && shift) ? 4.0 : 1.0
-        
+
         switch keyType {
         case .soundUp:
             Task { @MainActor in
                 self.playFeedbackSound()
-                VolumeManager.shared.increase(stepDivisor: stepDivisor)
+                VolumeManager.shared.increase(stepDivisor: stepDivisor, isKeyRepeat: isRepeat)
             }
         case .soundDown:
             Task { @MainActor in
                 self.playFeedbackSound()
-                VolumeManager.shared.decrease(stepDivisor: stepDivisor)
+                VolumeManager.shared.decrease(stepDivisor: stepDivisor, isKeyRepeat: isRepeat)
             }
         case .mute:
             Task { @MainActor in
@@ -216,19 +219,19 @@ final class MediaKeyInterceptor {
             }
         case .brightnessUp, .keyboardBrightnessUp:
             let delta = step / stepDivisor
-            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessUp || command)
+            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessUp || command, isRepeat: isRepeat)
         case .brightnessDown, .keyboardBrightnessDown:
             let delta = -(step / stepDivisor)
-            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessDown || command)
+            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessDown || command, isRepeat: isRepeat)
         }
     }
-    
-    private func adjustBrightness(delta: Float, keyboard: Bool) {
+
+    private func adjustBrightness(delta: Float, keyboard: Bool, isRepeat: Bool) {
         Task { @MainActor in
             if keyboard {
                 KeyboardBacklightManager.shared.setRelative(delta: delta)
             } else {
-                BrightnessManager.shared.setRelative(delta: delta)
+                BrightnessManager.shared.setRelative(delta: delta, isKeyRepeat: isRepeat)
             }
         }
     }

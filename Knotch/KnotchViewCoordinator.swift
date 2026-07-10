@@ -29,6 +29,15 @@ struct sneakPeek {
     var deviceName: String = ""  // Used for Bluetooth HUD
 }
 
+// Fired once per toggleSneakPeek call that lands exactly on a HUD limit (0 or 1),
+// not just when the value first crosses into it — so repeated key presses while
+// already pinned at max/min each get their own bounce. `id` always increments so
+// SwiftUI's onChange refires even when consecutive events share the same edge.
+struct HUDLimitBounceEvent: Equatable {
+    var id: Int = 0
+    var rightEdge: Bool = false
+}
+
 struct SharedSneakPeek: Codable {
     var show: Bool
     var type: String
@@ -54,6 +63,7 @@ class KnotchViewCoordinator: ObservableObject {
 
     @Published var currentView: NotchViews = .home
     @Published var helloAnimationRunning: Bool = false
+    @Published var hudLimitBounceEvent = HUDLimitBounceEvent()
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?
     private var hudEnableTask: Task<Void, Never>?
@@ -210,7 +220,7 @@ class KnotchViewCoordinator: ObservableObject {
 
     func toggleSneakPeek(
         status: Bool, type: SneakContentType, duration: TimeInterval = 2, value: CGFloat = 0,
-        icon: String = ""
+        icon: String = "", isRepeat: Bool = false
     ) {
         sneakPeekDuration = duration
         if type != .music && type != .bluetoothAudio {
@@ -226,6 +236,10 @@ class KnotchViewCoordinator: ObservableObject {
                 self.sneakPeek.value = value
                 self.sneakPeek.icon = icon
             }
+        }
+
+        if status, !isRepeat, type == .volume || type == .brightness, value <= 0 || value >= 1 {
+            hudLimitBounceEvent = HUDLimitBounceEvent(id: hudLimitBounceEvent.id + 1, rightEdge: value >= 1)
         }
 
         if type == .mic {

@@ -27,7 +27,7 @@ final class BrightnessManager: ObservableObject {
 		}
 	}
 
-	@MainActor func setRelative(delta: Float) {
+	@MainActor func setRelative(delta: Float, isKeyRepeat: Bool = false) {
 		Task { @MainActor in
 			let starting = await client.currentScreenBrightness() ?? rawBrightness
 			let target = max(0, min(1, starting + delta))
@@ -37,7 +37,7 @@ final class BrightnessManager: ObservableObject {
 			} else {
 				refresh()
 			}
-			KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, value: CGFloat(target))
+			KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, value: CGFloat(target), isRepeat: isKeyRepeat)
 		}
 	}
 

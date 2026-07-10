@@ -707,6 +707,10 @@ struct ContentView: View {
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
                     }
+                    .scaleEffect(
+                        x: vm.hudOvershootScale, y: 1,
+                        anchor: UnitPoint(x: vm.hudOvershootAnchorX, y: 0.5)
+                    )
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
                             ? .black.opacity(0.7) : .clear, radius: 6
@@ -815,6 +819,9 @@ struct ContentView: View {
                         if !newLocked {
                             isUnlockAnimating = true
                         }
+                    }
+                    .onChange(of: coordinator.hudLimitBounceEvent) { _, newEvent in
+                        vm.triggerHUDLimitBounce(rightEdge: newEvent.rightEdge)
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
