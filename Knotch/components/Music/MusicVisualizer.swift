@@ -6,6 +6,7 @@
 //
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
 
 /// Single source of truth for the bar look. Every call site frames
@@ -54,17 +55,73 @@ enum AudioSpectrum {
         CGSize(width: contentSize.width + 4, height: contentSize.height + 4)
     }
 
-    static func barHeight(_ index: Int, isPlaying: Bool, amplitudes: [Float]) -> CGFloat {
+    // liveEnabled selects real audio data vs. a decorative simulated wave —
+    // these are two distinct "no live signal" cases, not one: `liveEnabled ==
+    // false` means the user turned off system audio tapping in Settings (the
+    // default), and should always show *some* lively motion; live signal
+    // being momentarily absent while liveEnabled == true (song just started,
+    // paused, tap still spinning up) should rest at dots instead.
+    static func barHeight(_ index: Int, isPlaying: Bool, amplitudes: [Float], liveEnabled: Bool, simulatedTime: Double) -> CGFloat {
         let minHeight = barWidth
         guard isPlaying else { return minHeight }
 
-        var level: Float = 0
-        if index < amplitudes.count, index < boosts.count {
-            level = powf(max(0, amplitudes[index]), boosts[index])
+        let level: Float
+        if liveEnabled {
+            level = index < amplitudes.count && index < boosts.count
+                ? powf(max(0, amplitudes[index]), boosts[index])
+                : 0
+        } else {
+            level = simulatedLevel(index, time: simulatedTime)
         }
 
         let maxExtra = totalHeight - minHeight
         return minHeight + CGFloat(min(1, level)) * maxExtra
+    }
+
+    // Decorative fallback wave for when live audio tapping is off — ported
+    // from QuartzNotch's synthetic idle animation: three summed sine waves
+    // per bar plus a shared "groove" and an occasional tremor burst, each bar
+    // with its own frequency/phase so they don't move in lockstep.
+    private struct SimWaveParam {
+        let f1: Double, a1: Double
+        let f2: Double, a2: Double
+        let f3: Double, a3: Double
+        let center: Double
+        let phase: Double
+    }
+
+    private static let simWaveParams: [SimWaveParam] = [
+        SimWaveParam(f1: 9.1, a1: 0.20, f2: 13.9, a2: 0.13, f3: 19.3, a3: 0.08, center: 0.37, phase: 0.0),
+        SimWaveParam(f1: 5.4, a1: 0.11, f2: 8.4,  a2: 0.06, f3: 13.1, a3: 0.07, center: 0.18, phase: 1.8),
+        SimWaveParam(f1: 6.8, a1: 0.14, f2: 10.5, a2: 0.08, f3: 16.7, a3: 0.09, center: 0.22, phase: 3.5),
+        SimWaveParam(f1: 9.5, a1: 0.20, f2: 15.1, a2: 0.11, f3: 11.3, a3: 0.10, center: 0.33, phase: 0.4),
+        SimWaveParam(f1: 9.5, a1: 0.18, f2: 12.3, a2: 0.12, f3: 17.9, a3: 0.09, center: 0.33, phase: 1.1),
+        SimWaveParam(f1: 7.0, a1: 0.20, f2: 11.2, a2: 0.11, f3: 14.3, a3: 0.09, center: 0.30, phase: 5.1),
+    ]
+
+    // Slows the whole wave uniformly (applied to every sine term below,
+    // tremor included) without needing to retune each frequency separately.
+    private static let simSpeedFactor: Double = 0.65
+
+    private static func simulatedLevel(_ index: Int, time rawTime: Double) -> Float {
+        guard index < simWaveParams.count else { return 0 }
+        let time = rawTime * simSpeedFactor
+        let p = simWaveParams[index]
+        let shared = sin(time * 6.1) * 0.08 + sin(time * 10.1) * 0.05
+        // Tremor is the jittery part on purpose — a fast, burst-modulated
+        // wobble layered over the smoother main waves. Cut its amplitude and
+        // narrowed its frequency range so it reads as a subtle shimmer
+        // instead of a shake.
+        let tremorEnv = abs(sin(time * 0.7 + p.phase * 0.4)) * abs(sin(time * 1.3 + p.phase * 0.7)) * 0.04
+        let tremorFreq = 12.0 + abs(sin(time * 0.3 + p.phase * 0.5)) * 8.0
+        let tremor = sin(time * tremorFreq + p.phase * 2.1) * tremorEnv
+        let raw = p.center
+            + sin(time * p.f1 + p.phase) * p.a1
+            + sin(time * p.f2 + p.phase * 1.3) * p.a2
+            + sin(time * p.f3 + p.phase * 0.9) * p.a3
+            + tremor + shared
+        let ceiling = (index == 3 || index == 4) ? 0.83 : 0.96
+        return Float(max(0.04, min(ceiling, raw)))
     }
 }
 
@@ -83,24 +140,36 @@ enum AudioSpectrum {
 /// are always true semicircles at any height — no squish-compensation math
 /// needed, unlike the old CALayer transform approach.
 ///
-/// Resting at dots (rather than a random idle animation) falls out of the
-/// height formula for free: no signal → level ≈ 0 → height ≈ barWidth, which
-/// covers "paused," "no live meter available," and "song just started, tap
-/// hasn't caught up yet" all with the same code path.
+/// Resting at dots (rather than a random idle animation) applies only when
+/// live audio tapping is on (see `Defaults.liveWaveform`) but momentarily
+/// silent — paused, no live meter available, or the song just started and
+/// the tap hasn't caught up yet. When live tapping is off entirely (the
+/// default), a decorative simulated wave plays instead so the waveform isn't
+/// just static dots for most users.
 struct AudioSpectrumView: View {
     @Binding var isPlaying: Bool
     @State private var amplitudes: [Float] = Array(repeating: 0, count: AudioSpectrum.barCount)
+    @State private var simulatedTime: Double = 0
+    @Default(.liveWaveform) private var liveWaveformEnabled
 
     var body: some View {
         HStack(alignment: .center, spacing: AudioSpectrum.spacing) {
             ForEach(0..<AudioSpectrum.barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: AudioSpectrum.barWidth / 2, style: .continuous)
                     .fill(Color.white)
-                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes))
+                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveEnabled: liveWaveformEnabled, simulatedTime: simulatedTime))
             }
         }
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)
         .modifier(LiveAmplitudesSubscriber(amplitudes: $amplitudes))
+        // Timer.publish, not TimelineView — see the note on LiveAmplitudesSubscriber's
+        // sibling mechanism above for why: TimelineView's clock doesn't fire
+        // reliably in this notch window, but a real Timer-backed Combine
+        // publisher (driving @State like the live data does) does.
+        .onReceive(Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()) { _ in
+            guard !liveWaveformEnabled, isPlaying else { return }
+            simulatedTime += 1.0 / 30.0
+        }
     }
 }
 
@@ -135,7 +204,7 @@ struct AlbumArtWaveformMask: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: Self.artSize.width, height: Self.artSize.height)
-                .blur(radius: 5)
+                .blur(radius: 4)
                 .saturation(1.1)
                 .brightness(0.03)
             Color.white.opacity(0.04)
