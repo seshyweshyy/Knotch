@@ -124,7 +124,7 @@ struct MusicLiveActivity: View {
                 height: max(0, vm.effectiveClosedNotchHeight - 12),
                 alignment: .center
             )
-            .offset(y: -3)
+            .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -3 : -1.5)
         }
         .frame(
             height: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)

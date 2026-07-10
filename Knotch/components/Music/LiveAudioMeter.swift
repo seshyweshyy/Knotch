@@ -43,6 +43,160 @@ enum AudioHardwareReconfig {
     }
 }
 
+// MARK: - FFT band extraction (ported from QuartzNotch)
+//
+// Replaces the earlier biquad filterbank. Runs entirely on the caller's
+// processingQueue — no actor isolation. A 4096-point FFT with a Hann window,
+// then per-band peak magnitude within a triangular weighting window (ramps
+// up from `start` to `peak`, back down from `peak` to `end`), converted to
+// dB and mapped against a fixed per-band min/max window, then raised to a
+// per-band curve exponent. Each band's dB window and curve are calibrated
+// individually — unlike a single shared window, this lets bands with very
+// different natural energy (sub-bass vs. presence) each have headroom
+// tuned to their own typical range.
+private final class FFTProcessor {
+    let fftSize = 4096
+    private var fftSetup: FFTSetup?
+    private var inputDataBuffer: [Float]
+    private var magnitudesBuffer: [Float]
+    private var magnitudesOutputBuffer: [Float]
+    private var windowedBuffer: [Float]
+    private var realPartsBuffer: [Float]
+    private var imagPartsBuffer: [Float]
+    private var hanningWindow: [Float]
+    private var powerOutputBuffer: [Float]
+    var sampleRate: Float = 48_000
+
+    private var lastProcessTime: TimeInterval = 0
+    let updateInterval: TimeInterval = 1.0 / 30.0
+
+    private struct Band {
+        let start: Float
+        let peak: Float
+        let end: Float
+        let minDB: Float
+        let maxDB: Float
+        let curve: Float
+    }
+
+    private let bands: [Band] = [
+        Band(start: 15,   peak: 35,   end: 90,    minDB: -36, maxDB: -4,  curve: 1.25),
+        Band(start: 35,   peak: 100,  end: 160,   minDB: -38, maxDB: -2,  curve: 1.40),
+        Band(start: 105,  peak: 300,  end: 520,   minDB: -42, maxDB: -8,  curve: 1.30),
+        Band(start: 300,  peak: 620,  end: 1500,  minDB: -51, maxDB: -14, curve: 1.00),
+        Band(start: 620,  peak: 1700, end: 4500,  minDB: -55, maxDB: -18, curve: 0.92),
+        Band(start: 1200, peak: 4000, end: 12000, minDB: -50, maxDB: -22, curve: 1.25)
+    ]
+
+    init() {
+        fftSetup = vDSP_create_fftsetup(vDSP_Length(log2(Float(fftSize))), FFTRadix(kFFTRadix2))
+        inputDataBuffer = Array(repeating: 0, count: fftSize)
+        magnitudesBuffer = Array(repeating: 0, count: fftSize / 2)
+        magnitudesOutputBuffer = Array(repeating: 0, count: fftSize / 2)
+        windowedBuffer = Array(repeating: 0, count: fftSize)
+        realPartsBuffer = Array(repeating: 0, count: fftSize / 2)
+        imagPartsBuffer = Array(repeating: 0, count: fftSize / 2)
+        hanningWindow = Array(repeating: 0, count: fftSize)
+        powerOutputBuffer = Array(repeating: 0, count: bands.count)
+        vDSP_hann_window(&hanningWindow, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
+    }
+
+    deinit {
+        if let setup = fftSetup { vDSP_destroy_fftsetup(setup) }
+    }
+
+    // Returns nil if called too soon (rate-limited to 30fps)
+    func process(samples: [Float]) -> [Float]? {
+        let now = Date().timeIntervalSinceReferenceDate
+        guard now - lastProcessTime >= updateInterval else { return nil }
+        lastProcessTime = now
+
+        appendSamples(samples)
+
+        vDSP_vmul(inputDataBuffer, 1, hanningWindow, 1, &windowedBuffer, 1, vDSP_Length(fftSize))
+
+        for index in 0..<(fftSize / 2) {
+            realPartsBuffer[index] = windowedBuffer[index * 2]
+            imagPartsBuffer[index] = windowedBuffer[index * 2 + 1]
+        }
+
+        realPartsBuffer.withUnsafeMutableBufferPointer { realPtr in
+            imagPartsBuffer.withUnsafeMutableBufferPointer { imagPtr in
+                guard let realBase = realPtr.baseAddress,
+                      let imagBase = imagPtr.baseAddress,
+                      let setup = fftSetup else { return }
+                var split = DSPSplitComplex(realp: realBase, imagp: imagBase)
+                vDSP_fft_zrip(setup, &split, 1, vDSP_Length(log2(Float(fftSize))), FFTDirection(FFT_FORWARD))
+                vDSP_zvmags(&split, 1, &magnitudesBuffer, 1, vDSP_Length(fftSize / 2))
+            }
+        }
+
+        magnitudesBuffer[0] = 0
+
+        var magCount = Int32(fftSize / 2)
+        vvsqrtf(&magnitudesOutputBuffer, magnitudesBuffer, &magCount)
+
+        var scale = 2.0 / Float(fftSize)
+        vDSP_vsmul(magnitudesOutputBuffer, 1, &scale, &magnitudesOutputBuffer, 1, vDSP_Length(fftSize / 2))
+
+        for index in bands.indices {
+            powerOutputBuffer[index] = getPower(for: bands[index], magnitudes: magnitudesOutputBuffer)
+        }
+        return powerOutputBuffer
+    }
+
+    private func appendSamples(_ samples: [Float]) {
+        let count = min(samples.count, fftSize)
+        guard count > 0 else { return }
+
+        let sourceStart = samples.count - count
+        if count >= fftSize {
+            for index in 0..<fftSize {
+                inputDataBuffer[index] = samples[sourceStart + index]
+            }
+            return
+        }
+
+        let preservedCount = fftSize - count
+        inputDataBuffer.withUnsafeMutableBufferPointer { buffer in
+            guard let base = buffer.baseAddress else { return }
+            memmove(base, base.advanced(by: count), preservedCount * MemoryLayout<Float>.size)
+            for index in 0..<count {
+                base[preservedCount + index] = samples[sourceStart + index]
+            }
+        }
+    }
+
+    private func getPower(for band: Band, magnitudes: [Float]) -> Float {
+        let startBin = Int((band.start / sampleRate) * Float(fftSize))
+        let endBin   = Int((band.end   / sampleRate) * Float(fftSize))
+
+        let safeLower = max(1, startBin)
+        let safeUpper = min(fftSize / 2 - 1, endBin)
+        guard safeLower <= safeUpper else { return 0 }
+
+        var maxMag: Float = 0
+        var i = safeLower
+        while i <= safeUpper {
+            let f = Float(i) * sampleRate / Float(fftSize)
+            let weight: Float
+            if f <= band.peak {
+                weight = max(0, (f - band.start) / max(1, band.peak - band.start))
+            } else {
+                weight = max(0, (band.end - f) / max(1, band.end - band.peak))
+            }
+            let mag = magnitudes[i] * weight
+            if mag > maxMag { maxMag = mag }
+            i += 1
+        }
+
+        let db = 20 * log10(max(maxMag, 1e-6))
+        var normalized = (db - band.minDB) / (band.maxDB - band.minDB)
+        normalized = max(0.0, min(1.0, normalized))
+        return pow(normalized, band.curve)
+    }
+}
+
 @available(macOS 14.2, *)
 final class LiveAudioMeter {
     static let shared = LiveAudioMeter()
@@ -59,23 +213,18 @@ final class LiveAudioMeter {
     // Published smoothed amplitudes, updated on main thread by display link
     @Published private(set) var amplitudes: [Float] = Array(repeating: 0, count: bandCount)
 
-    // Smoothing coefficients
-    private let attackCoeff: Float = 0.95
-    private let decayCoeff: Float = 0.35
+    // Smoothing coefficients — matches QuartzNotch's applySmoothing: fast
+    // attack, slower decay, with bands 3/4 (mid, upper-mid) getting an even
+    // faster attack so vocal/snare content snaps up quicker than the rest.
+    private let attackCoeff: Float = 0.85
+    private let fastAttackCoeff: Float = 0.91
+    private let decayCoeff: Float = 0.62
     private var smoothed: [Float] = Array(repeating: 0, count: bandCount)
-    
-    // Rolling per-band peak for self-normalizing loudness
-    private var rollingPeak: [Float] = Array(repeating: 0.001, count: bandCount)
-    private let peakDecay: Float = 0.996  // slow decay so quiet songs self-normalize
 
-    // Ceiling applied after peak normalization. `raw / rollingPeak` always
-    // self-calibrates so the loudest recent moment reads as ~1.0 — gain
-    // cancels out of that ratio entirely, so it can't fix "bars look full
-    // most of the time." Heavily loudness-compressed modern masters have
-    // little dynamic range, so most of a track sits close to its own recent
-    // peak almost constantly. This scales the whole normalized range down so
-    // peaks read as "mostly full" instead of pinned at the very top.
-    private let headroom: Float = 0.85
+    // Processes the FFT off the real-time IOProc thread — see
+    // processInputData's comment for why.
+    private let processingQueue = DispatchQueue(label: "com.knotch.liveaudiometer.processing", qos: .utility)
+    private let fftProcessor = FFTProcessor()
 
     // CoreAudio objects
     private var processTapID: AudioObjectID = kAudioObjectUnknown
@@ -90,43 +239,11 @@ final class LiveAudioMeter {
     // Target bundle ID (e.g. "com.spotify.client")
     private var targetBundleID: String?
 
-    // MARK: - Biquad filterbank state (persistent IIR delay lines — must
-    // survive across IOProc callbacks, unlike the FFT setup this replaced)
-
-    // Center/cutoff freq + Q per band, mapped to the standard audio-
-    // engineering frequency bands so each bar tracks a recognizable group of
-    // instruments/content instead of an arbitrary slice of the spectrum:
-    //
-    //   0: Sub-bass   0–60 Hz     kick thump, sub bass, rumble
-    //   1: Bass       60–250 Hz   bass guitar/synth, kick body
-    //   2: Low-mid    250–500 Hz  bass harmonics, low vocals/guitar warmth
-    //   3: Mid        500–2k Hz   vocals, snare, guitar/piano body
-    //   4: Upper-mid  2k–4k Hz    vocal clarity/consonants, guitar bite
-    //   5: Presence   4k–24k Hz   cymbals, hi-hats, sibilance, air
-    //
-    // This replaces the previous boundaries (which were inherited from the
-    // old FFT bin-range implementation and never redesigned), so every gain
-    // below is a first-pass guess again, not just the upper bands this time
-    // — expect to re-tune all six by ear like the first attempt.
-    private static let bandFilters: [(kind: BiquadKind, freq: Double, q: Double)] = [
-        (.lowPass,  60,   0.707),
-        (.bandPass, 123,  0.65),
-        (.bandPass, 354,  1.41),
-        (.bandPass, 1000, 0.67),
-        (.bandPass, 2828, 1.41),
-        (.highPass, 4000, 0.707)
-    ]
-    private static let bandGains: [Float] = [0.3, 0.1, 0.5, 0.9, 0.6, 0.8]
-
-    private var biquadSetups: [vDSP_biquad_Setup?] = Array(repeating: nil, count: bandCount)
-    private var biquadDelays: [[Float]] = Array(repeating: [Float](repeating: 0, count: 4), count: bandCount)
-
-    // Fixed-size scratch buffers reused every callback so the real-time
-    // audio thread never allocates. Typical HAL block sizes (512–4096
-    // samples) are well under this ceiling.
+    // Fixed-size scratch buffer reused every callback so the real-time audio
+    // thread never allocates. Typical HAL block sizes (512–4096 samples) are
+    // well under this ceiling.
     private static let maxBlockSamples = 8192
     private let monoScratch = UnsafeMutableBufferPointer<Float>.allocate(capacity: maxBlockSamples)
-    private let filteredScratch = UnsafeMutableBufferPointer<Float>.allocate(capacity: maxBlockSamples)
 
     private init() {
         amplitudeBuffer.initialize(repeating: 0)
@@ -136,7 +253,6 @@ final class LiveAudioMeter {
         stop()
         amplitudeBuffer.deallocate()
         monoScratch.deallocate()
-        filteredScratch.deallocate()
     }
 
     // MARK: - Public API
@@ -220,7 +336,7 @@ final class LiveAudioMeter {
 
         NSLog("[LiveAudioMeter] tap format: %.0f Hz, %d ch", sampleRate, channelCount)
 
-        setupBiquadFilters(sampleRate: sampleRate)
+        fftProcessor.sampleRate = Float(sampleRate)
 
         // 8. Register IOProc — raw HAL callback, no AVAudioEngine
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -264,7 +380,6 @@ final class LiveAudioMeter {
 
     private func teardownCoreAudio() {
         AudioHardwareReconfig.markPending()
-        teardownBiquadFilters()
 
         if aggregateDeviceID != kAudioObjectUnknown {
             AudioDeviceStop(aggregateDeviceID, ioProcID)
@@ -283,13 +398,13 @@ final class LiveAudioMeter {
 
     // MARK: - IOProc audio processing (realtime audio thread)
     //
-    // Runs a 5-band biquad filterbank (Accelerate vDSP_biquad) instead of a
-    // full FFT. An FFT recomputed every callback — including tearing down
-    // and rebuilding its setup object each time — is far more work than this
-    // thread's deadline calls for; a handful of IIR sections + RMS gets the
-    // same "loudness per band" signal for a fraction of the cost, which
-    // matters here because a missed deadline means audible dropouts in
-    // system audio, not just a visual glitch.
+    // Only the downmix happens here. The biquad filterbank + dB conversion
+    // used to run inline in this callback, but that's real work on a thread
+    // with a hard deadline — a missed deadline here means audible dropouts
+    // in system audio, not just a visual glitch. So this callback does the
+    // cheapest possible thing (downmix to mono, copy it out of the
+    // HAL-owned buffer) and hands the copy to processingQueue, off the
+    // real-time thread, for the actual filtering.
 
     private func processInputData(_ inputData: UnsafePointer<AudioBufferList>?, channelCount: Int) {
         guard let inputData else { return }
@@ -316,81 +431,24 @@ final class LiveAudioMeter {
             vDSP_mmov(ptr, monoScratch.baseAddress!, vDSP_Length(frameCount), 1, vDSP_Length(channelCount), 1)
         }
 
-        var newAmplitudes = [Float](repeating: 0, count: Self.bandCount)
-        for band in 0..<Self.bandCount {
-            guard let setup = biquadSetups[band] else { continue }
-            biquadDelays[band].withUnsafeMutableBufferPointer { delayPtr in
-                vDSP_biquad(setup, delayPtr.baseAddress!, monoScratch.baseAddress!, 1, filteredScratch.baseAddress!, 1, vDSP_Length(frameCount))
-            }
-            var rms: Float = 0
-            vDSP_rmsqv(filteredScratch.baseAddress!, 1, &rms, vDSP_Length(frameCount))
-            if !rms.isFinite { rms = 0 }
-            // 0.9, not 0.45: the old FFT path curved RMS-of-squared-magnitude
-            // (a power-like, amplitude² quantity), so its 0.45 exponent was
-            // effectively amplitude^0.9 — nearly linear, preserving dynamic
-            // range. This path curves the raw-amplitude RMS directly, so it
-            // needs the same effective exponent to avoid over-compressing
-            // quiet-vs-loud swings into a narrow band near the top.
-            let curved = powf(rms, 0.9)
-            // No ceiling here — rms is bounded by the PCM range (≤1) so this
-            // can't blow up. Clamping to 1.0 flattened loud moments to a
-            // shared value, which then locked rollingPeak near 1.0 downstream
-            // and killed the bar-to-bar dynamics.
-            newAmplitudes[band] = curved * Self.bandGains[band]
+        // Copy out before handing off — monoScratch gets overwritten next callback
+        let block = Array(UnsafeBufferPointer(start: monoScratch.baseAddress, count: frameCount))
+        processingQueue.async { [weak self] in
+            self?.processBlock(block)
         }
+    }
+
+    // Runs on processingQueue — off the real-time audio thread. Rate-limited
+    // to 30fps internally by FFTProcessor, matching QuartzNotch — process()
+    // returns nil (skip this block) if called before that interval elapses.
+    private func processBlock(_ mono: [Float]) {
+        guard let newAmplitudes = fftProcessor.process(samples: mono) else { return }
 
         os_unfair_lock_lock(&amplitudeLock)
         for i in 0..<Self.bandCount {
             amplitudeBuffer[i] = newAmplitudes[i]
         }
         os_unfair_lock_unlock(&amplitudeLock)
-    }
-
-    // MARK: - Biquad filterbank setup
-
-    private enum BiquadKind {
-        case lowPass, bandPass, highPass
-    }
-
-    private func biquadCoefficients(kind: BiquadKind, freq: Double, q: Double, sampleRate: Double) -> [Double] {
-        let w0 = 2.0 * Double.pi * freq / sampleRate
-        let sinw = sin(w0)
-        let cosw = cos(w0)
-        let alpha = sinw / (2.0 * q)
-
-        let a0 = 1.0 + alpha
-        let a1 = -2.0 * cosw
-        let a2 = 1.0 - alpha
-        let b0: Double
-        let b1: Double
-        let b2: Double
-        switch kind {
-        case .lowPass:
-            b0 = (1.0 - cosw) * 0.5; b1 = 1.0 - cosw; b2 = b0
-        case .highPass:
-            b0 = (1.0 + cosw) * 0.5; b1 = -(1.0 + cosw); b2 = b0
-        case .bandPass:
-            b0 = alpha; b1 = 0.0; b2 = -alpha
-        }
-        return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0]
-    }
-
-    private func setupBiquadFilters(sampleRate: Double) {
-        teardownBiquadFilters()
-        for (i, band) in Self.bandFilters.enumerated() {
-            let coeffs = biquadCoefficients(kind: band.kind, freq: band.freq, q: band.q, sampleRate: sampleRate)
-            biquadSetups[i] = vDSP_biquad_CreateSetup(coeffs, 1)
-            biquadDelays[i] = [Float](repeating: 0, count: 4)
-        }
-    }
-
-    private func teardownBiquadFilters() {
-        for i in 0..<biquadSetups.count {
-            if let setup = biquadSetups[i] {
-                vDSP_biquad_DestroySetup(setup)
-                biquadSetups[i] = nil
-            }
-        }
     }
 
     // MARK: - Display link (main thread publish)
@@ -421,13 +479,11 @@ final class LiveAudioMeter {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             for i in 0..<Self.bandCount {
-                let raw = next[i]
-                // Update rolling peak with slow decay
-                self.rollingPeak[i] = max(self.rollingPeak[i] * self.peakDecay, raw, 0.001)
-                // Normalize against rolling peak so quiet songs still animate fully
-                let normalized = min(raw / self.rollingPeak[i], 1.0) * self.headroom
-                // Attack/decay smoothing
-                let coeff = normalized > self.smoothed[i] ? self.attackCoeff : self.decayCoeff
+                // amplitudeBuffer is already dB-normalized per band by
+                // FFTProcessor — this is just attack/decay envelope smoothing.
+                let normalized = next[i]
+                let attack = (i == 3 || i == 4) ? self.fastAttackCoeff : self.attackCoeff
+                let coeff = normalized > self.smoothed[i] ? attack : self.decayCoeff
                 self.smoothed[i] = self.smoothed[i] + coeff * (normalized - self.smoothed[i])
             }
             self.amplitudes = self.smoothed
