@@ -52,7 +52,7 @@ struct TimerCompactPill: View {
 
                 Text(formatted(timer.remaining()))
                     .font(.system(size: 14, weight: .light, design: .rounded))
-                    .contentTransition(.numericText())
+                    .contentTransition(.numericText(value: timer.remaining()))
             }
             .foregroundStyle(activeColor)
             .padding(.horizontal, 4)

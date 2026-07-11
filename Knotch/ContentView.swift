@@ -472,6 +472,7 @@ struct ContentView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
+    @ObservedObject var timerManager = TimerManager.shared
 
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -530,6 +531,7 @@ struct ContentView: View {
     private var timerLiveActivityShowing: Bool {
         vm.notchState == .closed
             && !TimerManager.shared.allTimers.isEmpty
+            && !TimerManager.shared.isPausedIdle
             && !vm.hideOnClosed
     }
 
@@ -936,9 +938,10 @@ struct ContentView: View {
                         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
                                 .frame(alignment: .center)
-                        } else if vm.notchState == .closed && !TimerManager.shared.allTimers.isEmpty && !vm.hideOnClosed {
+                        } else if vm.notchState == .closed && !TimerManager.shared.allTimers.isEmpty && !TimerManager.shared.isPausedIdle && !vm.hideOnClosed {
                             TimerCompactPill()
                                 .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
+                                .transition(.opacity)
                         } else if vm.notchState == .open {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
@@ -991,6 +994,7 @@ struct ContentView: View {
                   view
                       .fixedSize()
               }
+              .animation(.easeInOut(duration: 0.25), value: timerLiveActivityShowing)
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {

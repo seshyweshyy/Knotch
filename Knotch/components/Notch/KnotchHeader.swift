@@ -56,7 +56,7 @@ struct KnotchHeader: View {
                                     Text(formatted(timer.remaining()))
                                         .font(.system(size: 13, weight: .light, design: .rounded))
                                         .foregroundColor(notchAppearanceStyle == .fullLiquidGlass ? .white : .orange)
-                                        .contentTransition(.numericText())
+                                        .contentTransition(.numericText(value: timer.remaining()))
                                         .fixedSize()
                                         .padding(.horizontal, 10)
                                         .frame(height: 30)

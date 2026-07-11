@@ -8,6 +8,7 @@ import AppKit
 import Foundation
 import Combine
 import Defaults
+import SwiftUI
 import UserNotifications
 
 extension Defaults.Keys {
@@ -21,9 +22,12 @@ final class TimerManager: ObservableObject {
     @Published var systemTimers: [KnotchTimer] = []  // read-only mirror from Clock app, never persisted
     @Published var isCreatingTimer: Bool = false   // drives the full-notch slider takeover (image 1)
     @Published var showTimerList: Bool = false     // drives the open-notch popup (image 3)
+    @Published private(set) var isPausedIdle: Bool = false   // true once every timer has sat paused for pauseDismissDelay
 
     private var tickCancellable: AnyCancellable?
     private var systemTimerProvider: SystemTimerProvider?
+    private var pauseDismissTask: Task<Void, Never>?
+    private static let pauseDismissDelay: TimeInterval = 3
 
     private init() {
         // Restore persisted timers; silently drop any that already finished while we were closed/quit.
@@ -36,8 +40,13 @@ final class TimerManager: ObservableObject {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
         systemTimerProvider = SystemTimerProvider { [weak self] mirrored in
-            self?.systemTimers = mirrored
+            withAnimation {
+                self?.systemTimers = mirrored
+            }
+            self?.updatePausedIdleState()
         }
+
+        updatePausedIdleState()
     }
 
     var allTimers: [KnotchTimer] { timers + systemTimers }
@@ -54,8 +63,11 @@ final class TimerManager: ObservableObject {
     }
 
     func start(name: String, duration: TimeInterval) {
-        timers.append(KnotchTimer(name: name.isEmpty ? "Timer" : name, duration: duration))
+        withAnimation {
+            timers.append(KnotchTimer(name: name.isEmpty ? "Timer" : name, duration: duration))
+        }
         persist()
+        updatePausedIdleState()
     }
 
     func rename(id: UUID, name: String) {
@@ -70,6 +82,7 @@ final class TimerManager: ObservableObject {
         timers[i].remainingAtPause = timers[i].remaining()
         timers[i].isPaused = true
         persist()
+        updatePausedIdleState()
     }
 
     func resume(id: UUID) {
@@ -79,11 +92,15 @@ final class TimerManager: ObservableObject {
         timers[i].isPaused = false
         timers[i].remainingAtPause = nil
         persist()
+        updatePausedIdleState()
     }
 
     func cancel(id: UUID) {
-        timers.removeAll { $0.id == id }
+        withAnimation {
+            timers.removeAll { $0.id == id }
+        }
         persist()
+        updatePausedIdleState()
         if allTimers.isEmpty {
             DispatchQueue.main.async { [weak self] in
                 self?.showTimerList = false
@@ -95,8 +112,11 @@ final class TimerManager: ObservableObject {
         let expired = timers.filter { $0.isExpired }
         if !expired.isEmpty {
             expired.forEach(fireCompletionNotification)
-            timers.removeAll { $0.isExpired }
+            withAnimation {
+                timers.removeAll { $0.isExpired }
+            }
             persist()
+            updatePausedIdleState()
             if allTimers.isEmpty {
                 DispatchQueue.main.async { [weak self] in
                     self?.showTimerList = false
@@ -104,6 +124,28 @@ final class TimerManager: ObservableObject {
             }
         }
         objectWillChange.send() // keep countdown text updating every second
+    }
+
+    // Mirrors MusicManager's play/pause idle debounce: once every timer is
+    // paused (nothing counting down), wait pauseDismissDelay before hiding
+    // the live activity, so a quick pause/resume doesn't cause a flicker.
+    // Any timer running again cancels the countdown immediately.
+    private func updatePausedIdleState() {
+        let anyRunning = allTimers.contains { !$0.isPaused }
+        if anyRunning || allTimers.isEmpty {
+            pauseDismissTask?.cancel()
+            pauseDismissTask = nil
+            if isPausedIdle {
+                withAnimation { isPausedIdle = false }
+            }
+        } else if pauseDismissTask == nil {
+            pauseDismissTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(Self.pauseDismissDelay))
+                guard !Task.isCancelled, let self else { return }
+                withAnimation { self.isPausedIdle = true }
+                self.pauseDismissTask = nil
+            }
+        }
     }
 
     private func persist() {

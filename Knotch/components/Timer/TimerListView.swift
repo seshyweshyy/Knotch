@@ -79,7 +79,7 @@ struct TimerListView: View {
                         Text(formatted(timer.remaining()))
                             .font(.system(size: 24, weight: .light, design: .rounded))
                             .foregroundStyle(.orange)
-                            .contentTransition(.numericText())
+                            .contentTransition(.numericText(value: timer.remaining()))
                             .lineLimit(1)
                             .fixedSize()
                     }
