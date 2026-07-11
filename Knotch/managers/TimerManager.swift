@@ -4,6 +4,7 @@
 //
 
 
+import AppKit
 import Foundation
 import Combine
 import Defaults
@@ -17,10 +18,12 @@ final class TimerManager: ObservableObject {
     static let shared = TimerManager()
 
     @Published var timers: [KnotchTimer] = []
+    @Published var systemTimers: [KnotchTimer] = []  // read-only mirror from Clock app, never persisted
     @Published var isCreatingTimer: Bool = false   // drives the full-notch slider takeover (image 1)
     @Published var showTimerList: Bool = false     // drives the open-notch popup (image 3)
 
     private var tickCancellable: AnyCancellable?
+    private var systemTimerProvider: SystemTimerProvider?
 
     private init() {
         // Restore persisted timers; silently drop any that already finished while we were closed/quit.
@@ -31,10 +34,23 @@ final class TimerManager: ObservableObject {
             .sink { [weak self] _ in self?.tick() }
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+
+        systemTimerProvider = SystemTimerProvider { [weak self] mirrored in
+            self?.systemTimers = mirrored
+        }
     }
 
+    var allTimers: [KnotchTimer] { timers + systemTimers }
+
     var soonestActiveTimer: KnotchTimer? {
-        timers.filter { !$0.isPaused }.min { $0.endDate < $1.endDate } ?? timers.first
+        allTimers.filter { !$0.isPaused }.min { $0.endDate < $1.endDate } ?? allTimers.first
+    }
+
+    // System timers are read-only mirrors — this just brings Clock.app forward
+    // so the user can actually pause/cancel/rename the real thing.
+    func revealInSystemClock() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.clock") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func start(name: String, duration: TimeInterval) {
@@ -68,7 +84,7 @@ final class TimerManager: ObservableObject {
     func cancel(id: UUID) {
         timers.removeAll { $0.id == id }
         persist()
-        if timers.isEmpty {
+        if allTimers.isEmpty {
             DispatchQueue.main.async { [weak self] in
                 self?.showTimerList = false
             }
@@ -81,7 +97,7 @@ final class TimerManager: ObservableObject {
             expired.forEach(fireCompletionNotification)
             timers.removeAll { $0.isExpired }
             persist()
-            if timers.isEmpty {
+            if allTimers.isEmpty {
                 DispatchQueue.main.async { [weak self] in
                     self?.showTimerList = false
                 }

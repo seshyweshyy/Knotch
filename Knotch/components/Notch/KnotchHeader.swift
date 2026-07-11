@@ -46,7 +46,7 @@ struct KnotchHeader: View {
                     } else {
                         if Defaults[.showTimer] {
                             Button(action: {
-                                if timerManager.timers.isEmpty {
+                                if timerManager.allTimers.isEmpty {
                                     timerManager.isCreatingTimer = true
                                 } else {
                                     timerManager.showTimerList.toggle()

@@ -19,7 +19,11 @@ struct TimerCompactPill: View {
         if let timer = timerManager.soonestActiveTimer {
             HStack {
                 Button {
-                    timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
+                    if timer.source == .systemClock {
+                        timerManager.revealInSystemClock()
+                    } else {
+                        timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
+                    }
                 } label: {
                     let progress = max(0, min(1, timer.remaining() / timer.duration))
 

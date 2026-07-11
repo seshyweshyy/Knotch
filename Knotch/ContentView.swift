@@ -529,7 +529,7 @@ struct ContentView: View {
     // or coordinator.sneakPeek.show, so it needs its own check to get glass.
     private var timerLiveActivityShowing: Bool {
         vm.notchState == .closed
-            && !TimerManager.shared.timers.isEmpty
+            && !TimerManager.shared.allTimers.isEmpty
             && !vm.hideOnClosed
     }
 
@@ -936,7 +936,7 @@ struct ContentView: View {
                         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
                                 .frame(alignment: .center)
-                        } else if vm.notchState == .closed && !TimerManager.shared.timers.isEmpty && !vm.hideOnClosed {
+                        } else if vm.notchState == .closed && !TimerManager.shared.allTimers.isEmpty && !vm.hideOnClosed {
                             TimerCompactPill()
                                 .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
                         } else if vm.notchState == .open {

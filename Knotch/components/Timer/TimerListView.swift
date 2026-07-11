@@ -13,23 +13,34 @@ struct TimerListView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            ForEach(timerManager.timers) { timer in
+            ForEach(timerManager.allTimers) { timer in
                 HStack {
-                    Button {
-                        timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
-                    } label: {
-                        Circle().fill(Color.orange).frame(width: 32, height: 32)
-                            .overlay { Image(systemName: timer.isPaused ? "play.fill" : "pause.fill").foregroundStyle(.black) }
-                    }
-                    .buttonStyle(.plain)
+                    if timer.source == .systemClock {
+                        Button {
+                            timerManager.revealInSystemClock()
+                        } label: {
+                            Circle().fill(Color.gray.opacity(0.3)).frame(width: 32, height: 32)
+                                .overlay { Image(systemName: "clock").foregroundStyle(.white) }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open in Clock")
+                    } else {
+                        Button {
+                            timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
+                        } label: {
+                            Circle().fill(Color.orange).frame(width: 32, height: 32)
+                                .overlay { Image(systemName: timer.isPaused ? "play.fill" : "pause.fill").foregroundStyle(.black) }
+                        }
+                        .buttonStyle(.plain)
 
-                    Button {
-                        timerManager.cancel(id: timer.id)
-                    } label: {
-                        Circle().fill(Color.gray.opacity(0.3)).frame(width: 32, height: 32)
-                            .overlay { Image(systemName: "xmark").foregroundStyle(.white) }
+                        Button {
+                            timerManager.cancel(id: timer.id)
+                        } label: {
+                            Circle().fill(Color.gray.opacity(0.3)).frame(width: 32, height: 32)
+                                .overlay { Image(systemName: "xmark").foregroundStyle(.white) }
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
 
                     Spacer()
 
@@ -46,16 +57,24 @@ struct TimerListView: View {
                             .frame(width: 90)
                             .onExitCommand { renamingID = nil }
                         } else {
-                            Text(timer.name)
-                                .font(.system(size: 12, weight: .light))
-                                .foregroundStyle(.orange.opacity(0.8))
-                                .lineLimit(1)
-                                .fixedSize()
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    draftName = timer.name
-                                    renamingID = timer.id
+                            HStack(spacing: 4) {
+                                if timer.source == .systemClock {
+                                    Image(systemName: "clock.fill")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.orange.opacity(0.5))
                                 }
+                                Text(timer.name)
+                                    .font(.system(size: 12, weight: .light))
+                                    .foregroundStyle(.orange.opacity(0.8))
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard timer.source == .knotch else { return }
+                                draftName = timer.name
+                                renamingID = timer.id
+                            }
                         }
                         Text(formatted(timer.remaining()))
                             .font(.system(size: 24, weight: .light, design: .rounded))
@@ -67,7 +86,7 @@ struct TimerListView: View {
                 }
             }
 
-            if !timerManager.timers.isEmpty {
+            if !timerManager.allTimers.isEmpty {
                 Divider()
             }
 
