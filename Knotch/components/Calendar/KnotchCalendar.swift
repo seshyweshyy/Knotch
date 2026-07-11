@@ -19,7 +19,6 @@ struct Config: Equatable {
 }
 
 struct WheelPicker: View {
-    @EnvironmentObject var vm: KnotchViewModel
     @Binding var selectedDate: Date
     @State private var scrollPosition: Int?
     @State private var haptics: Bool = false
@@ -62,15 +61,6 @@ struct WheelPicker: View {
         .scrollTargetBehavior(.viewAligned)  // Ensures scroll view snaps the centered view
         .safeAreaPadding(.horizontal)
         .sensoryFeedback(.alignment, trigger: haptics)
-        // A two-finger swipe doesn't move the cursor, so onHover's state can lag
-        // behind an active scroll gesture here. Reinforce it explicitly so the
-        // notch's own left/right pan gesture (which shares the window-wide scroll
-        // monitor) reliably stays suppressed while scrubbing through days.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in vm.isHoveringCalendar = true }
-                .onEnded { _ in vm.isHoveringCalendar = false }
-        )
         .onChange(of: scrollPosition) { oldValue, newValue in
             if !byClick {
                 handleScrollChange(newValue: newValue, config: config)
@@ -463,7 +453,6 @@ private struct MapPinIcon: View {
 // MARK: - EventListView
 
 struct EventListView: View {
-    @EnvironmentObject var vm: KnotchViewModel
     @Environment(\.openURL) private var openURL
     @ObservedObject private var calendarManager = CalendarManager.shared
     let events: [EventModel]
@@ -530,12 +519,6 @@ struct EventListView: View {
                 }
             }
             .scrollIndicators(.never)
-            .onHover { hovering in
-                vm.isHoveringCalendar = hovering
-            }
-            .onDisappear {
-                vm.isHoveringCalendar = false
-            }
             .onAppear {
                 scrollToRelevantEvent(proxy: proxy)
             }
