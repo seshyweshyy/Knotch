@@ -434,6 +434,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "About", title: "Check for Updates", keywords: ["version", "update", "check", "build", "changelog", "release"], highlightID: "About-Check for Updates"),
             SettingsSearchEntry(tabID: "About", title: "Automatically check for updates", keywords: ["auto", "automatic", "update", "check", "sparkle"], highlightID: "About-Automatic updates"),
             SettingsSearchEntry(tabID: "About", title: "Automatically download updates", keywords: ["auto", "automatic", "download", "update", "sparkle"], highlightID: "About-Automatic updates"),
+            SettingsSearchEntry(tabID: "About", title: "Release Notes", keywords: ["release notes", "changelog", "whats new", "version"], highlightID: "About-Release Notes"),
         ]
     }
 
@@ -2248,6 +2249,17 @@ struct About: View {
                         .settingsHighlight(id: "About-Automatic updates")
                 } header: {
                     Text("Version Info & Updates")
+                }
+                if let version = Bundle.main.releaseVersionNumber {
+                    Section {
+                        ReleaseNotesView(version: version)
+                            .settingsHighlight(id: "About-Release Notes")
+                    } header: {
+                        Text("What's New in \(Bundle.main.releaseVersionNumberPretty)")
+                            .font(.system(size: 15))
+                            .fontWeight(.bold)
+                            .padding(.top, -8)
+                    }
                 }
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)

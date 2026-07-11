@@ -1005,6 +1005,9 @@
         }
       }
     },
+    "•" : {
+
+    },
     "• Bug fixes" : {
       "localizations" : {
         "ar" : {
@@ -22613,6 +22616,9 @@
           }
         }
       }
+    },
+    "What's New in %@" : {
+
     },
     "Window Appearance" : {
       "localizations" : {
