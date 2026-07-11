@@ -3,6 +3,15 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.7.2</title>
+            <pubDate>Sat, 11 Jul 2026 14:57:28 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>20</sparkle:version>
+            <sparkle:shortVersionString>1.7.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.2/Knotch.v.1.7.2.zip" length="14338682" type="application/octet-stream" sparkle:edSignature="Uh535jSdpfr2xvSMbOQtmz4xZsEyhSl4j8PNd/F6N7t65+stXGfd8J6qNkx2zfjae67uIQvj9jkSC4spk1+4Dw=="/>
+        </item>
+        <item>
             <title>1.7.1</title>
             <pubDate>Fri, 10 Jul 2026 17:10:26 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -19,15 +28,6 @@
             <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.0/Knotch.v.1.7.0.zip" length="13597404" type="application/octet-stream" sparkle:edSignature="f6xn6G0EdtcZUi1zNAyXJdEnWHwMERKmoKa7UlqOwl8kB3PS7Tn3T0QR6TqdsG7ZRt5LnCsZvCHK1IaAiTsDDw=="/>
-        </item>
-        <item>
-            <title>1.6.7</title>
-            <pubDate>Thu, 02 Jul 2026 12:29:45 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>17</sparkle:version>
-            <sparkle:shortVersionString>1.6.7</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.6.7/Knotch.v.1.6.7.zip" length="13457169" type="application/octet-stream" sparkle:edSignature="TzJM/flkBqszWmuv54bCBaxzEXHzLEnclZzEdVDitI0pXgFawaxXi6ouaHVEckYW84xQzSgmwwACLLM88HRNCw=="/>
         </item>
         <item>
             <title>1.6.3</title>
