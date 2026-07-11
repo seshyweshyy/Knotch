@@ -80,12 +80,12 @@ private final class FFTProcessor {
     }
 
     private let bands: [Band] = [
-        Band(start: 15,   peak: 35,   end: 90,    minDB: -36, maxDB: -4,  curve: 1.25),
+        Band(start: 15,   peak: 35,   end: 90,    minDB: -45, maxDB: -1,  curve: 1.25),
         Band(start: 35,   peak: 100,  end: 160,   minDB: -38, maxDB: -2,  curve: 1.40),
         Band(start: 105,  peak: 300,  end: 520,   minDB: -42, maxDB: -8,  curve: 1.30),
         Band(start: 300,  peak: 620,  end: 1500,  minDB: -51, maxDB: -14, curve: 1.00),
         Band(start: 620,  peak: 1700, end: 4500,  minDB: -55, maxDB: -18, curve: 0.92),
-        Band(start: 1200, peak: 4000, end: 12000, minDB: -50, maxDB: -22, curve: 1.25)
+        Band(start: 1200, peak: 4000, end: 12000, minDB: -50, maxDB: -20, curve: 1.25)
     ]
 
     init() {
