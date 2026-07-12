@@ -42,20 +42,48 @@ jobs:
             RELEASE_BODY=$(echo "${{ github.event.release.body }}" | jq -Rs .)
           fi
 
-          MESSAGE_ID=$(curl -s -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+          SEND_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -H "Content-Type: application/json" \
             -X POST \
             -d "{
               \"embeds\": [{
-                \"title\": \"⬇ Knotch $RELEASE_TAG released!\",
+                \"title\": \"🚀 Knotch $RELEASE_TAG released!\",
                 \"description\": $RELEASE_BODY,
                 \"url\": \"$RELEASE_URL\",
                 \"color\": 5814783
               }]
             }" \
-            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
-            | jq -r .id)
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages")
 
-          curl -s -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+          SEND_BODY=$(echo "$SEND_RESPONSE" | head -n -1)
+          SEND_STATUS=$(echo "$SEND_RESPONSE" | tail -n 1)
+
+          echo "Send status: $SEND_STATUS"
+          echo "Send response: $SEND_BODY"
+
+          if [ "$SEND_STATUS" -ge 400 ]; then
+            echo "::error::Discord message send failed with status $SEND_STATUS"
+            exit 1
+          fi
+
+          MESSAGE_ID=$(echo "$SEND_BODY" | jq -r .id)
+
+          if [ "$MESSAGE_ID" = "null" ] || [ -z "$MESSAGE_ID" ]; then
+            echo "::error::No message ID returned from Discord, cannot crosspost"
+            exit 1
+          fi
+
+          CROSSPOST_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -X POST \
-            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/crosspost"
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/crosspost")
+
+          CROSSPOST_BODY=$(echo "$CROSSPOST_RESPONSE" | head -n -1)
+          CROSSPOST_STATUS=$(echo "$CROSSPOST_RESPONSE" | tail -n 1)
+
+          echo "Crosspost status: $CROSSPOST_STATUS"
+          echo "Crosspost response: $CROSSPOST_BODY"
+
+          if [ "$CROSSPOST_STATUS" -ge 400 ]; then
+            echo "::error::Discord crosspost failed with status $CROSSPOST_STATUS"
+            exit 1
+          fi
