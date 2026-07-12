@@ -91,11 +91,11 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 > <br>
 
 <!-- VIRUSTOTAL:START -->
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F0_detections-brightgreen)](https://www.virustotal.com/gui/file/bdb1622a94c30d4e71b0663e4cedab7507140c66b4744deb00219a8080c8f750)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F74_detections-brightgreen)](https://www.virustotal.com/gui/file/bdb1622a94c30d4e71b0663e4cedab7507140c66b4744deb00219a8080c8f750)
 
 | Release | Scan Date | Detections | Scanned | Report |
 |---|---|---|---|---|
-| v1.7.0 | 2026-07-12 | 0 / 0 | App | [View report](https://www.virustotal.com/gui/file/bdb1622a94c30d4e71b0663e4cedab7507140c66b4744deb00219a8080c8f750) |
+| v1.7.0 | 2026-07-12 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/bdb1622a94c30d4e71b0663e4cedab7507140c66b4744deb00219a8080c8f750) |
 <!-- VIRUSTOTAL:END -->
 
 ***Knotch does not contain any pieces of malware, and is intended to be a simple app.***
