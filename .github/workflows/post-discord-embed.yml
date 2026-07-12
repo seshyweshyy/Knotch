@@ -1,10 +1,10 @@
-name: Post Bug Report Message
+name: Post Discord Embed
 
 on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Which message to post'
+        description: 'Which embed to post'
         required: true
         type: choice
         options:
@@ -44,7 +44,7 @@ jobs:
             -X POST \
             -d '{
               "embeds": [{
-                "title": "Knotch Server Rules",
+                "title": "📜 Knotch Server Rules",
                 "color": 5814783,
                 "fields": [
                   {"name": "1. Be respectful", "value": "No harassment, hate speech, personal attacks, or discrimination. Disagreements happen — keep it civil."},
