@@ -94,11 +94,10 @@ jobs:
           for i in $(seq 1 30); do
             RESPONSE=$(curl -s "https://www.virustotal.com/api/v3/files/${{ steps.hash.outputs.file_id }}" \
               -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}")
-            STATS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats // empty')
-            if [ -n "$STATS" ]; then
+            TOTAL=$(echo "$RESPONSE" | jq -r '[.data.attributes.last_analysis_stats[]?] | add // 0')
+            if [ "$TOTAL" -gt 0 ]; then
               MALICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats.malicious')
               SUSPICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats.suspicious')
-              TOTAL=$(echo "$RESPONSE" | jq -r '[.data.attributes.last_analysis_stats[]] | add')
               echo "detections=$((MALICIOUS + SUSPICIOUS))" >> "$GITHUB_OUTPUT"
               echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
               exit 0
