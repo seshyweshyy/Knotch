@@ -2,12 +2,21 @@ name: Post Bug Report Message
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which message to post'
+        required: true
+        type: choice
+        options:
+          - bug-report
+          - rules
 
 jobs:
   post:
     runs-on: ubuntu-latest
     steps:
-      - name: Send embed to #bug-discussions
+      - name: Send bug report embed to #bug-discussions
+        if: inputs.target == 'bug-report'
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           BUG_DISCUSSIONS_CHANNEL_ID: ${{ secrets.BUG_DISCUSSIONS_CHANNEL_ID }}
@@ -18,8 +27,37 @@ jobs:
             -d '{
               "embeds": [{
                 "title": "🐛 Reporting a Bug?",
-                "description": "Please consider submitting bug reports directly on GitHub using our Bug Report template instead of posting here - it makes sure we get all the details we need (steps to reproduce, expected behavior, screenshots/videos) in a format that'\''s easy to track and follow up on.\n\n🔗 [Submit a Bug Report](https://github.com/seshyweshyy/Knotch/issues/new?template=1-bug-report-form.yml)\n\nFeel free to use this channel to discuss existing bugs, ask questions, or check if something'\''s already been reported!",
+                "description": "Please submit bug reports directly on GitHub using our Bug Report template instead of posting here — it makes sure we get all the details we need (steps to reproduce, expected behavior, screenshots/videos) in a format that'\''s easy to track and follow up on.\n\n[Submit a Bug Report](https://github.com/seshyweshyy/Knotch/issues/new?template=1-bug-report-form.yml)\n\nFeel free to use this channel to discuss existing bugs, ask questions, or check if something'\''s already been reported!",
                 "color": 5814783
               }]
             }' \
             "https://discord.com/api/v10/channels/$BUG_DISCUSSIONS_CHANNEL_ID/messages"
+
+      - name: Send rules embed to #rules
+        if: inputs.target == 'rules'
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          RULES_CHANNEL_ID: ${{ secrets.RULES_CHANNEL_ID }}
+        run: |
+          curl -s -w "\n%{http_code}" -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "Knotch Server Rules",
+                "color": 5814783,
+                "fields": [
+                  {"name": "1. Be respectful", "value": "No harassment, hate speech, personal attacks, or discrimination. Disagreements happen — keep it civil."},
+                  {"name": "2. Keep it on-topic", "value": "This server is for Knotch: support, feedback, feature requests, and development discussion. Use the appropriate channels for off-topic chat."},
+                  {"name": "3. Search before asking", "value": "Check pinned messages, FAQ, and existing threads before posting a support question — your issue may already be answered."},
+                  {"name": "4. No piracy or cracked software talk", "value": "Knotch is free and open source. Discussion of cracking paid competitor apps is not allowed."},
+                  {"name": "5. Report bugs properly", "value": "Use the designated bug-report channel/format. Include your macOS version, Knotch version, and steps to reproduce — screenshots/videos help a lot."},
+                  {"name": "6. No spam or self-promotion", "value": "No unsolicited advertising, referral links, or repeated posting of the same message across channels."},
+                  {"name": "7. Respect the unsigned app / no-Gatekeeper-friction nature of the project", "value": "Do not fearmonger about \"unsigned app = malware.\" If you'\''re unsure about safety, check the VirusTotal scan results linked in the README, or ask calmly in support."},
+                  {"name": "8. No NSFW or illegal content", "value": "Keep all text, images, and links appropriate for a general audience."},
+                  {"name": "9. Follow Discord'\''s Terms of Service and Community Guidelines", "value": "This is non-negotiable and applies regardless of server-specific rules."},
+                  {"name": "10. Listen to moderators", "value": "Mod/admin decisions are final. If you disagree, DM a moderator privately rather than arguing in public channels."}
+                ]
+              }]
+            }' \
+            "https://discord.com/api/v10/channels/$RULES_CHANNEL_ID/messages"
