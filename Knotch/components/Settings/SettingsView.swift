@@ -38,10 +38,11 @@ private let knotchTabs: [SettingsTabItem] = [
     // Content
     SettingsTabItem(id: "Widgets", title: "Widgets", systemImage: "rectangle.3.group", tint: .indigo, group: "Content"),
     SettingsTabItem(id: "Media", title: "Media", systemImage: "play.laptopcomputer", tint: .green, group: "Content"),
+    SettingsTabItem(id: "LockScreen", title: "Lock Screen", systemImage: "lock.fill", tint: .black, group: "Content"),
     SettingsTabItem(id: "Calendar", title: "Calendar", systemImage: "calendar", tint: .cyan, group: "Content"),
     SettingsTabItem(id: "Shelf", title: "Shelf", systemImage: "books.vertical", tint: .brown, group: "Content"),
     // System
-    SettingsTabItem(id: "HUD", title: "HUDs", systemImage: "dial.medium.fill", tint: .black, group: "System"),
+    SettingsTabItem(id: "HUD", title: "HUDs", systemImage: "dial.medium.fill", tint: .gray, group: "System"),
     SettingsTabItem(id: "Battery", title: "Battery", systemImage: "battery.100.bolt", tint: Color(red: 0.2, green: 0.78, blue: 0.35), group: "System"),
     SettingsTabItem(id: "LiveActivities", title: "Live Activities", systemImage: "livephoto", tint: .blue, group: "System"),
     // More
@@ -383,9 +384,11 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek style", keywords: ["sneak peek", "style"], highlightID: "Media-Sneak peek style"),
             SettingsSearchEntry(tabID: "Media", title: "Media inactivity timeout", keywords: ["timeout", "inactivity", "media"], highlightID: "Media-Media inactivity timeout"),
             SettingsSearchEntry(tabID: "Media", title: "Full screen behavior", keywords: ["full screen", "hide", "behavior"], highlightID: "Media-Full screen behavior"),
-            SettingsSearchEntry(tabID: "Media", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "Media-Show album art"),
-            SettingsSearchEntry(tabID: "Media", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "Media-Expanded album art"),
-            SettingsSearchEntry(tabID: "Media", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "Media-Keep awake expanded art"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "LockScreen-Show album art"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Show timer widget on lock screen", keywords: ["lock screen", "timer", "widget"], highlightID: "LockScreen-Show timer widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "LockScreen-Expanded album art"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "LockScreen-Keep awake expanded art"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "LockScreen-Show on lock screen"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
             // Calendar
             SettingsSearchEntry(tabID: "Calendar", title: "Show calendar", keywords: ["calendar", "notch"], highlightID: "Calendar-Show calendar in notch"),
@@ -427,7 +430,6 @@ struct SettingsView: View {
             //SettingsSearchEntry(tabID: "Advanced", title: "Progressive edge blur when notch is open", keywords: ["edge", "blur", "progressive"], highlightID: "Appearance-Progressive edge blur"),
             SettingsSearchEntry(tabID: "Advanced", title: "Extend hover area", keywords: ["hover", "area", "extend"], highlightID: "Advanced-Extend hover area"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide title bar", keywords: ["title bar", "hide"], highlightID: "Advanced-Hide title bar"),
-            SettingsSearchEntry(tabID: "Advanced", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "Advanced-Show on lock screen"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide from screen recording", keywords: ["screen recording", "privacy", "hide"], highlightID: "Advanced-Hide from screen recording"),
             SettingsSearchEntry(tabID: "Advanced", title: "Custom visualizers", keywords: ["lottie", "visualizer", "custom"], highlightID: "Advanced-Custom visualizers"),
             // About
@@ -574,6 +576,8 @@ struct SettingsView: View {
                         SettingsForm(tabID: "Widgets") { Widgets() }
                     case "Media":
                         SettingsForm(tabID: "Media") { Media() }
+                    case "LockScreen":
+                        SettingsForm(tabID: "LockScreen") { LockScreen() }
                     case "Calendar":
                         SettingsForm(tabID: "Calendar") { CalendarSettings() }
                     case "HUD":
@@ -1236,32 +1240,6 @@ struct Media: View {
             }
 
             Section {
-                Defaults.Toggle(key: .lockScreenMusicWidget) {
-                    Text("Show music widget on lock screen")
-                }
-                .settingsHighlight(id: "Media-Show album art")
-                Defaults.Toggle(key: .lockScreenExpandedAlbumArt) {
-                        Text("Enable expanded album art")
-                }
-                .disabled(!Defaults[.lockScreenMusicWidget])
-                .settingsHighlight(id: "Media-Expanded album art")
-
-                Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
-                    HStack(spacing: 6) {
-                        Text("Keep screen awake while album art is expanded")
-                        Image(systemName: "battery.50")
-                            .modifier(HoverTooltip(text: "May increase battery usage"))
-                    }
-                }
-                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
-                .settingsHighlight(id: "Media-Keep awake expanded art")
-            } header: {
-                Text("Lock screen")
-            } footer: {
-                Text("Keeping the screen awake while album art is expanded may increase battery usage.")
-            }
-
-            Section {
                 MusicSlotConfigurationView()
                 Defaults.Toggle(key: .enableLyrics) {
                     HStack {
@@ -1287,6 +1265,54 @@ struct Media: View {
         } else {
             return MediaControllerType.allCases
         }
+    }
+}
+
+// MARK: - Lock Screen
+
+struct LockScreen: View {
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .showOnLockScreen) {
+                    Text("Show notch on lock screen")
+                }
+                .settingsHighlight(id: "LockScreen-Show on lock screen")
+            } header: {
+                Text("Notch")
+            }
+
+            Section {
+                Defaults.Toggle(key: .lockScreenMusicWidget) {
+                    Text("Show music widget on lock screen")
+                }
+                .settingsHighlight(id: "LockScreen-Show album art")
+                Defaults.Toggle(key: .lockScreenTimerWidget) {
+                    Text("Show timer widget on lock screen")
+                }
+                .settingsHighlight(id: "LockScreen-Show timer widget")
+                Defaults.Toggle(key: .lockScreenExpandedAlbumArt) {
+                        Text("Enable expanded album art")
+                }
+                .disabled(!Defaults[.lockScreenMusicWidget])
+                .settingsHighlight(id: "LockScreen-Expanded album art")
+
+                Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
+                    HStack(spacing: 6) {
+                        Text("Keep screen awake while album art is expanded")
+                        Image(systemName: "battery.50")
+                            .modifier(HoverTooltip(text: "May increase battery usage"))
+                    }
+                }
+                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
+                .settingsHighlight(id: "LockScreen-Keep awake expanded art")
+            } header: {
+                Text("Widgets")
+            } footer: {
+                Text("Keeping the screen awake while album art is expanded may increase battery usage.")
+            }
+        }
+        .accentColor(.effectiveAccent)
     }
 }
 
@@ -1871,7 +1897,6 @@ struct Advanced: View {
     @Default(.useCustomAccentColor) var useCustomAccentColor
     @Default(.customAccentColorData) var customAccentColorData
     @Default(.extendHoverArea) var extendHoverArea
-    @Default(.showOnLockScreen) var showOnLockScreen
     @Default(.hideFromScreenRecording) var hideFromScreenRecording
 
     @State private var customAccentColor: Color = .accentColor
@@ -2037,10 +2062,6 @@ struct Advanced: View {
                     Text("Hide title bar")
                 }
                 .settingsHighlight(id: "Advanced-Hide title bar")
-                Defaults.Toggle(key: .showOnLockScreen) {
-                    Text("Show notch on lock screen")
-                }
-                .settingsHighlight(id: "Advanced-Show on lock screen")
                 Defaults.Toggle(key: .hideFromScreenRecording) {
                     Text("Hide from screen recording")
                 }

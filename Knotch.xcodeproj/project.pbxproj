@@ -130,6 +130,9 @@
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
 		437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */; };
+		AA11BB22CC33DD44EE550004 /* LiquidGlassTimerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550003 /* LiquidGlassTimerWidget.swift */; };
+		AA11BB22CC33DD44EE550006 /* LiquidGlassTimerWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */; };
+		AA11BB22CC33DD44EE550008 /* TimerGlassButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550007 /* TimerGlassButton.swift */; };
 		437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18FA2FFA964B000E4E6B /* TimerListView.swift */; };
 		4380D5A72FECA81D0060B923 /* LiveAudioMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */; };
 		43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */; };
@@ -336,6 +339,9 @@
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
 		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
 		437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerCompactPill.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550003 /* LiquidGlassTimerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassTimerWidget.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassTimerWidgetWindow.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550007 /* TimerGlassButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerGlassButton.swift; sourceTree = "<group>"; };
 		437B18FA2FFA964B000E4E6B /* TimerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerListView.swift; sourceTree = "<group>"; };
 		4380D5A62FECA81D0060B923 /* LiveAudioMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAudioMeter.swift; sourceTree = "<group>"; };
 		43A1418E2FA2B0DE007AF2AE /* HUDLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDLottieView.swift; sourceTree = "<group>"; };
@@ -756,6 +762,9 @@
 			children = (
 				437B18FA2FFA964B000E4E6B /* TimerListView.swift */,
 				437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */,
+				AA11BB22CC33DD44EE550003 /* LiquidGlassTimerWidget.swift */,
+				AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */,
+				AA11BB22CC33DD44EE550007 /* TimerGlassButton.swift */,
 				437B18F62FFA9631000E4E6B /* TimerSliderView.swift */,
 			);
 			path = Timer;
@@ -1199,6 +1208,9 @@
 				B1C448982C972CC4001F0858 /* ListItemPopover.swift in Sources */,
 				B19016242CC15B5000E3F12E /* Constants.swift in Sources */,
 				437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */,
+				AA11BB22CC33DD44EE550004 /* LiquidGlassTimerWidget.swift in Sources */,
+				AA11BB22CC33DD44EE550006 /* LiquidGlassTimerWidgetWindow.swift in Sources */,
+				AA11BB22CC33DD44EE550008 /* TimerGlassButton.swift in Sources */,
 				1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */,
 				11CFC6632E09918400748C80 /* MusicControllerSelectionView.swift in Sources */,
 				B1F0A0022E60000100000001 /* BrightnessManager.swift in Sources */,

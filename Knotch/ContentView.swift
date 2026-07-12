@@ -551,7 +551,7 @@ struct ContentView: View {
             && coordinator.sneakPeek.type != .music
             && coordinator.sneakPeek.type != .bluetoothAudio
             && vm.notchState == .closed
-        return (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive
+        return Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive
     }
 
     private var currentBottomCornerRadius: CGFloat {
@@ -588,7 +588,7 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
-        } else if vm.notchState == .closed && (vm.isScreenLocked || isUnlockAnimating) {
+        } else if vm.notchState == .closed && Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) {
             chinWidth += 60
         } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
             && vm.notchState == .closed
@@ -811,7 +811,7 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: vm.isScreenLocked) { _, newLocked in
-                        if !newLocked {
+                        if !newLocked && Defaults[.showOnLockScreen] {
                             isUnlockAnimating = true
                         }
                     }
@@ -918,7 +918,7 @@ struct ContentView: View {
                         && coordinator.sneakPeek.type != .bluetoothAudio
                         && vm.notchState == .closed
 
-                    if (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
+                    if Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
                         HStack(spacing: 0) {
                             LockNotchOverlay(isLocked: vm.isScreenLocked, isUnlockAnimating: $isUnlockAnimating, host: lockAnimationHost)
                                 .allowsHitTesting(false)

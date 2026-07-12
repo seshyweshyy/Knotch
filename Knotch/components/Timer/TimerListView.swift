@@ -16,30 +16,22 @@ struct TimerListView: View {
             ForEach(timerManager.allTimers) { timer in
                 HStack {
                     if timer.source == .systemClock {
-                        Button {
+                        TimerGlassButton(systemImage: "clock", iconColor: .white, tint: Color.gray.opacity(0.3)) {
                             timerManager.revealInSystemClock()
-                        } label: {
-                            Circle().fill(Color.gray.opacity(0.3)).frame(width: 32, height: 32)
-                                .overlay { Image(systemName: "clock").foregroundStyle(.white) }
                         }
-                        .buttonStyle(.plain)
                         .help("Open in Clock")
                     } else {
-                        Button {
+                        TimerGlassButton(
+                            systemImage: timer.isPaused ? "play.fill" : "pause.fill",
+                            iconColor: .orange,
+                            tint: .orange.opacity(0.2)
+                        ) {
                             timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
-                        } label: {
-                            Circle().fill(Color.orange).frame(width: 32, height: 32)
-                                .overlay { Image(systemName: timer.isPaused ? "play.fill" : "pause.fill").foregroundStyle(.black) }
                         }
-                        .buttonStyle(.plain)
 
-                        Button {
+                        TimerGlassButton(systemImage: "xmark", iconColor: .white, tint: Color.gray.opacity(0.3)) {
                             timerManager.cancel(id: timer.id)
-                        } label: {
-                            Circle().fill(Color.gray.opacity(0.3)).frame(width: 32, height: 32)
-                                .overlay { Image(systemName: "xmark").foregroundStyle(.white) }
                         }
-                        .buttonStyle(.plain)
                     }
 
                     Spacer()

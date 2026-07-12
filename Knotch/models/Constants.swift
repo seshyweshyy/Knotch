@@ -127,7 +127,7 @@ extension Defaults.Keys {
     static let nonNotchHeight = Key<CGFloat>("nonNotchHeight", default: 32)
     static let notchHeight = Key<CGFloat>("notchHeight", default: 32)
     //static let openLastTabByDefault = Key<Bool>("openLastTabByDefault", default: false)
-    static let showOnLockScreen = Key<Bool>("showOnLockScreen", default: false)
+    static let showOnLockScreen = Key<Bool>("showOnLockScreen", default: true)
     static let hideFromScreenRecording = Key<Bool>("hideFromScreenRecording", default: false)
     
     // MARK: Appearance
@@ -184,6 +184,7 @@ extension Defaults.Keys {
     static let lockScreenMusicWidget = Key<Bool>("lockScreenMusicWidget", default: true)
     static let lockScreenExpandedAlbumArt = Key<Bool>("lockScreenExpandedAlbumArt", default: true)
     static let keepAwakeOnExpandedArt = Key<Bool>("keepAwakeOnExpandedArt", default: true)
+    static let lockScreenTimerWidget = Key<Bool>("lockScreenTimerWidget", default: true)
     
     // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)

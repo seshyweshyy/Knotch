@@ -133,6 +133,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         broadcastLockState(true)
         enableSkyLightOnAllWindows()
         showLiquidGlassWidgetIfNeeded()
+        let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        LiquidGlassTimerWidgetWindowController.shared.screenDidLock(on: screen)
         lockAnimationHost.play(forward: false)
     }
     @MainActor
@@ -141,6 +143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         broadcastLockState(false)
         disableSkyLightOnAllWindows()
         LiquidGlassWidgetWindowController.shared.hide()
+        LiquidGlassTimerWidgetWindowController.shared.screenDidUnlock()
     }
     
     private func broadcastLockState(_ locked: Bool) {
