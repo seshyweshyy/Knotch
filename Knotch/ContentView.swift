@@ -20,11 +20,19 @@ struct MusicLiveActivity: View {
     @Default(.coloredSpectrogram) var coloredSpectrogram
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.useMusicVisualizer) var useMusicVisualizer
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
 
     let albumArtNamespace: Namespace.ID
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+
+    // When glass is active, the middle strip should let the shared notch
+    // background (glass + gradient mask) show through instead of covering
+    // it with an opaque black rectangle.
+    private var glassActive: Bool {
+        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
 
     var body: some View {
         HStack {
@@ -66,7 +74,7 @@ struct MusicLiveActivity: View {
                 }
 
             Rectangle()
-                .fill(.black)
+                .fill(glassActive ? Color.clear : Color.black)
                 .overlay(
                     HStack(alignment: .top) {
                         if coordinator.expandingView.show
