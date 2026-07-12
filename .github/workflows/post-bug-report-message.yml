@@ -18,7 +18,7 @@ jobs:
             -d '{
               "embeds": [{
                 "title": "🐛 Reporting a Bug?",
-                "description": "Please submit bug reports directly on GitHub using our Bug Report template instead of posting here — it makes sure we get all the details we need (steps to reproduce, expected behavior, screenshots/videos) in a format that'\''s easy to track and follow up on.\n\n[Submit a Bug Report](https://github.com/seshyweshyy/Knotch/issues/new?template=1-bug-report-form.yml)\n\nFeel free to use this channel to discuss existing bugs, ask questions, or check if something'\''s already been reported!",
+                "description": "Please consider submitting bug reports directly on GitHub using our Bug Report template instead of posting here - it makes sure we get all the details we need (steps to reproduce, expected behavior, screenshots/videos) in a format that'\''s easy to track and follow up on.\n\n🔗 [Submit a Bug Report](https://github.com/seshyweshyy/Knotch/issues/new?template=1-bug-report-form.yml)\n\nFeel free to use this channel to discuss existing bugs, ask questions, or check if something'\''s already been reported!",
                 "color": 5814783
               }]
             }' \
