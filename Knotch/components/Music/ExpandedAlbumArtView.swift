@@ -28,14 +28,16 @@ struct ExpandedAlbumArtView: View {
             // Outgoing art — always visible underneath
             Image(nsImage: displayedArt)
                 .resizable()
-                .aspectRatio(1, contentMode: .fill)
+                .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .matchedGeometryEffect(id: "albumArt", in: artNamespace)
 
             // Incoming art — fades in on top, then becomes the new base
             if let incoming = incomingArt {
                 Image(nsImage: incoming)
                     .resizable()
-                    .aspectRatio(1, contentMode: .fill)
+                    .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .opacity(incomingOpacity)
             }
         }

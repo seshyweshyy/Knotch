@@ -126,9 +126,17 @@ struct AlbumArtView: View {
         Image(nsImage: displayedArt)
             .resizable()
             // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
-            // ratio, not 1:1 — scale to fill and let the frame + clip crop it
-            // to a centered square instead of squashing it into one.
-            .scaledToFill()
+            // ratio, not 1:1 — scale to fit so the whole thumbnail stays
+            // visible (letterboxed) instead of being cropped or squashed.
+            .scaledToFit()
+            // Round the letterboxed thumbnail itself, not just the square
+            // frame around it — otherwise non-square art keeps sharp
+            // corners since it no longer touches the frame's edges.
+            .clipShape(
+                RoundedRectangle(cornerRadius: vm.notchState == .open
+                    ? MusicPlayerImageSizes.cornerRadiusInset.opened
+                    : MusicPlayerImageSizes.cornerRadiusInset.closed)
+            )
             .frame(width: 132, height: 132)
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipped()

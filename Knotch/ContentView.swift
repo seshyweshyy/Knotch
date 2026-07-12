@@ -38,12 +38,17 @@ struct MusicLiveActivity: View {
         HStack {
             Image(nsImage: displayedArt)
                 .resizable()
-                .clipped()
+                // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
+                // ratio, not 1:1 — scale to fit so the whole thumbnail stays
+                // visible (letterboxed) instead of being cropped or squashed.
+                .scaledToFit()
+                // Round the letterboxed thumbnail itself, not just the square
+                // frame around it — otherwise non-square art keeps sharp
+                // corners since it no longer touches the frame's edges.
                 .clipShape(
                     RoundedRectangle(
                         cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
                 )
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .frame(
                     width: max(0, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                         ? vm.effectiveClosedNotchHeight - 4   // slightly bigger during sneak peek
@@ -52,6 +57,12 @@ struct MusicLiveActivity: View {
                         ? vm.effectiveClosedNotchHeight - 4
                         : vm.effectiveClosedNotchHeight - 12)
                 )
+                .clipped()
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
+                )
+                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
                 .rotation3DEffect(
                     .degrees(rotationDegrees),
