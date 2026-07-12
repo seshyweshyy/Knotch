@@ -36,6 +36,9 @@ if existing_block:
     rows = re.findall(r"^\|.*\|$", existing_block.group(0), re.MULTILINE)
     existing_rows = [r for r in rows if not r.startswith("| Release") and not r.startswith("|---")]
 
+# Remove any existing row for this same tag, so re-running a scan updates in place
+existing_rows = [r for r in existing_rows if not r.startswith(f"| {args.tag} |")]
+
 all_rows = [new_row] + existing_rows
 all_rows = all_rows[:3]
 
