@@ -27,9 +27,10 @@ jobs:
           echo "$RELEASE_JSON" | jq -r .body >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Send release notes to Discord
+      - name: Send and publish release notes to Discord
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RELEASE_TAG="${{ steps.fetch_release.outputs.tag_name }}"
@@ -41,7 +42,8 @@ jobs:
             RELEASE_BODY=$(echo "${{ github.event.release.body }}" | jq -Rs .)
           fi
 
-          curl -H "Content-Type: application/json" \
+          MESSAGE_ID=$(curl -s -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
             -X POST \
             -d "{
               \"embeds\": [{
@@ -51,4 +53,9 @@ jobs:
                 \"color\": 5814783
               }]
             }" \
-            "$DISCORD_WEBHOOK_URL"
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
+            | jq -r .id)
+
+          curl -s -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -X POST \
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/crosspost"
