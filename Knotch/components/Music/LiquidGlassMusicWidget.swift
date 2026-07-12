@@ -190,7 +190,7 @@ struct LiquidGlassMusicWidget: View {
         Image(nsImage: displayedArt)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .matchedGeometryEffect(id: "albumArt", in: artNamespace)

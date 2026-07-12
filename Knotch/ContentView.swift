@@ -47,7 +47,7 @@ struct MusicLiveActivity: View {
                 // corners since it no longer touches the frame's edges.
                 .clipShape(
                     RoundedRectangle(
-                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
+                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed / 2)
                 )
                 .frame(
                     width: max(0, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)

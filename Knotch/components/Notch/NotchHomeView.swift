@@ -133,9 +133,9 @@ struct AlbumArtView: View {
             // frame around it — otherwise non-square art keeps sharp
             // corners since it no longer touches the frame's edges.
             .clipShape(
-                RoundedRectangle(cornerRadius: vm.notchState == .open
+                RoundedRectangle(cornerRadius: (vm.notchState == .open
                     ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                    : MusicPlayerImageSizes.cornerRadiusInset.closed)
+                    : MusicPlayerImageSizes.cornerRadiusInset.closed) / 2)
             )
             .frame(width: 132, height: 132)
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)

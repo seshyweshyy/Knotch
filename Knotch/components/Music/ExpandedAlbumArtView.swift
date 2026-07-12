@@ -29,7 +29,7 @@ struct ExpandedAlbumArtView: View {
             Image(nsImage: displayedArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .matchedGeometryEffect(id: "albumArt", in: artNamespace)
 
             // Incoming art — fades in on top, then becomes the new base
@@ -37,7 +37,7 @@ struct ExpandedAlbumArtView: View {
                 Image(nsImage: incoming)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .opacity(incomingOpacity)
             }
         }
