@@ -49,8 +49,10 @@ jobs:
             APP_PATH=$(find extracted -maxdepth 2 -type d -name "*.app" | head -n 1)
             if [ -n "$APP_PATH" ]; then
               PLIST_PATH="$APP_PATH/Contents/Info.plist"
-              EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$PLIST_PATH" 2>/dev/null || plutil -extract CFBundleExecutable raw "$PLIST_PATH" 2>/dev/null)
-              BINARY_PATH="$APP_PATH/Contents/MacOS/$EXEC_NAME"
+              EXEC_NAME=$(python3 -c "import plistlib, sys; f=open('$PLIST_PATH','rb'); data=plistlib.load(f); f.close(); print(data.get('CFBundleExecutable',''))" 2>/dev/null)
+              if [ -n "$EXEC_NAME" ]; then
+                BINARY_PATH="$APP_PATH/Contents/MacOS/$EXEC_NAME"
+              fi
             fi
             if [ -n "$BINARY_PATH" ] && [ -f "$BINARY_PATH" ]; then
               echo "scan_target=$BINARY_PATH" >> "$GITHUB_OUTPUT"
