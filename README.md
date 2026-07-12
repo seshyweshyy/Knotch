@@ -95,6 +95,7 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 
 | Release | Scan Date | Detections | Scanned | Report |
 |---|---|---|---|---|
+| v1.7.1 | 2026-07-12 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/644df0eef59290d2462e22f32ba5359fc8c7edcaeb08769eccd4cc6fb597f0f5) |
 | v1.7.0 | 2026-07-12 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/644df0eef59290d2462e22f32ba5359fc8c7edcaeb08769eccd4cc6fb597f0f5) |
 <!-- VIRUSTOTAL:END -->
 
