@@ -282,11 +282,16 @@ final class LiveAudioMeter {
     private func start(bundleID: String) throws {
         AudioHardwareReconfig.markPending()
 
-        // 1. Find the AudioObjectID of the target process
-        let processObjectID = try findProcessObjectID(bundleID: bundleID)
+        // 1. Find every AudioObjectID belonging to the target process. Browsers
+        // (Chrome, Safari, etc.) run each tab/site in its own sandboxed helper
+        // process, and CoreAudio can list several of those under the same
+        // bundle ID — the one actually producing sound isn't necessarily the
+        // first entry. Mixing down all of them means we tap whichever one is
+        // playing, regardless of how many other tabs/helpers are idle.
+        let processObjectIDs = try findProcessObjectIDs(bundleID: bundleID)
 
-        // 2. Build CATapDescription targeting that process
-        let tap = CATapDescription(stereoMixdownOfProcesses: [processObjectID])
+        // 2. Build CATapDescription targeting those processes
+        let tap = CATapDescription(stereoMixdownOfProcesses: processObjectIDs)
         tap.uuid = UUID()
         tap.muteBehavior = .unmuted
         tap.isPrivate = true
@@ -491,27 +496,23 @@ final class LiveAudioMeter {
     }
 
     // MARK: - Process lookup
-    
-    func dumpProcessList() {
-        guard let list = try? AudioObjectID.system.readProcessList() else {
-            NSLog("[LiveAudioMeter] could not read process list")
-            return
-        }
-        NSLog("[LiveAudioMeter] HAL process list (%d entries):", list.count)
-        for objectID in list {
-            let bundleID = objectID.readProcessBundleID() ?? "(nil)"
-            NSLog("[LiveAudioMeter]   objectID=%u  bundleID=%@", objectID, bundleID)
-        }
-    }
 
-    private func findProcessObjectID(bundleID: String) throws -> AudioObjectID {
+    // Browsers report Now Playing info under their main bundle ID (e.g.
+    // "com.google.Chrome"), but the actual sound is produced by a sandboxed
+    // helper process with its own, distinct bundle ID — "com.google.Chrome.helper"
+    // is the one that actually outputs audio, while "com.google.Chrome" itself
+    // never does. Matching only exact equality taps permanent silence.
+    // Chromium-family browsers (Chrome, Edge, Brave, ...) all name these
+    // helpers as dot-suffixed children of the main bundle ID, so widen the
+    // match to include them.
+    private func findProcessObjectIDs(bundleID: String) throws -> [AudioObjectID] {
         let processList = try AudioObjectID.system.readProcessList()
-        for objectID in processList {
-            if objectID.readProcessBundleID() == bundleID {
-                return objectID
-            }
+        let matches = processList.filter {
+            guard let candidate = $0.readProcessBundleID() else { return false }
+            return candidate == bundleID || candidate.hasPrefix(bundleID + ".")
         }
-        throw MeterError.processNotFound(bundleID)
+        guard !matches.isEmpty else { throw MeterError.processNotFound(bundleID) }
+        return matches
     }
 
     // MARK: - Errors
