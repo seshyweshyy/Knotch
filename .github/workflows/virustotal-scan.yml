@@ -62,34 +62,38 @@ jobs:
             echo "Extraction failed, falling back to zip"
           fi
 
-      - name: Upload to VirusTotal
+      - name: Submit to VirusTotal
         id: upload
         run: |
           RESPONSE=$(curl -s -X POST "https://www.virustotal.com/api/v3/files" \
             -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}" \
             -F "file=@${{ steps.extract.outputs.scan_target }}")
-          ANALYSIS_ID=$(echo "$RESPONSE" | jq -r '.data.id')
-          if [ "$ANALYSIS_ID" = "null" ] || [ -z "$ANALYSIS_ID" ]; then
+          ERROR_CODE=$(echo "$RESPONSE" | jq -r '.error.code // empty')
+          if [ -n "$ERROR_CODE" ] && [ "$ERROR_CODE" != "AlreadySubmittedError" ]; then
             echo "VirusTotal upload failed: $RESPONSE" >&2
             exit 1
           fi
-          echo "analysis_id=$ANALYSIS_ID" >> "$GITHUB_OUTPUT"
+          echo "Submission response: $RESPONSE"
+
+      - name: Compute file hash
+        id: hash
+        run: |
+          FILE_ID=$(sha256sum "${{ steps.extract.outputs.scan_target }}" | awk '{print $1}')
+          echo "file_id=$FILE_ID" >> "$GITHUB_OUTPUT"
 
       - name: Poll for analysis result
         id: result
         run: |
           for i in $(seq 1 30); do
-            RESPONSE=$(curl -s "https://www.virustotal.com/api/v3/analyses/${{ steps.upload.outputs.analysis_id }}" \
+            RESPONSE=$(curl -s "https://www.virustotal.com/api/v3/files/${{ steps.hash.outputs.file_id }}" \
               -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}")
-            STATUS=$(echo "$RESPONSE" | jq -r '.data.attributes.status')
-            if [ "$STATUS" = "completed" ]; then
-              MALICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.stats.malicious')
-              SUSPICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.stats.suspicious')
-              TOTAL=$(echo "$RESPONSE" | jq -r '[.data.attributes.stats[]] | add')
-              FILE_ID=$(echo "$RESPONSE" | jq -r '.meta.file_info.sha256')
+            STATS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats // empty')
+            if [ -n "$STATS" ]; then
+              MALICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats.malicious')
+              SUSPICIOUS=$(echo "$RESPONSE" | jq -r '.data.attributes.last_analysis_stats.suspicious')
+              TOTAL=$(echo "$RESPONSE" | jq -r '[.data.attributes.last_analysis_stats[]] | add')
               echo "detections=$((MALICIOUS + SUSPICIOUS))" >> "$GITHUB_OUTPUT"
               echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
-              echo "file_id=$FILE_ID" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 15
@@ -103,7 +107,7 @@ jobs:
             --tag "${{ steps.tag.outputs.tag_name }}" \
             --detections "${{ steps.result.outputs.detections }}" \
             --total "${{ steps.result.outputs.total }}" \
-            --file-id "${{ steps.result.outputs.file_id }}" \
+            --file-id "${{ steps.hash.outputs.file_id }}" \
             --scan-type "${{ steps.extract.outputs.scan_type }}"
 
       - name: Commit README
