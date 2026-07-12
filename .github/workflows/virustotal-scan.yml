@@ -122,4 +122,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
           git diff --cached --quiet || git commit -m "Update VirusTotal scan results for ${{ steps.tag.outputs.tag_name }}"
-          git push
+
+          for i in $(seq 1 5); do
+            git fetch origin main
+            git rebase origin/main && git push origin main && exit 0
+            echo "Push rejected, retrying ($i/5)..."
+            sleep $((RANDOM % 5 + 1))
+          done
+          echo "Failed to push after 5 attempts" >&2
+          exit 1
