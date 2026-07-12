@@ -47,7 +47,7 @@ jobs:
             -X POST \
             -d "{
               \"embeds\": [{
-                \"title\": \"🚀 Knotch $RELEASE_TAG released!\",
+                \"title\": \"⬇ Knotch $RELEASE_TAG released!\",
                 \"description\": $RELEASE_BODY,
                 \"url\": \"$RELEASE_URL\",
                 \"color\": 5814783
