@@ -84,6 +84,7 @@ class KnotchViewModel: NSObject, ObservableObject {
     }
 
     func triggerHUDLimitBounce(rightEdge: Bool) {
+        guard Defaults[.hudOvershootEnabled] else { return }
         hudEdgeOvershoot = rightEdge ? 1 : -1
         withAnimation(hudLimitBounceSpring) {
             hudEdgeOvershoot = .zero

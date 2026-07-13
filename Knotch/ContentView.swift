@@ -17,7 +17,7 @@ struct MusicLiveActivity: View {
     @ObservedObject var musicManager = MusicManager.shared
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
-    @Default(.coloredSpectrogram) var coloredSpectrogram
+    @Default(.playerColorTinting) var playerColorTinting
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
@@ -93,7 +93,7 @@ struct MusicLiveActivity: View {
                         {
                             MarqueeText(
                                 .constant(musicManager.songTitle),
-                                textColor: coloredSpectrogram
+                                textColor: playerColorTinting
                                     ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                 minDuration: 0.4,
                                 frameWidth: 100
@@ -108,7 +108,7 @@ struct MusicLiveActivity: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .foregroundStyle(
-                                    coloredSpectrogram
+                                    playerColorTinting
                                         ? Color(nsColor: musicManager.avgColor)
                                         : Color.gray
                                 )

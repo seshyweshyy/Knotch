@@ -115,6 +115,17 @@ class KnotchViewCoordinator: ObservableObject {
     private var hudReplacementCancellable: AnyCancellable?
 
     private init() {
+        // Perform one-time migration of the old single sneak-peek toggle into the
+        // two new track-change / resume toggles, so users who had it enabled don't
+        // silently lose the behavior.
+        if !Defaults[.hasMigratedSneakPeekSplit] {
+            if Defaults[.legacyEnableSneakPeek] {
+                Defaults[.sneakPeekOnTrackChange] = true
+                Defaults[.sneakPeekOnResume] = true
+            }
+            Defaults[.hasMigratedSneakPeekSplit] = true
+        }
+
         // Perform migration from name-based to UUID-based storage
         if preferredScreenUUID == nil, let legacyName = legacyPreferredScreenName {
             // Try to find screen by name and migrate to UUID

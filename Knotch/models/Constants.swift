@@ -166,9 +166,12 @@ extension Defaults.Keys {
     static let showShelfView = Key<Bool>("showShelfView", default: true)
     
     // MARK: Media playback
-    static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)
     static let homeViewVisualizer = Key<Bool>("homeViewVisualizer", default: true)
-    static let enableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
+    static let sneakPeekOnTrackChange = Key<Bool>("sneakPeekOnTrackChange", default: false)
+    static let sneakPeekOnResume = Key<Bool>("sneakPeekOnResume", default: false)
+    // Legacy single toggle, kept only so its value can be migrated into the two keys above.
+    static let legacyEnableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
+    static let hasMigratedSneakPeekSplit = Key<Bool>("hasMigratedSneakPeekSplit", default: false)
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
@@ -209,6 +212,7 @@ extension Defaults.Keys {
     static let showOpenNotchHUD = Key<Bool>("showOpenNotchHUD", default: true)
     static let showOpenNotchHUDPercentage = Key<Bool>("showOpenNotchHUDPercentage", default: true)
     static let showClosedNotchHUDPercentage = Key<Bool>("showClosedNotchHUDPercentage", default: false)
+    static let hudOvershootEnabled = Key<Bool>("hudOvershootEnabled", default: true)
     // Option key modifier behaviour for media keys
     static let optionKeyAction = Key<OptionKeyAction>("optionKeyAction", default: OptionKeyAction.openSettings)
     static let showBluetoothDeviceConnections = Key<Bool>("showBluetoothDeviceConnections", default: true)

@@ -238,7 +238,7 @@ class MusicManager: ObservableObject {
             }
 
             if state.isPlaying && !state.title.isEmpty && !state.artist.isEmpty {
-                self.updateSneakPeek()
+                self.updateSneakPeek(reason: .resume)
             }
         }
 
@@ -284,7 +284,7 @@ class MusicManager: ObservableObject {
 
             // Only update sneak peek if there's actual content and something changed
             if !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
-                self.updateSneakPeek()
+                self.updateSneakPeek(reason: .trackChange)
             }
 
             // Fetch lyrics on content change
@@ -610,9 +610,7 @@ class MusicManager: ObservableObject {
             self.albumArt = newAlbumArt
             self.artFlipSignal = ArtFlipSignal(art: newAlbumArt, direction: resolvedDirection)
         }
-        if Defaults[.coloredSpectrogram] {
-            calculateAverageColor()
-        }
+        calculateAverageColor()
     }
 
     // MARK: - Playback Position Estimation
@@ -634,9 +632,15 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private func updateSneakPeek() {
+    private enum SneakPeekReason {
+        case trackChange
+        case resume
+    }
+
+    private func updateSneakPeek(reason: SneakPeekReason) {
         guard !coordinator.isScreenLocked else { return }
-        if isPlaying && Defaults[.enableSneakPeek] && coordinator.musicLiveActivityEnabled {
+        let enabled = reason == .trackChange ? Defaults[.sneakPeekOnTrackChange] : Defaults[.sneakPeekOnResume]
+        if isPlaying && enabled && coordinator.musicLiveActivityEnabled {
             if Defaults[.sneakPeekStyles] == .standard {
                 coordinator.toggleSneakPeek(status: true, type: .music)
             } else {

@@ -47,6 +47,10 @@ struct KnotchHeader: View {
                         if Defaults[.showTimer] {
                             Button(action: {
                                 if timerManager.allTimers.isEmpty {
+                                    coordinator.currentView = .home
+                                    withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                                        vm.notchSize = CGSize(width: WidgetWidth.timerSlider, height: vm.computedHomeSize.height)
+                                    }
                                     timerManager.isCreatingTimer = true
                                 } else {
                                     timerManager.showTimerList.toggle()

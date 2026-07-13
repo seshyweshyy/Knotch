@@ -365,7 +365,6 @@ struct SettingsView: View {
             // Appearance
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
-            SettingsSearchEntry(tabID: "Appearance", title: "Colored spectrogram", keywords: ["color", "spectrogram", "music"], highlightID: "Media-Colored spectrograms"),
             SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show visualizer in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view visualizer"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
@@ -380,7 +379,8 @@ struct SettingsView: View {
             // Media
             SettingsSearchEntry(tabID: "Media", title: "Music source", keywords: ["music", "source", "spotify", "youtube"], highlightID: "Media-Music source"),
             SettingsSearchEntry(tabID: "Media", title: "Show music live activity", keywords: ["music", "live activity", "player"], highlightID: "Media-Enable media player"),
-            SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on playback changes", keywords: ["sneak peek", "playback"], highlightID: "Media-Show playback controls"),
+            SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on track change", keywords: ["sneak peek", "playback", "track", "song"], highlightID: "Media-Show playback controls"),
+            SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on resume", keywords: ["sneak peek", "playback", "resume", "play"], highlightID: "Media-Show sneak peek on resume"),
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek style", keywords: ["sneak peek", "style"], highlightID: "Media-Sneak peek style"),
             SettingsSearchEntry(tabID: "Media", title: "Media inactivity timeout", keywords: ["timeout", "inactivity", "media"], highlightID: "Media-Media inactivity timeout"),
             SettingsSearchEntry(tabID: "Media", title: "Full screen behavior", keywords: ["full screen", "hide", "behavior"], highlightID: "Media-Full screen behavior"),
@@ -404,6 +404,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "HUD", title: "Tint progress bar with accent color", keywords: ["tint", "accent", "progress"], highlightID: "HUD-Enable volume HUD"),
             SettingsSearchEntry(tabID: "HUD", title: "Show HUD in open notch", keywords: ["open notch", "hud", "show"], highlightID: "HUD-Show HUD in open notch"),
             SettingsSearchEntry(tabID: "HUD", title: "HUD style", keywords: ["hud", "inline", "default", "style"], highlightID: "HUD-HUD style"),
+            SettingsSearchEntry(tabID: "HUD", title: "Overshoot", keywords: ["overshoot", "bounce", "wobble", "closed notch"], highlightID: "HUD-Overshoot"),
             // Bluetooth
             SettingsSearchEntry(tabID: "LiveActivities", title: "Show Bluetooth device connections", keywords: ["bluetooth", "device", "connection", "hud"], highlightID: "LiveActivities-Show Bluetooth device connections"),
             SettingsSearchEntry(tabID: "LiveActivities", title: "HUD icon style", keywords: ["bluetooth", "icon", "3d", "symbol", "style"], highlightID: "LiveActivities-HUD icon style"),
@@ -1133,6 +1134,10 @@ struct HUD: View {
                 Defaults.Toggle(key: .showClosedNotchHUDPercentage) {
                     Text("Show percentage")
                 }
+                Defaults.Toggle(key: .hudOvershootEnabled) {
+                    Text("Overshoot")
+                }
+                .settingsHighlight(id: "HUD-Overshoot")
             } header: {
                 Text("Closed Notch")
             }
@@ -1163,7 +1168,8 @@ struct Media: View {
     @Default(.mediaController) var mediaController
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @Default(.hideNotchOption) var hideNotchOption
-    @Default(.enableSneakPeek) private var enableSneakPeek
+    @Default(.sneakPeekOnTrackChange) private var sneakPeekOnTrackChange
+    @Default(.sneakPeekOnResume) private var sneakPeekOnResume
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.enableLyrics) var enableLyrics
 
@@ -1202,8 +1208,10 @@ struct Media: View {
             Section {
                 Toggle("Show music live activity", isOn: $coordinator.musicLiveActivityEnabled.animation())
                     .settingsHighlight(id: "Media-Enable media player")
-                Toggle("Show sneak peek on playback changes", isOn: $enableSneakPeek)
+                Toggle("Show sneak peek on track change", isOn: $sneakPeekOnTrackChange)
                     .settingsHighlight(id: "Media-Show playback controls")
+                Toggle("Show sneak peek on resume", isOn: $sneakPeekOnResume)
+                    .settingsHighlight(id: "Media-Show sneak peek on resume")
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles) {
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
@@ -1487,10 +1495,6 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(key: .coloredSpectrogram) {
-                    Text("Colored spectrogram")
-                }
-                .settingsHighlight(id: "Media-Colored spectrograms")
                 Defaults.Toggle(key: .liveWaveform) {
                     HStack(spacing: 6) {
                         Text("Live waveform")

@@ -8,6 +8,8 @@ import SwiftUI
 
 struct TimerListView: View {
     @ObservedObject var timerManager = TimerManager.shared
+    @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @EnvironmentObject var vm: KnotchViewModel
     @State private var renamingID: UUID?
     @State private var draftName: String = ""
 
@@ -84,6 +86,10 @@ struct TimerListView: View {
 
             Button {
                 timerManager.showTimerList = false
+                coordinator.currentView = .home
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                    vm.notchSize = CGSize(width: WidgetWidth.timerSlider, height: vm.computedHomeSize.height)
+                }
                 timerManager.isCreatingTimer = true
             } label: {
                 HStack {

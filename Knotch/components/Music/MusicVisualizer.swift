@@ -55,24 +55,20 @@ enum AudioSpectrum {
         CGSize(width: contentSize.width + 4, height: contentSize.height + 4)
     }
 
-    // liveEnabled selects real audio data vs. a decorative simulated wave —
-    // these are two distinct "no live signal" cases, not one: `liveEnabled ==
-    // false` means the user turned off system audio tapping in Settings (the
-    // default), and should always show *some* lively motion; live signal
-    // being momentarily absent while liveEnabled == true (song just started,
-    // paused, tap still spinning up) should rest at dots instead.
-    static func barHeight(_ index: Int, isPlaying: Bool, amplitudes: [Float], liveEnabled: Bool, simulatedTime: Double) -> CGFloat {
+    // liveMix (0...1) crossfades between real audio data and the decorative
+    // simulated wave instead of hard-switching, so toggling live waveform
+    // on/off eases the bars from one source to the other rather than
+    // dropping to idle and snapping to whichever is newly selected.
+    // 0 == fully simulated, 1 == fully live.
+    static func barHeight(_ index: Int, isPlaying: Bool, amplitudes: [Float], liveMix: CGFloat, simulatedTime: Double) -> CGFloat {
         let minHeight = barWidth
         guard isPlaying else { return minHeight }
 
-        let level: Float
-        if liveEnabled {
-            level = index < amplitudes.count && index < boosts.count
-                ? powf(max(0, amplitudes[index]), boosts[index])
-                : 0
-        } else {
-            level = simulatedLevel(index, time: simulatedTime)
-        }
+        let liveLevel: Float = index < amplitudes.count && index < boosts.count
+            ? powf(max(0, amplitudes[index]), boosts[index])
+            : 0
+        let simLevel = simulatedLevel(index, time: simulatedTime)
+        let level = Float(liveMix) * liveLevel + Float(1 - liveMix) * simLevel
 
         let maxExtra = totalHeight - minHeight
         return minHeight + CGFloat(min(1, level)) * maxExtra
@@ -140,24 +136,33 @@ enum AudioSpectrum {
 /// are always true semicircles at any height — no squish-compensation math
 /// needed, unlike the old CALayer transform approach.
 ///
-/// Resting at dots (rather than a random idle animation) applies only when
-/// live audio tapping is on (see `Defaults.liveWaveform`) but momentarily
-/// silent — paused, no live meter available, or the song just started and
-/// the tap hasn't caught up yet. When live tapping is off entirely (the
-/// default), a decorative simulated wave plays instead so the waveform isn't
-/// just static dots for most users.
+/// Toggling live audio tapping (see `Defaults.liveWaveform`) eases `liveMix`
+/// toward 0 (fully simulated) or 1 (fully live) a little every tick instead
+/// of hard-switching data sources, so the bars crossfade smoothly rather
+/// than dropping to idle and snapping to whichever is newly selected. This
+/// is a manual per-frame lerp rather than a SwiftUI `withAnimation` because
+/// the amplitude/simulated-time ticks driving normal bar motion re-render
+/// every ~33ms without an animation transaction, which would otherwise
+/// cancel an implicit animation on `liveMix` almost immediately. The
+/// simulated wave's clock keeps running even while live is active, so it
+/// never restarts from a cold baseline when it fades back in.
 struct AudioSpectrumView: View {
     @Binding var isPlaying: Bool
     @State private var amplitudes: [Float] = Array(repeating: 0, count: AudioSpectrum.barCount)
     @State private var simulatedTime: Double = 0
     @Default(.liveWaveform) private var liveWaveformEnabled
+    @State private var liveMix: CGFloat = Defaults[.liveWaveform] ? 1 : 0
+
+    // Exponential approach coefficient applied each 1/30s tick — settles
+    // (>98%) to the new target in roughly 0.6s.
+    private static let liveMixCoeff: CGFloat = 0.2
 
     var body: some View {
         HStack(alignment: .center, spacing: AudioSpectrum.spacing) {
             ForEach(0..<AudioSpectrum.barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: AudioSpectrum.barWidth / 2, style: .continuous)
                     .fill(Color.white)
-                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveEnabled: liveWaveformEnabled, simulatedTime: simulatedTime))
+                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: simulatedTime))
             }
         }
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)
@@ -167,8 +172,18 @@ struct AudioSpectrumView: View {
         // reliably in this notch window, but a real Timer-backed Combine
         // publisher (driving @State like the live data does) does.
         .onReceive(Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()) { _ in
-            guard !liveWaveformEnabled, isPlaying else { return }
+            // Bars are clamped to minHeight whenever !isPlaying (see barHeight),
+            // so there's nothing to animate while paused — skip all work then,
+            // and also once liveMix has already converged, so this doesn't
+            // trigger a re-render on every tick for the rest of a listening
+            // session, only during the ~0.6s a transition is actually in flight.
+            guard isPlaying else { return }
             simulatedTime += 1.0 / 30.0
+
+            let target: CGFloat = liveWaveformEnabled ? 1 : 0
+            if abs(target - liveMix) > 0.001 {
+                liveMix += (target - liveMix) * Self.liveMixCoeff
+            }
         }
     }
 }
