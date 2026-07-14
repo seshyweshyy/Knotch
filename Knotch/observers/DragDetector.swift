@@ -7,6 +7,9 @@
 
 import Cocoa
 import UniformTypeIdentifiers
+import os
+
+private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
 final class DragDetector {
 
@@ -81,6 +84,8 @@ final class DragDetector {
                 let containsMouse = self.notchRegion.contains(mouseLocation)
                 if containsMouse && !self.hasEnteredNotchRegion {
                     self.hasEnteredNotchRegion = true
+                    // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
+                    dragDiagnosticsLogger.debug("[DragDetector] onDragEntersNotchRegion fired at \(mouseLocation.x, privacy: .public),\(mouseLocation.y, privacy: .public)")
                     self.onDragEntersNotchRegion?()
                 } else if !containsMouse && self.hasEnteredNotchRegion {
                     self.hasEnteredNotchRegion = false

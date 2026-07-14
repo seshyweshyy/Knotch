@@ -60,6 +60,11 @@ struct BatteryView: View {
         max(4, bodyHeight * 0.38)
     }
 
+    /// Nudges the percentage/glyph right so it reads as centered on the whole icon (body + terminal nub), not just the body it's laid out in.
+    private var terminalNubOffset: CGFloat {
+        (1.5 + 2) / 2
+    }
+
     private var glyphSystemName: String? {
         guard iconStatus != "" && (isForNotification || Defaults[.showPowerStatusIcons]) else { return nil }
         if isCharging { return "bolt.fill" }
@@ -106,6 +111,7 @@ struct BatteryView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .padding(.horizontal, 1)
+                    .offset(x: terminalNubOffset)
                 } else if showsGlyph {
                     Image(iconStatus)
                         .resizable()

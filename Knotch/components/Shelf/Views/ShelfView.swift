@@ -7,6 +7,9 @@
 
 import SwiftUI
 import AppKit
+import os
+
+private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
 struct ShelfView: View {
     @EnvironmentObject var vm: KnotchViewModel
@@ -30,6 +33,10 @@ struct ShelfView: View {
             updateQuickLookSelection()
         }
         .quickLookPresenter(using: quickLookService)
+        // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
+        .onChange(of: vm.dragDetectorTargeting) { old, new in
+            dragDiagnosticsLogger.debug("[TrayZone] dragDetectorTargeting \(old) -> \(new)")
+        }
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {

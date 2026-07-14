@@ -9,6 +9,9 @@ import AppKit
 import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
+import os
+
+private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
 struct FileShareView: View {
     @EnvironmentObject private var vm: KnotchViewModel
@@ -52,6 +55,10 @@ struct FileShareView: View {
             }
             .popover(isPresented: $showLocalSendDevicePicker, arrowEdge: .bottom) {
                 localSendDevicePicker
+            }
+            // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
+            .onChange(of: vm.dropZoneTargeting) { old, new in
+                dragDiagnosticsLogger.debug("[ShareZone] dropZoneTargeting \(old) -> \(new)")
             }
     }
 

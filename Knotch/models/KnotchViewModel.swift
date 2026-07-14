@@ -8,6 +8,9 @@
 import Combine
 import Defaults
 import SwiftUI
+import os
+
+private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
 class KnotchViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
@@ -20,7 +23,6 @@ class KnotchViewModel: NSObject, ObservableObject {
     @Published private(set) var notchState: NotchState = .closed
 
     @Published var dragDetectorTargeting: Bool = false
-    @Published var generalDropTargeting: Bool = false
     @Published var dropZoneTargeting: Bool = false
     @Published var dropEvent: Bool = false
     @Published var anyDropZoneTargeting: Bool = false
@@ -130,9 +132,9 @@ class KnotchViewModel: NSObject, ObservableObject {
         notchSize = getClosedNotchSize(screenUUID: screenUUID)
         closedNotchSize = notchSize
 
-        Publishers.CombineLatest3($dropZoneTargeting, $dragDetectorTargeting, $generalDropTargeting)
-            .map { shelf, drag, general in
-                shelf || drag || general
+        Publishers.CombineLatest($dropZoneTargeting, $dragDetectorTargeting)
+            .map { shelf, drag in
+                shelf || drag
             }
             .assign(to: \.anyDropZoneTargeting, on: self)
             .store(in: &cancellables)
@@ -322,6 +324,8 @@ class KnotchViewModel: NSObject, ObservableObject {
             self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
         }
         self.notchState = .open
+        // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
+        dragDiagnosticsLogger.debug("[KnotchViewModel] notchState -> open")
         MusicManager.shared.forceUpdate()
     }
 

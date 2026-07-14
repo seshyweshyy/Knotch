@@ -1054,7 +1054,6 @@ struct ContentView: View {
         // independently bulging from its own edge (which the per-widget
         // vertical stretch below is fine doing, since nothing overlaps there).
         .liquidHorizontalGroup(vm)
-        .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
     }
 
     @ViewBuilder
@@ -1261,26 +1260,6 @@ struct FullScreenDropDelegate: DropDelegate {
         return true
     }
 
-}
-
-struct GeneralDropTargetDelegate: DropDelegate {
-    @Binding var isTargeted: Bool
-
-    func dropEntered(info: DropInfo) {
-        isTargeted = true
-    }
-
-    func dropExited(info: DropInfo) {
-        isTargeted = false
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .cancel)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        return false
-    }
 }
 
 #Preview {
