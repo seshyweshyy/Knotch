@@ -517,8 +517,23 @@ struct EventListView: View {
                         .id(event.id)
                     }
                 }
+                // Keeps the first/last row's content clear of the fade zone below,
+                // instead of the fade cutting straight across the row itself.
+                .padding(.vertical, 2.5)
             }
             .scrollIndicators(.never)
+            // Small, subtle edge fade — kept short relative to row height so
+            // it reads as a soft scroll-edge hint, not the wheel picker's
+            // pronounced curved/drum look.
+            .mask(
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 6)
+                    Rectangle().fill(Color.black)
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 6)
+                }
+            )
             .onAppear {
                 scrollToRelevantEvent(proxy: proxy)
             }
