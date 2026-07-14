@@ -7,6 +7,13 @@
 </h1>
 
 <p align="center">
+  <a href="https://github.com/seshyweshyy/Knotch/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/seshyweshyy/Knotch?style=for-the-badge&label=Release&labelColor=3380FF&color=222222"></a>
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-15%2B-222222?style=for-the-badge&logo=apple&logoColor=white&labelColor=3380FF">
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-macOS-222222?style=for-the-badge&logo=swift&logoColor=white&labelColor=3380FF">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-GPLv3-222222?style=for-the-badge&labelColor=3380FF"></a>
+</p>
+
+<p align="center">
   <b>Knotch</b> is my personal adaptation of <a href="https://github.com/TheBoredTeam/boring.notch">boring.notch</a>, reworked to look and feel like it ships with macOS. I focus on the little details that separate something that fits from something that just works.
 </p>
 
