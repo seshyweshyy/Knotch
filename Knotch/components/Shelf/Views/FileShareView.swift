@@ -180,14 +180,15 @@ struct FileShareView: View {
             Text("Quick Share")
                 .font(.headline)
 
-            Picker("Quick Share Service", selection: $quickShareProvider) {
-                ForEach(quickShare.availableProviders, id: \.id) { provider in
-                    QuickShareProviderRow(provider: provider, iconSize: 25)
-                        .tag(provider.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .frame(minWidth: 260)
+            IconMenuPicker(
+                title: "Quick Share Service:",
+                items: quickShare.availableProviders,
+                selectionID: $quickShareProvider,
+                icon: quickShareProviderIcon,
+                label: { $0.id },
+                iconSize: 20
+            )
+            .frame(minWidth: 260, alignment: .leading)
 
             if let selected = quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) {
                 HStack(alignment: .top, spacing: 8) {

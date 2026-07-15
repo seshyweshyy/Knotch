@@ -128,7 +128,6 @@
 		4379EE0830028AFD004E3F0F /* ReleaseNotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
-		A61B93AAACFF476499FA09C3 /* LocalSendDevicePickerWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
 		437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */; };
 		437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18FA2FFA964B000E4E6B /* TimerListView.swift */; };
@@ -153,6 +152,7 @@
 		9A987A0D2C73CA66005CA465 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A987A032C73CA66005CA465 /* ShelfView.swift */; };
 		9A987A102C73CA8D005CA465 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = 9A987A0F2C73CA8D005CA465 /* Collections */; };
 		9AB0C6BD2C73C9CB00F7CD30 /* NotchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB0C6BB2C73C9CB00F7CD30 /* NotchHomeView.swift */; };
+		A61B93AAACFF476499FA09C3 /* LocalSendDevicePickerWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */; };
 		AA11BB22CC33DD44EE550004 /* LiquidGlassTimerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550003 /* LiquidGlassTimerWidget.swift */; };
 		AA11BB22CC33DD44EE550006 /* LiquidGlassTimerWidgetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */; };
 		AA11BB22CC33DD44EE550008 /* TimerGlassButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550007 /* TimerGlassButton.swift */; };
@@ -338,7 +338,6 @@
 		435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchStylePreview.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
-		FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendDevicePickerWindowManager.swift; sourceTree = "<group>"; };
 		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
 		437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerCompactPill.swift; sourceTree = "<group>"; };
 		437B18FA2FFA964B000E4E6B /* TimerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerListView.swift; sourceTree = "<group>"; };
@@ -390,6 +389,7 @@
 		B1FEB4982C7686630066EBBC /* PanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanGesture.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
 		FCBBC9A7CF6FA9D2F3E867D3 /* StableHoverTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableHoverTracker.swift; sourceTree = "<group>"; };
+		FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendDevicePickerWindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1451,7 +1451,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				ENABLE_APP_SANDBOX = NO;
@@ -1478,7 +1478,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.4;
+				MARKETING_VERSION = 1.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1506,7 +1506,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				ENABLE_APP_SANDBOX = NO;
@@ -1532,7 +1532,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.4;
+				MARKETING_VERSION = 1.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -181,17 +181,18 @@ class MusicManager: ObservableObject {
 
     private func setActiveControllerBasedOnPreference() {
         let preferredType = Defaults[.mediaController]
+        let defaultPlayer = Defaults[.defaultPlayer]
         print("Preferred Media Controller: \(preferredType)")
 
-        // If NowPlaying is deprecated but that's the preference, use Apple Music instead
+        // If NowPlaying is deprecated but that's the preference, fall back to the user's default player
         let controllerType = (self.isNowPlayingDeprecated && preferredType == .nowPlaying)
-            ? .appleMusic
+            ? defaultPlayer
             : preferredType
 
         if let controller = createController(for: controllerType) {
             setActiveController(controller)
-        } else if controllerType != .appleMusic, let fallbackController = createController(for: .appleMusic) {
-            // Fallback to Apple Music if preferred controller couldn't be created
+        } else if controllerType != defaultPlayer, let fallbackController = createController(for: defaultPlayer) {
+            // Fallback to the user's default player if preferred controller couldn't be created
             setActiveController(fallbackController)
         }
     }
@@ -744,7 +745,7 @@ class MusicManager: ObservableObject {
         }
     }
     func openMusicApp() {
-        guard let bundleID = bundleIdentifier else {
+        guard let bundleID = bundleIdentifier ?? Defaults[.defaultPlayer].bundleIdentifier else {
             print("Error: appBundleIdentifier is nil")
             return
         }

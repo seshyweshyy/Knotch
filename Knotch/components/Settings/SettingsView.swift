@@ -1166,6 +1166,7 @@ struct HUD: View {
 struct Media: View {
     @Default(.waitInterval) var waitInterval
     @Default(.mediaController) var mediaController
+    @Default(.defaultPlayer) var defaultPlayer
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @Default(.hideNotchOption) var hideNotchOption
     @Default(.sneakPeekOnTrackChange) private var sneakPeekOnTrackChange
@@ -1176,30 +1177,59 @@ struct Media: View {
     var body: some View {
         Form {
             Section {
-                Picker("Music Source", selection: $mediaController) {
-                    ForEach(availableMediaControllers) { controller in
-                        Text(controller.rawValue).tag(controller)
+                IconMenuPicker(
+                    title: "Music Source",
+                    items: availableMediaControllers,
+                    selectionID: Binding(
+                        get: { mediaController.id },
+                        set: { newID in
+                            if let match = MediaControllerType.allCases.first(where: { $0.id == newID }) {
+                                mediaController = match
+                            }
+                        }
+                    ),
+                    icon: mediaControllerIcon,
+                    label: { $0.rawValue },
+                    onSelect: { _ in
+                        NotificationCenter.default.post(name: Notification.Name.mediaControllerChanged, object: nil)
                     }
-                }
-                .onChange(of: mediaController) { _, _ in
-                    NotificationCenter.default.post(name: Notification.Name.mediaControllerChanged, object: nil)
-                }
-                .tint(Color(nsColor: .labelColor))
+                )
                 .settingsHighlight(id: "Media-Music source")
+
+                IconMenuPicker(
+                    title: "Default Player",
+                    items: concreteMediaControllers,
+                    selectionID: Binding(
+                        get: { defaultPlayer.id },
+                        set: { newID in
+                            if let match = MediaControllerType.allCases.first(where: { $0.id == newID }) {
+                                defaultPlayer = match
+                            }
+                        }
+                    ),
+                    icon: mediaControllerIcon,
+                    label: { $0.rawValue }
+                )
+                .settingsHighlight(id: "Media-Default player")
             } header: {
                 Text("Media Source")
             } footer: {
-                if MusicManager.shared.isNowPlayingDeprecated {
-                    HStack {
-                        Text("YouTube Music requires this third-party app to be installed: ")
+                VStack(alignment: .leading, spacing: 4) {
+                    if MusicManager.shared.isNowPlayingDeprecated {
+                        HStack {
+                            Text("YouTube Music requires this third-party app to be installed: ")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                            Link("https://github.com/pear-devs/pear-desktop", destination: URL(string: "https://github.com/pear-devs/pear-desktop")!)
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    } else {
+                        Text("'Now Playing' was the only option on previous versions and works with all media apps.")
                             .foregroundStyle(.secondary)
                             .font(.caption)
-                        Link("https://github.com/pear-devs/pear-desktop", destination: URL(string: "https://github.com/pear-devs/pear-desktop")!)
-                            .font(.caption)
-                            .foregroundColor(.blue)
                     }
-                } else {
-                    Text("'Now Playing' was the only option on previous versions and works with all media apps.")
+                    Text("'Default player' selects the app that opens to play when there's no active music source.")
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 }
@@ -1267,12 +1297,170 @@ struct Media: View {
         .accentColor(.effectiveAccent)
     }
 
+    // Default Player must be a concrete app, not the "Now Playing" aggregator.
+    private var concreteMediaControllers: [MediaControllerType] {
+        availableMediaControllers.filter { $0 != .nowPlaying }
+    }
+
     private var availableMediaControllers: [MediaControllerType] {
+        let candidates: [MediaControllerType]
         if MusicManager.shared.isNowPlayingDeprecated {
-            return MediaControllerType.allCases.filter { $0 != .nowPlaying }
+            candidates = MediaControllerType.allCases.filter { $0 != .nowPlaying }
         } else {
-            return MediaControllerType.allCases
+            candidates = MediaControllerType.allCases
         }
+        // "Now Playing" aggregates other apps rather than being one itself,
+        // so it has no bundle ID to check — only filter the concrete apps.
+        return candidates.filter { controller in
+            guard let bundleID = controller.bundleIdentifier else { return true }
+            return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+        }
+    }
+}
+
+private func mediaControllerIcon(for controller: MediaControllerType) -> AnyView {
+    if let bundleID = controller.bundleIdentifier {
+        return AnyView(AppIcon(for: bundleID).resizable())
+    }
+    // Loaded straight from the asset catalog (rather than via NSImage) so
+    // SwiftUI resamples from the full-resolution artwork at every size
+    // instead of a manually-downsized NSImage representation, which was
+    // causing pixelation.
+    return AnyView(
+        Image("NowPlayingIcon")
+            .resizable()
+            .scaleEffect(0.85)
+    )
+}
+
+func quickShareProviderIcon(for provider: QuickShareProvider) -> AnyView {
+    if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
+        return AnyView(Image(nsImage: nsImg).resizable())
+    }
+    return AnyView(Image(systemName: "square.and.arrow.up").resizable())
+}
+
+// MARK: - Icon Menu Picker
+//
+// SwiftUI's Picker(pickerStyle: .menu) bridges custom (non-Text) row content
+// through a synthesis step, not a genuine live NSMenu — that's also why the
+// "Now Playing" icon rendered at native pixel size ignoring its SwiftUI
+// frame earlier. That bridging is noticeably laggier to hover than a plain
+// native menu. This reimplements the same icon+text+checkmark list as an
+// ordinary SwiftUI popover instead (matching AudioDeviceRow's pattern for
+// the audio output selector), using a plain Button + .onHover for the
+// highlight so it responds immediately.
+struct IconMenuPicker<Item: Identifiable>: View where Item.ID: Hashable {
+    // Nil to match a bare Picker outside a Form, whose title is never shown
+    // as visible text (only inside a Form does SwiftUI render that label).
+    var title: String? = nil
+    let items: [Item]
+    @Binding var selectionID: Item.ID
+    let icon: (Item) -> AnyView
+    let label: (Item) -> String
+    var iconSize: CGFloat = 16
+    // Dropdown rows have more room than the collapsed control, so their icons
+    // default larger to match the size the previous native Picker menu used.
+    var menuIconSize: CGFloat? = nil
+    var onSelect: ((Item) -> Void)? = nil
+
+    @State private var isPresented = false
+
+    private var selectedItem: Item? {
+        items.first { $0.id == selectionID }
+    }
+
+    var body: some View {
+        HStack {
+            if let title {
+                Text(title)
+                Spacer()
+            }
+            Button {
+                isPresented.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    if let selectedItem {
+                        icon(selectedItem)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: iconSize, height: iconSize)
+                            .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.2))
+                        Text(label(selectedItem))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                    }
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.secondary.opacity(0.12))
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+                VStack(spacing: 2) {
+                    ForEach(items) { item in
+                        IconMenuPickerOptionRow(
+                            isSelected: item.id == selectionID,
+                            icon: icon(item),
+                            title: label(item),
+                            iconSize: menuIconSize ?? (iconSize + 8)
+                        ) {
+                            selectionID = item.id
+                            onSelect?(item)
+                            isPresented = false
+                        }
+                    }
+                }
+                .padding(6)
+                .frame(minWidth: 200)
+            }
+        }
+    }
+}
+
+private struct IconMenuPickerOptionRow: View {
+    let isSelected: Bool
+    let icon: AnyView
+    let title: String
+    let iconSize: CGFloat
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                icon
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: iconSize, height: iconSize)
+                    .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.2))
+                Text(title)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 12)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isHovering ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -2195,14 +2383,14 @@ struct Shelf: View {
             }
 
             Section {
-                Picker("Quick Share Service", selection: $quickShareProvider) {
-                    ForEach(quickShareService.availableProviders, id: \.id) { provider in
-                        QuickShareProviderRow(provider: provider, iconSize: 25)
-                            .tag(provider.id)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(Color(nsColor: .labelColor))
+                IconMenuPicker(
+                    title: "Quick Share Service",
+                    items: quickShareService.availableProviders,
+                    selectionID: $quickShareProvider,
+                    icon: quickShareProviderIcon,
+                    label: { $0.id },
+                    iconSize: 20
+                )
                 .settingsHighlight(id: "Shelf-Shelf activation gesture")
                 if let selectedProvider = selectedProvider {
                     HStack {

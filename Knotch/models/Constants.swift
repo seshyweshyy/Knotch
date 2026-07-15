@@ -75,8 +75,20 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     case appleMusic = "Apple Music"
     case spotify = "Spotify"
     case youtubeMusic = "YouTube Music"
-    
+
     var id: String { self.rawValue }
+
+    // Bundle identifier of the concrete app behind this controller, used to
+    // launch it when there's no currently active music source. `nowPlaying`
+    // aggregates other apps rather than being an app itself, so it has none.
+    var bundleIdentifier: String? {
+        switch self {
+        case .nowPlaying: return nil
+        case .appleMusic: return "com.apple.Music"
+        case .spotify: return "com.spotify.client"
+        case .youtubeMusic: return YouTubeMusicConfiguration.default.bundleIdentifier
+        }
+    }
 }
 
 // Sneak peek styles for selection in settings
@@ -240,6 +252,7 @@ extension Defaults.Keys {
     
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
+    static let defaultPlayer = Key<MediaControllerType>("defaultPlayer", default: .appleMusic)
     static let liveWaveform = Key<Bool>("liveWaveform", default: false)
     
     // MARK: Advanced Settings
