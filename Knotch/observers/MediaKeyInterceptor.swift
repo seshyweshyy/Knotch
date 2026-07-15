@@ -21,6 +21,8 @@ final class MediaKeyInterceptor {
         case brightnessUp = 2
         case brightnessDown = 3
         case mute = 7
+        case nextTrack = 17
+        case previousTrack = 18
         case keyboardBrightnessUp = 21
         case keyboardBrightnessDown = 22
     }
@@ -142,8 +144,12 @@ final class MediaKeyInterceptor {
     }
     
     private func handleOptionAction(for keyType: NXKeyType, command: Bool) -> Bool {
+        // Track skip keys aren't part of the option-key HUD/settings feature; let them
+        // fall through to normal handling regardless of the option-key-action setting.
+        guard keyType != .nextTrack, keyType != .previousTrack else { return false }
+
         let action = Defaults[.optionKeyAction]
-        
+
         switch action {
         case .openSettings:
             openSystemSettings(for: keyType, command: command)
@@ -223,6 +229,16 @@ final class MediaKeyInterceptor {
         case .brightnessDown, .keyboardBrightnessDown:
             let delta = -(step / stepDivisor)
             adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessDown || command, isRepeat: isRepeat)
+        case .nextTrack:
+            guard !isRepeat else { return }
+            Task { @MainActor in
+                MusicManager.shared.nextTrack()
+            }
+        case .previousTrack:
+            guard !isRepeat else { return }
+            Task { @MainActor in
+                MusicManager.shared.previousTrack()
+            }
         }
     }
 
@@ -253,6 +269,8 @@ final class MediaKeyInterceptor {
             case .keyboardBrightnessUp, .keyboardBrightnessDown:
                 let v = KeyboardBacklightManager.shared.rawBrightness
                 KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .backlight, value: CGFloat(v))
+            case .nextTrack, .previousTrack:
+                break
             }
         }
     }
@@ -271,8 +289,10 @@ final class MediaKeyInterceptor {
             }
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
             urlString = "x-apple.systempreferences:com.apple.preference.keyboard"
+        case .nextTrack, .previousTrack:
+            return
         }
-        
+
         guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
     }

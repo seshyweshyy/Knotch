@@ -53,50 +53,32 @@ struct FileShareView: View {
                     Task { await handleClick() }
                 }
             }
-            .popover(isPresented: $showLocalSendDevicePicker, arrowEdge: .bottom) {
-                localSendDevicePicker
-            }
             // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
             .onChange(of: vm.dropZoneTargeting) { old, new in
                 dragDiagnosticsLogger.debug("[ShareZone] dropZoneTargeting \(old) -> \(new)")
             }
-    }
-
-    private var localSendDevicePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Send via LocalSend").font(.headline)
-
-            if localSend.devices.isEmpty {
-                Text("Searching for nearby devices…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(localSend.devices) { device in
-                    Button {
-                        localSend.selectedDeviceID = device.id
-                        showLocalSendDevicePicker = false
-                        if let providers = pendingDropProviders {
-                            Task {
-                                await handleDrop(providers)
-                                pendingDropProviders = nil
+            .onChange(of: showLocalSendDevicePicker) { _, show in
+                if show {
+                    LocalSendDevicePickerWindowManager.shared.show(
+                        onDeviceSelected: { device in
+                            localSend.selectedDeviceID = device.id
+                            showLocalSendDevicePicker = false
+                            if let providers = pendingDropProviders {
+                                Task {
+                                    await handleDrop(providers)
+                                    pendingDropProviders = nil
+                                }
                             }
+                        },
+                        onDismiss: {
+                            showLocalSendDevicePicker = false
+                            pendingDropProviders = nil
                         }
-                    } label: {
-                        HStack {
-                            Image(systemName: "laptopcomputer")
-                            Text(device.alias)
-                            Spacer()
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.vertical, 2)
+                    )
+                } else {
+                    LocalSendDevicePickerWindowManager.shared.hide()
                 }
             }
-        }
-        .padding()
-        .frame(minWidth: 220)
     }
 
     private var dropArea: some View {

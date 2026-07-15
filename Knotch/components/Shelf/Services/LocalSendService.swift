@@ -7,6 +7,7 @@ import Foundation
 import Network
 import Defaults
 import UniformTypeIdentifiers
+import Darwin
 
 struct LocalSendDeviceInfo: Identifiable, Hashable, Sendable {
     let id: String
@@ -40,6 +41,7 @@ final class LocalSendService: NSObject, ObservableObject {
     static let shared = LocalSendService()
 
     @Published private(set) var devices: [LocalSendDeviceInfo] = []
+    @Published private(set) var isRefreshing = false
     @Published private(set) var isSending = false
     @Published private(set) var sendProgress: Double = 0
     @Published var selectedDeviceID: String {
@@ -54,7 +56,11 @@ final class LocalSendService: NSObject, ObservableObject {
     private var registerListener: NWListener?
     private var announceTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
+    private var activeRefreshTask: Task<Void, Never>?
+    private var refreshSessionID = UUID()
     private var discoveredByID: [String: (device: LocalSendDeviceInfo, lastSeen: Date)] = [:]
+    private var recentProbeIPs: [String] = []
+    private var knownPeerIPs: [String] = []
     private var isStarted = false
 
     private override init() {
@@ -105,6 +111,297 @@ final class LocalSendService: NSObject, ObservableObject {
         }
     }
 
+    /// Active discovery on top of passive multicast: multicast relies on peers
+    /// receiving/joining the same group, which is often unreliable on macOS
+    /// (VPNs, AP isolation, sandboxing). This probes candidate IPs directly via
+    /// HTTP, falling back to a full subnet sweep if nothing turns up.
+    func refreshDeviceScan() {
+        activeRefreshTask?.cancel()
+        startDiscovery()
+
+        let sessionID = UUID()
+        refreshSessionID = sessionID
+        isRefreshing = true
+
+        activeRefreshTask = Task { [weak self] in
+            guard let self, !Task.isCancelled else { return }
+
+            let startedAt = Date()
+            defer {
+                if self.refreshSessionID == sessionID {
+                    self.isRefreshing = false
+                    self.activeRefreshTask = nil
+                }
+            }
+
+            let burstDelays: [UInt64] = [100_000_000, 500_000_000, 2_000_000_000]
+            for delay in burstDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else { return }
+                self.sendAnnouncement()
+            }
+
+            guard !Task.isCancelled else { return }
+            await self.probeNearbyDevicesDirectly(limit: 20, timeout: 0.14)
+
+            guard !Task.isCancelled else { return }
+            if !self.hasFreshDiscovery(since: startedAt),
+               let localIP = self.ownIPv4Address() {
+                await self.probeLocalSubnetLegacy(localIP: localIP, timeout: 0.12)
+            }
+
+            guard !Task.isCancelled else { return }
+            self.pruneUnavailableDevices(since: startedAt)
+        }
+    }
+
+    private func pruneUnavailableDevices(since date: Date) {
+        let previousCount = discoveredByID.count
+        discoveredByID = discoveredByID.filter { $0.value.lastSeen >= date }
+        if discoveredByID.count != previousCount {
+            refreshDevices()
+        }
+    }
+
+    private func probeNearbyDevicesDirectly(limit: Int = 12, timeout: TimeInterval = 0.14) async {
+        let port = Int(port)
+        let candidates = candidateIPsForActiveProbe(limit: max(1, limit))
+        guard !candidates.isEmpty else { return }
+        let deadline = Date().addingTimeInterval(1.0)
+
+        await withTaskGroup(of: LocalSendDeviceInfo?.self) { group in
+            let maxConcurrent = 4
+            var iterator = candidates.makeIterator()
+
+            for _ in 0 ..< min(maxConcurrent, candidates.count) {
+                guard let ip = iterator.next() else { break }
+                group.addTask {
+                    await Self.probeDeviceInfo(at: ip, port: port, timeout: 0.14)
+                }
+            }
+
+            while let result = await group.next() {
+                if Date() > deadline {
+                    group.cancelAll()
+                    return
+                }
+
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    return
+                }
+
+                if let device = result {
+                    discoveredByID[device.id] = (device, Date())
+                    rememberKnownPeerIP(device.ip)
+                    rememberRecentProbeIP(device.ip)
+                }
+
+                if let ip = iterator.next() {
+                    group.addTask {
+                        await Self.probeDeviceInfo(at: ip, port: port, timeout: timeout)
+                    }
+                }
+            }
+        }
+
+        refreshDevices()
+    }
+
+    private func candidateIPsForActiveProbe(limit: Int) -> [String] {
+        var ordered: [String] = []
+        var seen = Set<String>()
+
+        if let selected = devices.first(where: { $0.id == selectedDeviceID })?.ip,
+           seen.insert(selected).inserted {
+            ordered.append(selected)
+        }
+
+        for ip in recentProbeIPs where seen.insert(ip).inserted {
+            ordered.append(ip)
+        }
+
+        for ip in discoveredByID.values.map(\.device.ip) where seen.insert(ip).inserted {
+            ordered.append(ip)
+        }
+
+        for ip in knownPeerIPs where seen.insert(ip).inserted {
+            ordered.append(ip)
+        }
+
+        if ordered.count > limit {
+            return Array(ordered.prefix(limit))
+        }
+        return ordered
+    }
+
+    private func probeLocalSubnetLegacy(localIP: String, timeout: TimeInterval) async {
+        guard isValidIPv4(localIP) else { return }
+        let parts = localIP.split(separator: ".")
+        guard parts.count == 4 else { return }
+
+        let prefix = parts.prefix(3).joined(separator: ".")
+        let host = Int(parts[3]) ?? 0
+        let candidates = (1 ... 254)
+            .filter { $0 != host }
+            .map { "\(prefix).\($0)" }
+
+        await probeExactIPs(candidates, timeout: timeout, concurrency: 50)
+    }
+
+    private func probeExactIPs(_ ips: [String], timeout: TimeInterval, concurrency: Int) async {
+        let port = Int(port)
+        let unique = Array(NSOrderedSet(array: ips).compactMap { $0 as? String })
+        guard !unique.isEmpty else { return }
+
+        await withTaskGroup(of: LocalSendDeviceInfo?.self) { group in
+            var iterator = unique.makeIterator()
+
+            for _ in 0 ..< min(max(1, concurrency), unique.count) {
+                guard let ip = iterator.next() else { break }
+                group.addTask {
+                    await Self.probeDeviceInfo(at: ip, port: port, timeout: timeout)
+                }
+            }
+
+            while let result = await group.next() {
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    return
+                }
+
+                if let device = result {
+                    discoveredByID[device.id] = (device, Date())
+                    rememberKnownPeerIP(device.ip)
+                    rememberRecentProbeIP(device.ip)
+                }
+
+                if let ip = iterator.next() {
+                    group.addTask {
+                        await Self.probeDeviceInfo(at: ip, port: port, timeout: timeout)
+                    }
+                }
+            }
+        }
+
+        refreshDevices()
+    }
+
+    private func hasFreshDiscovery(since date: Date) -> Bool {
+        discoveredByID.values.contains { $0.lastSeen >= date }
+    }
+
+    private nonisolated static func probeDeviceInfo(at ip: String, port: Int, timeout: TimeInterval) async -> LocalSendDeviceInfo? {
+        for scheme in ["http", "https"] {
+            guard var components = URLComponents(string: "\(scheme)://\(ip):\(port)/api/localsend/v2/info") else { continue }
+            components.queryItems = [URLQueryItem(name: "fingerprint", value: "knotch.localsend.bridge")]
+            guard let url = components.url else { continue }
+
+            var request = URLRequest(url: url)
+            request.timeoutInterval = timeout
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+
+            do {
+                let (data, response) = try await probeSession.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      (200 ... 299).contains(http.statusCode),
+                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let fingerprint = json["fingerprint"] as? String,
+                      let alias = json["alias"] as? String,
+                      fingerprint != "knotch.localsend.bridge"
+                else {
+                    continue
+                }
+
+                let usesHTTPS = (json["protocol"] as? String) == "https" || scheme == "https"
+                return LocalSendDeviceInfo(
+                    id: fingerprint,
+                    alias: alias,
+                    ip: ip,
+                    port: (json["port"] as? Int) ?? port,
+                    https: usesHTTPS,
+                    model: json["deviceModel"] as? String
+                )
+            } catch {
+                continue
+            }
+        }
+        return nil
+    }
+
+    private nonisolated static let probeSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 0.2
+        config.timeoutIntervalForResource = 0.2
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config, delegate: LocalSendTLSDelegate(), delegateQueue: nil)
+    }()
+
+    private func rememberRecentProbeIP(_ ip: String) {
+        guard isValidIPv4(ip) else { return }
+        recentProbeIPs.removeAll { $0 == ip }
+        recentProbeIPs.insert(ip, at: 0)
+        if recentProbeIPs.count > 12 {
+            recentProbeIPs = Array(recentProbeIPs.prefix(12))
+        }
+    }
+
+    private func rememberKnownPeerIP(_ ip: String) {
+        guard isValidIPv4(ip) else { return }
+        knownPeerIPs.removeAll { $0 == ip }
+        knownPeerIPs.insert(ip, at: 0)
+        if knownPeerIPs.count > 48 {
+            knownPeerIPs = Array(knownPeerIPs.prefix(48))
+        }
+    }
+
+    private func ownIPv4Address() -> String? {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
+        defer { freeifaddrs(ifaddr) }
+
+        var ptr: UnsafeMutablePointer<ifaddrs>? = first
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
+
+            let family = current.pointee.ifa_addr.pointee.sa_family
+            let flags = Int32(current.pointee.ifa_flags)
+            guard family == UInt8(AF_INET),
+                  (flags & IFF_UP) == IFF_UP,
+                  (flags & IFF_LOOPBACK) == 0
+            else { continue }
+
+            var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            var addr = current.pointee.ifa_addr.pointee
+            let result = getnameinfo(
+                &addr,
+                socklen_t(current.pointee.ifa_addr.pointee.sa_len),
+                &hostBuffer,
+                socklen_t(hostBuffer.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+            guard result == 0 else { continue }
+
+            let ip = String(cString: hostBuffer)
+            if isValidIPv4(ip) {
+                return ip
+            }
+        }
+
+        return nil
+    }
+
+    private func isValidIPv4(_ ip: String) -> Bool {
+        let parts = ip.split(separator: ".")
+        guard parts.count == 4 else { return false }
+        for p in parts {
+            guard let v = Int(p), (0 ... 255).contains(v) else { return false }
+        }
+        return true
+    }
+
     private func sendAnnouncement() {
         let payload: [String: Any] = [
             "alias": Host.current().localizedName ?? "Knotch",
@@ -144,6 +441,8 @@ final class LocalSendService: NSObject, ObservableObject {
             model: json["deviceModel"] as? String
         )
         discoveredByID[peerFingerprint] = (device, Date())
+        rememberKnownPeerIP(ip)
+        rememberRecentProbeIP(ip)
         refreshDevices()
     }
 

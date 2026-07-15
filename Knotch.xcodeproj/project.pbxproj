@@ -128,6 +128,7 @@
 		4379EE0830028AFD004E3F0F /* ReleaseNotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
+		A61B93AAACFF476499FA09C3 /* LocalSendDevicePickerWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */; };
 		437B18F72FFA9631000E4E6B /* TimerSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F62FFA9631000E4E6B /* TimerSliderView.swift */; };
 		437B18F92FFA963D000E4E6B /* TimerCompactPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */; };
 		437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18FA2FFA964B000E4E6B /* TimerListView.swift */; };
@@ -337,6 +338,7 @@
 		435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchStylePreview.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
+		FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendDevicePickerWindowManager.swift; sourceTree = "<group>"; };
 		437B18F62FFA9631000E4E6B /* TimerSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerSliderView.swift; sourceTree = "<group>"; };
 		437B18F82FFA963D000E4E6B /* TimerCompactPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerCompactPill.swift; sourceTree = "<group>"; };
 		437B18FA2FFA964B000E4E6B /* TimerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerListView.swift; sourceTree = "<group>"; };
@@ -598,6 +600,7 @@
 			isa = PBXGroup;
 			children = (
 				437B18F32FFA9612000E4E6B /* TimerManager.swift */,
+				FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */,
 				43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */,
 				43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
@@ -1132,6 +1135,7 @@
 				1132E5162E777C140068732D /* YouTubeMusicAuthentication.swift in Sources */,
 				14A7E5882C64A89C008C1BE9 /* HelloAnimation.swift in Sources */,
 				437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */,
+				A61B93AAACFF476499FA09C3 /* LocalSendDevicePickerWindowManager.swift in Sources */,
 				111BEA612ED09B1B0079DD4E /* NSScreen+UUID.swift in Sources */,
 				1153BD8F2D986B1F00979FB0 /* MediaControllerProtocol.swift in Sources */,
 				9AB0C6BD2C73C9CB00F7CD30 /* NotchHomeView.swift in Sources */,

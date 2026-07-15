@@ -705,12 +705,25 @@ class MusicManager: ObservableObject {
 
     func nextTrack() {
         pendingFlipDirection = .forward
+        triggerNextButtonAnimation()
         Task { await activeController?.nextTrack() }
     }
 
     func previousTrack() {
         pendingFlipDirection = .backward
+        triggerPreviousButtonAnimation()
         Task { await activeController?.previousTrack() }
+    }
+
+    /// Replays the skip-button animation without performing the skip itself.
+    /// Used when a global media key already caused the OS to skip the track,
+    /// so the on-screen button reflects it without triggering a second skip.
+    func triggerNextButtonAnimation() {
+        NotificationCenter.default.post(name: .musicNextButtonAnimationTriggered, object: nil)
+    }
+
+    func triggerPreviousButtonAnimation() {
+        NotificationCenter.default.post(name: .musicPreviousButtonAnimationTriggered, object: nil)
     }
 
     func seek(to position: TimeInterval) {

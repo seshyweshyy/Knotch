@@ -701,7 +701,7 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.toggleShuffle()
             }
         case .previous:
-            HoverButton(icon: "backward.fill", scale: .medium) {
+            HoverButton(icon: "backward.fill", scale: .medium, animateOnTap: true, externalAnimationEvent: .previousTrackSkip) {
                 MusicManager.shared.previousTrack()
             }
         case .playPause:
@@ -709,7 +709,7 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.togglePlay()
             }
         case .next:
-            HoverButton(icon: "forward.fill", scale: .medium) {
+            HoverButton(icon: "forward.fill", scale: .medium, animateOnTap: true, externalAnimationEvent: .nextTrackSkip) {
                 MusicManager.shared.nextTrack()
             }
         case .repeatMode:
