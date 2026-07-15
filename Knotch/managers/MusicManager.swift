@@ -659,9 +659,24 @@ class MusicManager: ObservableObject {
     }
 
     func play() {
-        Task {
-            await activeController?.play()
+        guard let controller = activeController else { return }
+        if controller is NowPlayingController && !hasActiveNowPlayingSource {
+            openMusicApp()
+            return
         }
+        Task {
+            await controller.play()
+        }
+    }
+
+    // True once MediaRemote has actually identified a real "now playing" app.
+    // Until then, the aggregator's play command has nothing to target and
+    // macOS falls back to launching Apple Music on its own — so on every
+    // press until a source shows up, we redirect to opening the Default
+    // Player instead of ever sending that raw command.
+    private var hasActiveNowPlayingSource: Bool {
+        guard let bundleIdentifier else { return false }
+        return !bundleIdentifier.isEmpty
     }
 
     func pause() {
@@ -685,6 +700,11 @@ class MusicManager: ObservableObject {
     func togglePlay() {
         guard let controller = activeController else { return }
         let targetState = !isPlaying
+
+        if targetState && controller is NowPlayingController && !hasActiveNowPlayingSource {
+            openMusicApp()
+            return
+        }
 
         Task {
             await MainActor.run {
@@ -745,7 +765,10 @@ class MusicManager: ObservableObject {
         }
     }
     func openMusicApp() {
-        guard let bundleID = bundleIdentifier ?? Defaults[.defaultPlayer].bundleIdentifier else {
+        // Empty string is the "nothing playing" sentinel (see NowPlayingController),
+        // so it must fall through to the Default Player just like nil would.
+        let activeBundleID = bundleIdentifier?.isEmpty == false ? bundleIdentifier : nil
+        guard let bundleID = activeBundleID ?? Defaults[.defaultPlayer].bundleIdentifier else {
             print("Error: appBundleIdentifier is nil")
             return
         }

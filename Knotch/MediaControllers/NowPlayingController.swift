@@ -15,8 +15,12 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     // MARK: - Properties
+    // Empty bundleIdentifier is the "nothing playing yet" sentinel used
+    // throughout this controller (see handleAdapterUpdate) — defaulting to
+    // Apple Music here made MusicManager believe Apple Music was already the
+    // active source before any real MediaRemote data arrived.
     @Published private(set) var playbackState: PlaybackState = .init(
-        bundleIdentifier: "com.apple.Music"
+        bundleIdentifier: ""
     )
 
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> {

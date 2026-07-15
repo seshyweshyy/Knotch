@@ -366,7 +366,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
-            SettingsSearchEntry(tabID: "Appearance", title: "Show visualizer in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view visualizer"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Show waveform in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view waveform"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable blur effect behind album art", keywords: ["blur", "glass", "album art"], highlightID: "Appearance-Enable blur effect"),
             SettingsSearchEntry(tabID: "Appearance", title: "Slider color", keywords: ["slider", "color", "accent"], highlightID: "Appearance-Slider color"),
@@ -1367,6 +1367,10 @@ private func mediaControllerIcon(for controller: MediaControllerType) -> AnyView
     )
 }
 
+private func calendarAppIcon(for app: CalendarApp) -> AnyView {
+    AnyView(AppIcon(for: app.bundleIdentifier).resizable())
+}
+
 func quickShareProviderIcon(for provider: QuickShareProvider) -> AnyView {
     if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
         return AnyView(Image(nsImage: nsImg).resizable())
@@ -1578,41 +1582,20 @@ struct CalendarSettings: View {
                 Text("Always show full event titles")
             }
             .settingsHighlight(id: "Calendar-Always show full event titles")
-            HStack {
-                Text("Open events in")
-                Spacer()
-                Menu {
-                    ForEach(CalendarApp.allCases.filter { $0.isInstalled }) { app in
-                        Button {
-                            calendarApp = app
-                        } label: {
-                            Label {
-                                Text(calendarApp.rawValue)
-                            } icon: {
-                                if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: calendarApp.bundleIdentifier),
-                                   let icon = NSWorkspace.shared.icon(forFile: appURL.path) as NSImage? {
-                                    Image(nsImage: icon)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 16, height: 16)
-                                }
-                            }
+            IconMenuPicker(
+                title: "Open events in",
+                items: CalendarApp.allCases.filter { $0.isInstalled },
+                selectionID: Binding(
+                    get: { calendarApp.id },
+                    set: { newID in
+                        if let match = CalendarApp.allCases.first(where: { $0.id == newID }) {
+                            calendarApp = match
                         }
                     }
-                } label: {
-                    Label {
-                        Text(calendarApp.rawValue)
-                    } icon: {
-                        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: calendarApp.bundleIdentifier),
-                           let icon = NSWorkspace.shared.icon(forFile: appURL.path) as NSImage? {
-                            Image(nsImage: icon)
-                                .resizable()
-                                .frame(width: 16, height: 16)
-                        }
-                    }
-                }
-                .tint(Color(nsColor: .labelColor))
-            }
+                ),
+                icon: calendarAppIcon,
+                label: { $0.rawValue }
+            )
             .disabled(!showCalendar)
             Section(header: Text("Calendars")) {
                 if calendarManager.calendarAuthorizationStatus != .fullAccess {
@@ -1717,6 +1700,10 @@ struct Appearance: View {
             }
 
             Section {
+                Defaults.Toggle(key: .homeViewVisualizer) {
+                    Text("Show waveform in home view")
+                }
+                .settingsHighlight(id: "Media-Home view waveform")
                 Defaults.Toggle(key: .liveWaveform) {
                     HStack(spacing: 6) {
                         Text("Live waveform")
@@ -1725,10 +1712,6 @@ struct Appearance: View {
                     }
                 }
                 .settingsHighlight(id: "Media-Live waveform")
-                Defaults.Toggle(key: .homeViewVisualizer) {
-                    Text("Show waveform in home view")
-                }
-                .settingsHighlight(id: "Media-Home view visualizer")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
                     .settingsHighlight(id: "Appearance-Player tinting")
                 Defaults.Toggle(key: .lightingEffect) {
