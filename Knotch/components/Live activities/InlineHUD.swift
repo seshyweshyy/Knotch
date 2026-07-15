@@ -15,6 +15,8 @@ struct InlineHUD: View {
     @Binding var icon: String
     @Binding var hoverAnimation: Bool
     @Binding var gestureProgress: CGFloat
+    var label: String = ""
+    var tintColor: Color = .white
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
 
     // When glass is active, this middle strip should let the shared notch
@@ -22,6 +24,13 @@ struct InlineHUD: View {
     // it with an opaque black rectangle.
     private var glassActive: Bool {
         notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
+
+    // Focus only needs room for an icon and a short "On"/"Off" label, unlike
+    // the other types which need space for a name + progress bar.
+    private var sideWidth: CGFloat {
+        let base: CGFloat = type == .focusMode ? 44 : 100
+        return base - (hoverAnimation ? 0 : 12) + gestureProgress / 2
     }
 
     var body: some View {
@@ -53,21 +62,27 @@ struct InlineHUD: View {
                                 .symbolVariant(value > 0 ? .none : .slash)
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
+                        case .focusMode:
+                            Image(systemName: icon.isEmpty ? "moon.fill" : icon)
+                                .contentTransition(.interpolate)
+                                .frame(width: 20, height: 15, alignment: .center)
                         default:
                             EmptyView()
                     }
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(type == .focusMode ? tintColor : .white)
                 .symbolVariant(.fill)
-                
-                Text(Type2Name(type))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .allowsTightening(true)
-                    .contentTransition(.numericText())
+
+                if type != .focusMode {
+                    Text(Type2Name(type))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .allowsTightening(true)
+                        .contentTransition(.numericText())
+                }
             }
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
+            .frame(width: sideWidth, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
             
             Rectangle()
                 .fill(glassActive ? Color.clear : Color.black)
@@ -77,6 +92,14 @@ struct InlineHUD: View {
                 if (type == .mic) {
                     Text(value.isZero ? "muted" : "unmuted")
                         .foregroundStyle(.gray)
+                        .lineLimit(1)
+                        .allowsTightening(true)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .contentTransition(.interpolate)
+                } else if (type == .focusMode) {
+                    Text(label.isEmpty ? "Off" : label)
+                        .foregroundStyle(tintColor)
                         .lineLimit(1)
                         .allowsTightening(true)
                         .multilineTextAlignment(.trailing)
@@ -104,7 +127,7 @@ struct InlineHUD: View {
                 }
             }
             .padding(.trailing, 4)
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
+            .frame(width: sideWidth, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
         }
         .frame(height: vm.closedNotchSize.height + (hoverAnimation ? 8 : 0), alignment: .center)
     }

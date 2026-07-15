@@ -230,7 +230,11 @@ extension Defaults.Keys {
     // Option key modifier behaviour for media keys
     static let optionKeyAction = Key<OptionKeyAction>("optionKeyAction", default: OptionKeyAction.openSettings)
     static let showBluetoothDeviceConnections = Key<Bool>("showBluetoothDeviceConnections", default: true)
-    
+
+    // MARK: Focus
+    static let showFocusModeIndicator = Key<Bool>("showFocusModeIndicator", default: true)
+    static let useDetailedFocusMetadata = Key<Bool>("useDetailedFocusMetadata", default: true)
+
     // MARK: Shelf
     static let knotchShelf = Key<Bool>("knotchShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)

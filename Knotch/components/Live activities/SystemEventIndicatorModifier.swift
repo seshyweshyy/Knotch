@@ -20,9 +20,11 @@ struct SystemEventIndicatorModifier: View {
         }
     }
     @Binding var icon: String
+    var label: String = ""
+    var tintColor: Color = .white
     let showSlider: Bool = false
     var sendEventBack: (CGFloat) -> Void
-    
+
     var body: some View {
         HStack(spacing: 14) {
             switch (eventType) {
@@ -56,10 +58,15 @@ struct SystemEventIndicatorModifier: View {
                         .contentTransition(.interpolate)
                         .frame(width: 20, height: 15)
                         .foregroundStyle(.white)
+                case .focusMode:
+                    Image(systemName: icon.isEmpty ? "moon.fill" : icon)
+                        .contentTransition(.interpolate)
+                        .frame(width: 20, height: 15)
+                        .foregroundStyle(tintColor)
                 default:
                     EmptyView()
             }
-            if eventType != .mic && eventType != .bluetoothAudio {
+            if eventType != .mic && eventType != .bluetoothAudio && eventType != .focusMode {
                 DraggableProgressBar(value: $value)
                 if Defaults[.showClosedNotchHUDPercentage] {
                     Text("\(Int(value * 100))%")
@@ -71,6 +78,13 @@ struct SystemEventIndicatorModifier: View {
             } else if eventType == .mic {
                 Text("Mic \(value > 0 ? "unmuted" : "muted")")
                     .foregroundStyle(.gray)
+                    .lineLimit(1)
+                    .allowsTightening(true)
+            } else if eventType == .focusMode {
+                Spacer(minLength: 0)
+                Text(label.isEmpty ? "Focus" : label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tintColor)
                     .lineLimit(1)
                     .allowsTightening(true)
             } else {

@@ -19,6 +19,7 @@ enum SneakContentType {
     case battery
     case download
     case bluetoothAudio
+    case focusMode
 }
 
 struct sneakPeek {
@@ -26,7 +27,8 @@ struct sneakPeek {
     var type: SneakContentType = .music
     var value: CGFloat = 0
     var icon: String = ""
-    var deviceName: String = ""  // Used for Bluetooth HUD
+    var deviceName: String = ""  // Bluetooth device name, or Focus status text ("On"/"Off")
+    var accentColor: Color = .white  // Used for Focus HUD
 }
 
 // Fired once per toggleSneakPeek call that lands exactly on a HUD limit (0 or 1),
@@ -271,6 +273,20 @@ class KnotchViewCoordinator: ObservableObject {
         }
         // Total duration: compact(0.8) + expanded(2.7) + compact(0.8) = 4.3s
         sneakPeekDuration = 5.0
+    }
+
+    /// `statusText` is literal display text ("On"/"Off"), not the Focus mode's name.
+    func toggleFocusModeSneakPeek(statusText: String, icon: String, tintColor: Color) {
+        Task { @MainActor in
+            withAnimation(.smooth) {
+                self.sneakPeek.show = true
+                self.sneakPeek.type = .focusMode
+                self.sneakPeek.icon = icon
+                self.sneakPeek.deviceName = statusText
+                self.sneakPeek.accentColor = tintColor
+            }
+        }
+        sneakPeekDuration = 3.0
     }
 
     private var sneakPeekDuration: TimeInterval = 2

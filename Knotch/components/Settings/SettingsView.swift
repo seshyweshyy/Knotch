@@ -934,9 +934,43 @@ struct Charge: View {
 struct LiveActivitiesSettings: View {
     @Default(.showBluetoothDeviceConnections) var showBluetoothDeviceConnections
     @Default(.bluetoothHUDIconStyle) var bluetoothHUDIconStyle
+    @Default(.showFocusModeIndicator) var showFocusModeIndicator
+    @Default(.useDetailedFocusMetadata) var useDetailedFocusMetadata
 
     var body: some View {
         Form {
+            // MARK: Focus
+            Section {
+                Defaults.Toggle(key: .showFocusModeIndicator) {
+                    Text("Show Focus mode status")
+                }
+                .settingsHighlight(id: "LiveActivities-Show Focus mode status")
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show custom Focus icon & colour")
+                            .font(.headline)
+                        Text("Resolves the real name, icon, and colour of custom Focus modes. Disable to only show a generic Focus indicator.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 40)
+                    Defaults.Toggle("", key: .useDetailedFocusMetadata)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.large)
+                        .disabled(!showFocusModeIndicator)
+                }
+                .settingsHighlight(id: "LiveActivities-Show custom Focus icon and colour")
+
+                Text("Detection works without Full Disk Access — Knotch never needs that permission for Focus mode.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Focus")
+            }
+
             // MARK: Bluetooth
             Section {
                 Defaults.Toggle(key: .showBluetoothDeviceConnections) {

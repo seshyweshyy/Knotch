@@ -585,7 +585,22 @@ struct ContentView: View {
                         ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
                             : isExpandedBatteryBanner
                                 ? 28
-                                : cornerRadiusInsets.closed.bottom
+                                : inlineHUDShowing && isHovering
+                                    ? cornerRadiusInsets.closed.bottom + 6
+                                    : cornerRadiusInsets.closed.bottom
+    }
+
+    // Matches the condition that shows InlineHUD below (coordinator.sneakPeek
+    // driven, Defaults[.inlineHUD] style, excluding the types with their own
+    // bespoke pills) so the hover corner-radius bump only applies there —
+    // not to the plain menu-bar-height closed notch.
+    private var inlineHUDShowing: Bool {
+        coordinator.sneakPeek.show
+            && Defaults[.inlineHUD]
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .battery
+            && coordinator.sneakPeek.type != .bluetoothAudio
+            && vm.notchState == .closed
     }
 
     private var currentNotchShape: NotchShape {
@@ -952,7 +967,7 @@ struct ContentView: View {
                             .environmentObject(vm)
                             .transition(.opacity)
                         } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && vm.notchState == .closed {
-                            InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
+                            InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress, label: coordinator.sneakPeek.deviceName, tintColor: coordinator.sneakPeek.accentColor)
                                 .transition(.opacity)
                         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
@@ -977,6 +992,8 @@ struct ContentView: View {
                                     eventType: $coordinator.sneakPeek.type,
                                     value: $coordinator.sneakPeek.value,
                                     icon: $coordinator.sneakPeek.icon,
+                                    label: coordinator.sneakPeek.deviceName,
+                                    tintColor: coordinator.sneakPeek.accentColor,
                                     sendEventBack: { newVal in
                                         switch coordinator.sneakPeek.type {
                                         case .volume:
