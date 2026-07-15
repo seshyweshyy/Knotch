@@ -475,78 +475,35 @@ struct AudioOutputButton: View {
     }
 }
 
-// MARK: - Lock Screen Audio Output Button (inline volume toggle, no popover)
-
-struct LockScreenAudioOutputButton: View {
+// MARK: - Lock Screen Audio Output Indicator (icon only, not interactive)
+//
+// The lock-screen widget lives in a non-activating panel that never becomes
+// key (loginwindow keeps focus), so a real AppKit `.popover` window spawned
+// from it never receives continued mouseDragged events — the volume-drag
+// pill inside MediaOutputSelectorPopover is untouchable there, and an inline
+// picker turned out to be unreliable to size correctly. This just shows the
+// current output's icon; tapping does nothing.
+struct LockScreenAudioOutputIndicator: View {
     @ObservedObject private var routeManager = AudioRouteManager.shared
-    @Binding var isVolumeVisible: Bool
 
     private var buttonIcon: String {
         routeManager.activeDevice?.iconName ?? "speaker.wave.2"
     }
 
     var body: some View {
-        HoverButton(icon: buttonIcon, scale: .medium) {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                isVolumeVisible.toggle()
+        // No Button/HoverButton wrapper — this is a static icon, not a
+        // control, so it shouldn't show hover fill or a pressed state
+        // that would suggest it does something.
+        Image(systemName: buttonIcon)
+            .foregroundColor(.primary)
+            .font(.title2)
+            .frame(width: 40, height: 40)
+            .onAppear {
+                routeManager.refreshDevices()
             }
-        }
-        .onAppear {
-            routeManager.refreshDevices()
-        }
     }
 }
 
-// MARK: - Lock Screen Volume Slider
-
-struct LockScreenVolumeSlider: View {
-    @StateObject private var volumeModel = MediaOutputVolumeViewModel()
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Button {
-                volumeModel.toggleMute()
-            } label: {
-                Image(systemName: volumeIconName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 22)
-            }
-            .buttonStyle(.plain)
-
-            Slider(
-                value: Binding(
-                    get: { Double(volumeModel.level) },
-                    set: { volumeModel.setVolume(Float($0)) }
-                ),
-                in: 0...1
-            )
-            .tint(.white)
-
-            Text(volumePercentage)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 36, alignment: .trailing)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.1))
-        )
-    }
-
-    private var volumeIconName: String {
-        if volumeModel.isMuted || volumeModel.level <= 0.001 { return "speaker.slash.fill" }
-        else if volumeModel.level < 0.33 { return "speaker.wave.1.fill" }
-        else if volumeModel.level < 0.66 { return "speaker.wave.2.fill" }
-        return "speaker.wave.3.fill"
-    }
-
-    private var volumePercentage: String {
-        "\(Int(round(volumeModel.level * 100)))%"
-    }
-}
 // MARK: - Media Output Selector Popover
 
 struct MediaOutputSelectorPopover: View {
@@ -557,51 +514,12 @@ struct MediaOutputSelectorPopover: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            volumeSection
-            Divider()
             devicesSection
         }
-        .frame(width: 240)
+        .frame(width: 255)
         .padding(16)
         .onHover { onHoverChanged($0) }
         .onDisappear { onHoverChanged(false) }
-    }
-
-    private var volumeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Button {
-                    volumeModel.toggleMute()
-                } label: {
-                    Image(systemName: volumeIconName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .frame(width: 28, height: 28)
-                        .background(Circle().fill(Color.secondary.opacity(0.18)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-
-                Slider(
-                    value: Binding(
-                        get: { Double(volumeModel.level) },
-                        set: { volumeModel.setVolume(Float($0)) }
-                    ),
-                    in: 0...1
-                )
-                .tint(.accentColor)
-            }
-
-            HStack {
-                Text("Output volume")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(volumePercentage)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
     }
 
     private var devicesSection: some View {
@@ -616,67 +534,123 @@ struct MediaOutputSelectorPopover: View {
                     .foregroundColor(.secondary)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
+            } else if routeManager.devices.count > 5 {
+                // Only pay for a ScrollView once there are enough rows to
+                // actually need scrolling — otherwise it claims height up to
+                // the cap even when the content is much shorter.
                 ScrollView {
-                    VStack(spacing: 4) {
-                        ForEach(routeManager.devices) { device in
-                            Button {
-                                routeManager.select(device: device)
-                                dismiss()
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: device.iconName)
-                                        .font(.system(size: 14, weight: .medium))
-                                        .frame(width: 20)
-                                    Text(device.name)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    if device.id == routeManager.activeDeviceID {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(.accentColor)
-                                    }
-                                }
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(device.id == routeManager.activeDeviceID
-                                              ? Color.accentColor.opacity(0.15)
-                                              : Color.clear)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    deviceRows
                 }
-                .frame(maxHeight: 200)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxHeight: 220)
+            } else {
+                deviceRows
             }
         }
     }
 
-    private var volumeIconName: String {
-        if volumeModel.isMuted || volumeModel.level <= 0.001 { return "speaker.slash.fill" }
-        else if volumeModel.level < 0.33 { return "speaker.wave.1.fill" }
-        else if volumeModel.level < 0.66 { return "speaker.wave.2.fill" }
-        return "speaker.wave.3.fill"
-    }
-
-    private var volumePercentage: String {
-        "\(Int(round(volumeModel.level * 100)))%"
+    private var deviceRows: some View {
+        VStack(spacing: 6) {
+            ForEach(routeManager.devices) { device in
+                AudioDeviceRow(
+                    device: device,
+                    isSelected: device.id == routeManager.activeDeviceID,
+                    routeManager: routeManager,
+                    volumeModel: volumeModel,
+                    dismiss: dismiss
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
+// MARK: - Audio Device Row (selected row doubles as a volume slider, like iOS AirPlay picker)
+
+struct AudioDeviceRow: View {
+    let device: AudioOutputDevice
+    let isSelected: Bool
+    @ObservedObject var routeManager: AudioRouteManager
+    @ObservedObject var volumeModel: MediaOutputVolumeViewModel
+    var dismiss: () -> Void
+
+    @State private var rowWidth: CGFloat = 0
+    @State private var isDragging = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: device.iconName)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 22)
+                .foregroundColor(isSelected ? .black : .primary)
+            Text(device.name)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(isSelected ? .black : .primary)
+                .lineLimit(1)
+            Spacer()
+            if isSelected {
+                ZStack {
+                    if isDragging {
+                        VolumeHUDLottieView(value: CGFloat(volumeModel.level), displaySize: 18)
+                            .colorInvert()
+                            .scaleEffect(1.4)
+                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.black)
+                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    }
+                }
+                .frame(width: 18, height: 18)
+                .animation(.easeOut(duration: 0.15), value: isDragging)
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Color.white.opacity(isSelected ? 0.28 : 0)
+                    if isSelected {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.95))
+                            .frame(width: max(0, geo.size.width * CGFloat(volumeModel.level)))
+                    }
+                }
+                .background(isSelected ? Color.clear : Color.secondary.opacity(0.14))
+                .onAppear { rowWidth = geo.size.width }
+                .onChange(of: geo.size.width) { _, newValue in rowWidth = newValue }
+            }
+            .clipShape(Capsule(style: .continuous))
+        )
+        .contentShape(Capsule(style: .continuous))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    guard isSelected, rowWidth > 0 else { return }
+                    isDragging = true
+                    let fraction = min(max(value.location.x / rowWidth, 0), 1)
+                    volumeModel.setVolume(Float(fraction))
+                }
+                .onEnded { _ in
+                    isDragging = false
+                    if !isSelected {
+                        routeManager.select(device: device)
+                        dismiss()
+                    }
+                }
+        )
+    }
+}
 
 struct MusicSlotToolbar: View {
     @ObservedObject private var musicManager = MusicManager.shared
     @Default(.musicControlSlots) private var slotConfig
 
-    // When non-nil, the audio output button operates in lock-screen mode — toggling an inline volume slider instead of opening a popover.
-    var lockScreenVolumeVisible: Binding<Bool>? = nil
+    // The lock-screen widget shows a non-interactive icon for the audio output slot instead of the popover (see LockScreenAudioOutputIndicator).
+    var isLockScreenContext: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -701,7 +675,7 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.toggleShuffle()
             }
         case .previous:
-            HoverButton(icon: "backward.fill", scale: .medium, animateOnTap: true, externalAnimationEvent: .previousTrackSkip) {
+            HoverButton(icon: "backward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true, externalAnimationEvent: .previousTrackSkip) {
                 MusicManager.shared.previousTrack()
             }
         case .playPause:
@@ -709,7 +683,7 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.togglePlay()
             }
         case .next:
-            HoverButton(icon: "forward.fill", scale: .medium, animateOnTap: true, externalAnimationEvent: .nextTrackSkip) {
+            HoverButton(icon: "forward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true, externalAnimationEvent: .nextTrackSkip) {
                 MusicManager.shared.nextTrack()
             }
         case .repeatMode:
@@ -729,8 +703,8 @@ struct MusicSlotToolbar: View {
                 MusicManager.shared.skip(seconds: 15)
             }
         case .audioOutput:
-            if let binding = lockScreenVolumeVisible {
-                LockScreenAudioOutputButton(isVolumeVisible: binding)
+            if isLockScreenContext {
+                LockScreenAudioOutputIndicator()
             } else {
                 AudioOutputButton()
             }

@@ -33,7 +33,6 @@ struct LiquidGlassMusicWidget: View {
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
-    @State private var showLockScreenVolume: Bool = false
 
     var body: some View {
         if #available(macOS 26.0, *) {
@@ -124,18 +123,10 @@ struct LiquidGlassMusicWidget: View {
             .padding(.top, 4)
 
             // ── Transport controls ──
-            MusicSlotToolbar(lockScreenVolumeVisible: $showLockScreenVolume)
+            MusicSlotToolbar(isLockScreenContext: true)
                 .padding(.bottom, 8)
-
-            if showLockScreenVolume {
-                LockScreenVolumeSlider()
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
-                    .transition(.scale(scale: 0.97, anchor: .top).combined(with: .opacity))
-            }
         }
         .frame(width: 320)
-        .animation(.easeInOut(duration: 0.22), value: showLockScreenVolume)
     }
 
     private func flipArt(_ signal: ArtFlipSignal) {

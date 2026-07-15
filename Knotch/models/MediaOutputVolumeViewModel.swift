@@ -19,8 +19,13 @@ final class MediaOutputVolumeViewModel: ObservableObject {
 
     func setVolume(_ value: Float) {
         level = max(0, min(1, value))
-        if level > 0 { isMuted = false }
         writeVolume(level)
+
+        let shouldMute = level <= 0.0001
+        if shouldMute != isMuted {
+            isMuted = shouldMute
+            setSystemMute(shouldMute)
+        }
     }
 
     func toggleMute() {

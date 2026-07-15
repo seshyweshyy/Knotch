@@ -93,6 +93,7 @@ struct HoverButton: View {
     var icon: String
     var iconColor: Color = .primary
     var scale: Image.Scale = .medium
+    var iconScale: CGFloat = 1.0
     var enableBounce: Bool = true
     var animateOnTap: Bool = false
     var externalAnimationEvent: HoverButtonAnimationEvent? = nil
@@ -108,7 +109,7 @@ struct HoverButton: View {
 
     var body: some View {
         let size = CGFloat(40)
-        let iconPointSize: CGFloat = scale == .large ? 34 : scale == .small ? 17 : 22
+        let iconPointSize: CGFloat = (scale == .large ? 34 : scale == .small ? 17 : 22) * iconScale
         let skipDirection: SkipTriangleDirection = (icon == "backward.fill") ? .forward : .backward
         let slideAnimation: Animation = .interpolatingSpring(stiffness: 235, damping: 20)
         let slideDuration: Double = 0.66
