@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Defaults
 import Foundation
 
 /// Tracks incoming file transfers landing in ~/Downloads using the public
@@ -38,6 +39,8 @@ final class AirDropReceiveManager {
     }
 
     private func attach(to progress: Progress) {
+        guard Defaults[.showAirDropReceiveProgress] else { return }
+
         // Distinguishes a real AirDrop transfer from other publishers of the
         // same mechanism (Finder copies, Safari/Mail downloads): sharingd
         // never sets `kind` on the progress it publishes, while Finder and

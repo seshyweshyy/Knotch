@@ -235,6 +235,9 @@ extension Defaults.Keys {
     static let showFocusModeIndicator = Key<Bool>("showFocusModeIndicator", default: true)
     static let useDetailedFocusMetadata = Key<Bool>("useDetailedFocusMetadata", default: true)
 
+    // MARK: AirDrop
+    static let showAirDropReceiveProgress = Key<Bool>("showAirDropReceiveProgress", default: true)
+
     // MARK: Shelf
     static let knotchShelf = Key<Bool>("knotchShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)

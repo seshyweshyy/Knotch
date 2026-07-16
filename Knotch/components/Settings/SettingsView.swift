@@ -408,6 +408,8 @@ struct SettingsView: View {
             // Bluetooth
             SettingsSearchEntry(tabID: "LiveActivities", title: "Show Bluetooth device connections", keywords: ["bluetooth", "device", "connection", "hud"], highlightID: "LiveActivities-Show Bluetooth device connections"),
             SettingsSearchEntry(tabID: "LiveActivities", title: "HUD icon style", keywords: ["bluetooth", "icon", "3d", "symbol", "style"], highlightID: "LiveActivities-HUD icon style"),
+            // AirDrop
+            SettingsSearchEntry(tabID: "LiveActivities", title: "Show AirDrop receive progress", keywords: ["airdrop", "receive", "progress", "download", "hud"], highlightID: "LiveActivities-Show AirDrop receive progress"),
             // Battery
             SettingsSearchEntry(tabID: "Battery", title: "Show battery indicator", keywords: ["battery", "indicator"], highlightID: "Battery-Show battery indicator"),
             SettingsSearchEntry(tabID: "Battery", title: "Show power status notifications", keywords: ["power", "notification", "battery"], highlightID: "Battery-Show power status notifications"),
@@ -936,6 +938,7 @@ struct LiveActivitiesSettings: View {
     @Default(.bluetoothHUDIconStyle) var bluetoothHUDIconStyle
     @Default(.showFocusModeIndicator) var showFocusModeIndicator
     @Default(.useDetailedFocusMetadata) var useDetailedFocusMetadata
+    @Default(.showAirDropReceiveProgress) var showAirDropReceiveProgress
 
     var body: some View {
         Form {
@@ -1028,6 +1031,20 @@ struct LiveActivitiesSettings: View {
                 .settingsHighlight(id: "LiveActivities-HUD icon style")
             } header: {
                 Text("Bluetooth")
+            }
+
+            // MARK: AirDrop
+            Section {
+                Defaults.Toggle(key: .showAirDropReceiveProgress) {
+                    Text("Show AirDrop receive progress")
+                }
+                .settingsHighlight(id: "LiveActivities-Show AirDrop receive progress")
+
+                Text("Tracks real transfer progress for files landing in Downloads using Apple's public file-progress API — no Full Disk Access required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("AirDrop")
             }
         }
         .accentColor(.effectiveAccent)
