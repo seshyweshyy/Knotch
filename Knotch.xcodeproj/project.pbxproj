@@ -105,7 +105,6 @@
 		14E9FEAE2C7325770062E83F /* Button+Bouncing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */; };
 		14FC6E502C7DED5600C7BEA5 /* DataTypes+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */; };
 		430263942F9AE7FA00F9722E /* BluetoothHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 430263932F9AE7FA00F9722E /* BluetoothHUDView.swift */; };
-		DF8CDCA69D18772233A1559A /* AirDropReceiveHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6B95EBB0559469C3AD74BB /* AirDropReceiveHUD.swift */; };
 		430263D52F9AEEFD00F9722E /* airpods.mov in Resources */ = {isa = PBXBuildFile; fileRef = 430263D42F9AEEFD00F9722E /* airpods.mov */; };
 		430263D72F9AEF0800F9722E /* airpodsGen3.mov in Resources */ = {isa = PBXBuildFile; fileRef = 430263D62F9AEF0800F9722E /* airpodsGen3.mov */; };
 		430263D92F9AEF1500F9722E /* airpodsGen4.mov in Resources */ = {isa = PBXBuildFile; fileRef = 430263D82F9AEF1500F9722E /* airpodsGen4.mov */; };
@@ -139,8 +138,6 @@
 		43A454143002A66E00B9ABC3 /* SystemTimerProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* SystemTimerProvider.swift */; };
 		43ADED322F99E14300060F82 /* AlbumArtBackgroundWindow in Frameworks */ = {isa = PBXBuildFile; productRef = 43ADED312F99E14300060F82 /* AlbumArtBackgroundWindow */; };
 		43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */; };
-		C5E19B3E46657CFA91A6F11C /* AirDropReceiveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */; };
-		BE83A6589EF94C56BBD64E1B /* FocusModeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */; };
 		43B1966B2F96DF4B00D97335 /* Knotch.icon in Resources */ = {isa = PBXBuildFile; fileRef = 43B1966A2F96DF4B00D97335 /* Knotch.icon */; };
 		43B21FA42F9DAF070057E099 /* DisplaySleepPreventer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B21FA32F9DAF050057E099 /* DisplaySleepPreventer.swift */; };
 		43D11EA92F978592007FECCE /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 43D11EA82F978592007FECCE /* ZIPFoundation */; };
@@ -186,6 +183,9 @@
 		B1F0A0022E60000100000001 /* BrightnessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F0A0012E60000100000001 /* BrightnessManager.swift */; };
 		B1F747F92EC7E94000F841DB /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F747F82EC7E94000F841DB /* LottieView.swift */; };
 		B1FEB4992C7686630066EBBC /* PanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FEB4982C7686630066EBBC /* PanGesture.swift */; };
+		BE83A6589EF94C56BBD64E1B /* FocusModeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */; };
+		C5E19B3E46657CFA91A6F11C /* AirDropReceiveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */; };
+		DF8CDCA69D18772233A1559A /* AirDropReceiveHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6B95EBB0559469C3AD74BB /* AirDropReceiveHUD.swift */; };
 		F38DE6482D8243E7008B5C6D /* BatteryActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */; };
 /* End PBXBuildFile section */
 
@@ -319,7 +319,6 @@
 		14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Button+Bouncing.swift"; sourceTree = "<group>"; };
 		14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DataTypes+Extensions.swift"; sourceTree = "<group>"; };
 		430263932F9AE7FA00F9722E /* BluetoothHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHUDView.swift; sourceTree = "<group>"; };
-		5C6B95EBB0559469C3AD74BB /* AirDropReceiveHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirDropReceiveHUD.swift; sourceTree = "<group>"; };
 		430263D42F9AEEFD00F9722E /* airpods.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods.mov; sourceTree = "<group>"; };
 		430263D62F9AEF0800F9722E /* airpodsGen3.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpodsGen3.mov; sourceTree = "<group>"; };
 		430263D82F9AEF1500F9722E /* airpodsGen4.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpodsGen4.mov; sourceTree = "<group>"; };
@@ -350,8 +349,6 @@
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
 		43A141972FA2FC61007AF2AE /* display_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = display_animation.json; sourceTree = "<group>"; };
 		43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothAudioManager.swift; sourceTree = "<group>"; };
-		DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirDropReceiveManager.swift; sourceTree = "<group>"; };
-		FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeManager.swift; sourceTree = "<group>"; };
 		43B1966A2F96DF4B00D97335 /* Knotch.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Knotch.icon; sourceTree = "<group>"; };
 		43B21FA32F9DAF050057E099 /* DisplaySleepPreventer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySleepPreventer.swift; sourceTree = "<group>"; };
 		43B648042F93EF4A0017C00A /* Knotch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Knotch.entitlements; sourceTree = "<group>"; };
@@ -361,6 +358,7 @@
 		5917FD102E57891600E87F1C /* MediaKeyInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaKeyInterceptor.swift; sourceTree = "<group>"; };
 		5955950C2E900ED800C66711 /* ApplicationRelauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationRelauncher.swift; sourceTree = "<group>"; };
 		59D8C23B2E589FAA00147B33 /* VolumeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeManager.swift; sourceTree = "<group>"; };
+		5C6B95EBB0559469C3AD74BB /* AirDropReceiveHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirDropReceiveHUD.swift; sourceTree = "<group>"; };
 		9A0887312C7A693000C160EA /* TabButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabButton.swift; sourceTree = "<group>"; };
 		9A0887342C7AFF8E00C160EA /* TabSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSelectionView.swift; sourceTree = "<group>"; };
 		9A987A032C73CA66005CA465 /* ShelfView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
@@ -393,7 +391,9 @@
 		B1F0A0012E60000100000001 /* BrightnessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrightnessManager.swift; sourceTree = "<group>"; };
 		B1F747F82EC7E94000F841DB /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
 		B1FEB4982C7686630066EBBC /* PanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanGesture.swift; sourceTree = "<group>"; };
+		DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirDropReceiveManager.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
+		FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeManager.swift; sourceTree = "<group>"; };
 		FCBBC9A7CF6FA9D2F3E867D3 /* StableHoverTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableHoverTracker.swift; sourceTree = "<group>"; };
 		FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendDevicePickerWindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -1463,7 +1463,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				ENABLE_APP_SANDBOX = NO;
@@ -1490,7 +1490,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.7.6;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1518,7 +1518,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Knotch/Preview Content\"";
 				ENABLE_APP_SANDBOX = NO;
@@ -1544,7 +1544,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.7.6;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
