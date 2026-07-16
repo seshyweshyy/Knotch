@@ -22,11 +22,20 @@ struct BluetoothHUDView: View {
     @State private var phase: Phase = .compact
     @State private var phaseTask: Task<Void, Never>? = nil
     @Default(.bluetoothHUDIconStyle) private var iconStyle: BluetoothHUDIconStyle
+    @Default(.notchAppearanceStyle) private var notchAppearanceStyle
     @EnvironmentObject var vm: KnotchViewModel
-    
+
     // Expanded width of the notch pill for this HUD
     private let expandedWidth: CGFloat = 280
     private let compactWidth: CGFloat = 120
+
+    // Matches BatteryNotchBanner/AirDropReceiveHUD's treatment: when glass is
+    // active, the middle strip should let the shared notch background
+    // (glass + gradient mask) show through instead of covering it with an
+    // opaque black bar.
+    private var glassActive: Bool {
+        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
     
     var body: some View {
         Group {
@@ -45,7 +54,7 @@ struct BluetoothHUDView: View {
                     
                     // CENTER: black gap over the notch pill
                     Rectangle()
-                        .fill(.black)
+                        .fill(glassActive ? Color.clear : Color.black)
                         .frame(width: vm.closedNotchSize.width - 20)
                     
                     // RIGHT: battery ring

@@ -1,23 +1,15 @@
 {
   "images" : [
     {
-      "filename" : "AirDropSymbol.png",
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "AirDropSymbol 1.png",
-      "idiom" : "universal",
-      "scale" : "2x"
-    },
-    {
-      "filename" : "AirDropSymbol 2.png",
-      "idiom" : "universal",
-      "scale" : "3x"
+      "filename" : "AirDropSymbol.svg",
+      "idiom" : "universal"
     }
   ],
   "info" : {
     "author" : "xcode",
     "version" : 1
+  },
+  "properties" : {
+    "template-rendering-intent" : "original"
   }
 }

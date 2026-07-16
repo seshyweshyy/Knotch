@@ -584,7 +584,7 @@ struct ContentView: View {
                 : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-                        ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
+                        ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 3
                             : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
                                 ? airdropHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
                             : isExpandedBatteryBanner

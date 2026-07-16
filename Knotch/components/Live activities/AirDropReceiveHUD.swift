@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Defaults
 import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
@@ -27,9 +28,17 @@ struct AirDropReceiveHUD: View {
     @State private var collapsePausedRemaining: TimeInterval? = nil
     @State private var thumbnail: NSImage? = nil
     @EnvironmentObject var vm: KnotchViewModel
+    @Default(.notchAppearanceStyle) private var notchAppearanceStyle
 
     private let expandedWidth: CGFloat = 300
     private let expandedContentHeight: CGFloat = 92
+
+    // Matches BatteryNotchBanner's treatment: when glass is active, the
+    // middle strip should let the shared notch background (glass + gradient
+    // mask) show through instead of covering it with an opaque black bar.
+    private var glassActive: Bool {
+        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
 
     private var fileURL: URL? {
         filePath.isEmpty ? nil : URL(fileURLWithPath: filePath)
@@ -164,14 +173,15 @@ struct AirDropReceiveHUD: View {
             HStack(spacing: 5) {
                 airdropIcon
                     .frame(
-                        width: max(0, vm.effectiveClosedNotchHeight - 4),
-                        height: max(0, vm.effectiveClosedNotchHeight - 4)
+                        width: max(0, vm.effectiveClosedNotchHeight - 4) * 0.8,
+                        height: max(0, vm.effectiveClosedNotchHeight - 4) * 0.8
                     )
+                    .offset(x: -6.5)
             }
-            .frame(width: max(0, vm.effectiveClosedNotchHeight - 4) + 10, alignment: .leading)
+            .frame(width: max(0, vm.effectiveClosedNotchHeight - 4) + 10, alignment: .center)
 
             Rectangle()
-                .fill(.black)
+                .fill(glassActive ? Color.clear : Color.black)
                 .frame(width: vm.closedNotchSize.width - 20)
 
             HStack(spacing: 4) {
@@ -257,12 +267,53 @@ struct AirDropReceiveHUD: View {
             .aspectRatio(contentMode: .fit)
     }
 
+    // The real system AirDrop icon — same fetch used for the Shelf's AirDrop
+    // quick-share provider (QuickShareService.swift). Constructing a fresh
+    // NSSharingService by name, rather than reading .image off an enumerated
+    // service, guarantees a fully-loaded icon. Fetched once per process.
+    //
+    // NSImage.draw(in:from:) picks the best available source representation
+    // for a given target size — pre-rendering into a properly-sized bitmap
+    // here (2x the 20pt this badge renders at) is what actually invokes that
+    // selection. Handing the raw multi-representation NSImage straight to
+    // Image(nsImage:) + .resizable() skips it and upscales whichever
+    // (often low-res) representation SwiftUI happens to grab by default —
+    // same fix QuickShareService's resizedIconData already applies for the
+    // Shelf's copy of this same icon.
+    private static let systemAirDropIcon: NSImage? = {
+        guard let source = NSSharingService(named: .sendViaAirDrop)?.image,
+              source.size.width > 0, source.size.height > 0
+        else { return nil }
+
+        let target = NSSize(width: 40, height: 40)
+        let rendered = NSImage(size: target)
+        rendered.lockFocus()
+        source.draw(in: NSRect(origin: .zero, size: target),
+                     from: NSRect(origin: .zero, size: source.size),
+                     operation: .copy, fraction: 1.0)
+        rendered.unlockFocus()
+        return rendered
+    }()
+
+    @ViewBuilder
+    private var airdropAppIcon: some View {
+        if let icon = Self.systemAirDropIcon {
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .antialiased(true)
+                .aspectRatio(contentMode: .fit)
+        } else {
+            airdropIcon
+        }
+    }
+
     private var thumbnailWithBadge: some View {
         previewThumbnail
             .frame(width: 46, height: 46)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(alignment: .bottomLeading) {
-                airdropIcon
+                airdropAppIcon
                     .frame(width: 20, height: 20)
                     .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
                     .offset(x: -3, y: 3)
