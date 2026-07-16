@@ -9,6 +9,17 @@
             <sparkle:version>24</sparkle:version>
             <sparkle:shortVersionString>1.7.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<h2 id="sparkles-new-features">✨ New Features</h2>
+<ul>
+<li><strong>Added airdrop notifications</strong></li>
+</ul>
+<h2 id="wrench-fixes">🔧 Fixes</h2>
+<ul>
+<li>Fixed shuffle sync with media source app</li>
+<li>Fixed airpods battery level detection</li>
+</ul>
+]]></description>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.6/Knotch.v.1.7.6.zip" length="14967894" type="application/octet-stream" sparkle:edSignature="ztmyfHoRy9raQ1Q7tYodeb5UGSYQL1+0jHwbu32T9C3TLtgNx4yXX/r1+MWk7wRal9hxPEfbai4+qyCN5i71BA=="/>
         </item>
         <item>

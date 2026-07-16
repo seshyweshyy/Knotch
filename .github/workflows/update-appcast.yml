@@ -45,6 +45,22 @@ jobs:
             --dir updater/releases \
             --repo ${{ github.repository }}
 
+      - name: Fetch release notes
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          brew install pandoc
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          ZIP=$(find updater/releases -maxdepth 1 -name "*.zip" | head -1)
+          BASENAME="${ZIP%.zip}"
+          gh release view "$TAG" --repo ${{ github.repository }} --json body -q .body | tr -d '\r' > /tmp/release-notes.md
+          if [ -s /tmp/release-notes.md ]; then
+            pandoc -f gfm -t html /tmp/release-notes.md -o "$BASENAME.html"
+            # Drop the redundant "# Knotch vX.Y.Z" heading and its divider — the version is already shown in the update dialog title.
+            sed -i '' '1{/<h1/d;}' "$BASENAME.html"
+            sed -i '' '1{/<hr/d;}' "$BASENAME.html"
+          fi
+
       - name: Generate appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -52,6 +68,7 @@ jobs:
           echo "$SPARKLE_PRIVATE_KEY" | \
             ${{ env.GENERATE_APPCAST }} \
               --ed-key-file - \
+              --embed-release-notes \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name || inputs.tag }}/" \
               --link "https://github.com/${{ github.repository }}" \
               -o updater/appcast.xml \
