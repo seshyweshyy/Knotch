@@ -281,6 +281,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private func handleAdapterUpdate(_ update: NowPlayingUpdate) async {
         let payload = update.payload
         let diff = update.diff ?? false
+        let resolvedBundleIdentifier = payload.parentApplicationBundleIdentifier
+            ?? payload.bundleIdentifier
+            ?? (diff ? self.playbackState.bundleIdentifier : "")
 
         var newPlaybackState = PlaybackState(bundleIdentifier: playbackState.bundleIdentifier)
         
@@ -303,7 +306,14 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
 
         
-        if let shuffleMode = payload.shuffleMode {
+        if resolvedBundleIdentifier == "com.apple.Music" || resolvedBundleIdentifier == "com.spotify.client" {
+            // MediaRemote's shuffleMode field for these two apps is unreliable — absent,
+            // stale, or briefly wrong right after a track change (e.g. on skip). Trust
+            // only the AppleScript-derived value from fetchShuffleStateIfSupported(),
+            // which is kept in sync via the playerInfo/PlaybackStateChanged observers,
+            // toggleShuffle(), and the bundle-switch check below.
+            newPlaybackState.isShuffled = self.playbackState.isShuffled
+        } else if let shuffleMode = payload.shuffleMode {
             newPlaybackState.isShuffled = shuffleMode != 1
         } else if !diff {
             newPlaybackState.isShuffled = false
@@ -337,12 +347,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
 
         newPlaybackState.playbackRate = payload.playbackRate ?? (diff ? self.playbackState.playbackRate : 1.0)
         newPlaybackState.isPlaying = payload.playing ?? (diff ? self.playbackState.isPlaying : false)
-        newPlaybackState.bundleIdentifier = (
-            payload.parentApplicationBundleIdentifier ??
-            payload.bundleIdentifier ??
-            (diff ? self.playbackState.bundleIdentifier : "")
-        )
-        
+        newPlaybackState.bundleIdentifier = resolvedBundleIdentifier
+
         newPlaybackState.volume = payload.volume ?? (diff ? self.playbackState.volume : 0.5)
 
         let previousBundleIdentifier = self.playbackState.bundleIdentifier
