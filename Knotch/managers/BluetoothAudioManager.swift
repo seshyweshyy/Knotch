@@ -152,12 +152,24 @@ final class BluetoothAudioManager {
     }
 
     private func extractSystemProfilerBatteryPercentage(from payload: [String: Any]) -> Int? {
-        let keys = [
-            "device_batteryLevelCase", "device_batteryLevelLeft", "device_batteryLevelRight",
+        // Left/Right are reported at all times regardless of which bud is
+        // actually being worn, so the case-idle bud sits near 100% while the
+        // worn one drains. The lower of the two is the better proxy for "the
+        // AirPod in use" — the case's own level is never a stand-in for that
+        // and is deliberately excluded here.
+        let earbudKeys = ["device_batteryLevelLeft", "device_batteryLevelRight"]
+        let earbudValues = earbudKeys.compactMap { payload[$0] }.compactMap(convertBatteryValue)
+        if let inUse = earbudValues.min() {
+            return min(max(inUse, 0), 100)
+        }
+
+        // Fallback for accessories that don't split into left/right (e.g.
+        // single-unit headphones) — no case reading to worry about there.
+        let singleUnitKeys = [
             "device_batteryLevelMain", "device_batteryLevel", "device_batteryLevelCombined",
             "device_batteryPercentCombined", "Battery Level"
         ]
-        let values = keys.compactMap { payload[$0] }.compactMap(convertBatteryValue)
+        let values = singleUnitKeys.compactMap { payload[$0] }.compactMap(convertBatteryValue)
         return values.max().map { min(max($0, 0), 100) }
     }
 

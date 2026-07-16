@@ -111,7 +111,7 @@ struct BatteryView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .padding(.horizontal, 1)
-                    .offset(x: terminalNubOffset)
+                    .offset(x: percentageIconStatus != "" ? terminalNubOffset : 0)
                 } else if showsGlyph {
                     Image(iconStatus)
                         .resizable()
