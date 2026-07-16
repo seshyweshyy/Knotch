@@ -445,6 +445,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         _ = BluetoothAudioManager.shared
         _ = FocusModeManager.shared
+        _ = AirDropReceiveManager.shared
 
         KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
             guard let self = self else { return }

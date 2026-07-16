@@ -508,6 +508,7 @@ struct ContentView: View {
     @EnvironmentObject private var lockAnimationHost: LockAnimationHost
     
     @State private var bluetoothHUDExpanded: Bool = false
+    @State private var airdropHUDExpanded: Bool = false
 
     @Namespace var albumArtNamespace
 
@@ -561,6 +562,7 @@ struct ContentView: View {
         let hudIsActive = coordinator.sneakPeek.show
             && coordinator.sneakPeek.type != .music
             && coordinator.sneakPeek.type != .bluetoothAudio
+            && coordinator.sneakPeek.type != .airdropReceive
             && vm.notchState == .closed
         return Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive
     }
@@ -583,6 +585,8 @@ struct ContentView: View {
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
                         ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
+                            : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
+                                ? airdropHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
                             : isExpandedBatteryBanner
                                 ? 28
                                 : inlineHUDShowing && isHovering
@@ -600,6 +604,7 @@ struct ContentView: View {
             && coordinator.sneakPeek.type != .music
             && coordinator.sneakPeek.type != .battery
             && coordinator.sneakPeek.type != .bluetoothAudio
+            && coordinator.sneakPeek.type != .airdropReceive
             && vm.notchState == .closed
     }
 
@@ -617,6 +622,10 @@ struct ContentView: View {
         } else if vm.notchState == .closed && Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) {
             chinWidth += 60
         } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
+            && vm.notchState == .closed
+        {
+            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) - 10)
+        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
             && vm.notchState == .closed
         {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) - 10)
@@ -942,6 +951,7 @@ struct ContentView: View {
                     let hudIsActive = coordinator.sneakPeek.show
                         && coordinator.sneakPeek.type != .music
                         && coordinator.sneakPeek.type != .bluetoothAudio
+                        && coordinator.sneakPeek.type != .airdropReceive
                         && vm.notchState == .closed
 
                     if Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
@@ -966,7 +976,15 @@ struct ContentView: View {
                             )
                             .environmentObject(vm)
                             .transition(.opacity)
-                        } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && vm.notchState == .closed {
+                        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive && vm.notchState == .closed {
+                            AirDropReceiveHUD(
+                                progress: coordinator.sneakPeek.value,
+                                filePath: coordinator.sneakPeek.deviceName,
+                                isExpanded: $airdropHUDExpanded
+                            )
+                            .environmentObject(vm)
+                            .transition(.opacity)
+                        } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && (coordinator.sneakPeek.type != .airdropReceive) && vm.notchState == .closed {
                             InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress, label: coordinator.sneakPeek.deviceName, tintColor: coordinator.sneakPeek.accentColor)
                                 .transition(.opacity)
                         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
@@ -987,7 +1005,8 @@ struct ContentView: View {
                         
                         if coordinator.sneakPeek.show {
                             if coordinator.sneakPeek.type == .bluetoothAudio && vm.notchState == .closed {
-                            } else if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && !Defaults[.inlineHUD] && vm.notchState == .closed {
+                            } else if coordinator.sneakPeek.type == .airdropReceive && vm.notchState == .closed {
+                            } else if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && (coordinator.sneakPeek.type != .airdropReceive) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                                 SystemEventIndicatorModifier(
                                     eventType: $coordinator.sneakPeek.type,
                                     value: $coordinator.sneakPeek.value,

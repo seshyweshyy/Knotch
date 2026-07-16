@@ -20,6 +20,7 @@ enum SneakContentType {
     case download
     case bluetoothAudio
     case focusMode
+    case airdropReceive
 }
 
 struct sneakPeek {
@@ -27,7 +28,7 @@ struct sneakPeek {
     var type: SneakContentType = .music
     var value: CGFloat = 0
     var icon: String = ""
-    var deviceName: String = ""  // Bluetooth device name, or Focus status text ("On"/"Off")
+    var deviceName: String = ""  // Bluetooth device name, Focus status text ("On"/"Off"), or AirDrop received file's full path
     var accentColor: Color = .white  // Used for Focus HUD
 }
 
@@ -289,12 +290,70 @@ class KnotchViewCoordinator: ObservableObject {
         sneakPeekDuration = 3.0
     }
 
+    /// Called once when a new incoming transfer is first detected. Progress
+    /// starts at 0 and is streamed in via `updateAirDropReceiveProgress`.
+    func toggleAirDropReceiveSneakPeek() {
+        Task { @MainActor in
+            withAnimation(.smooth) {
+                self.sneakPeek.show = true
+                self.sneakPeek.type = .airdropReceive
+                self.sneakPeek.value = 0
+                self.sneakPeek.icon = "airdrop"
+                self.sneakPeek.deviceName = ""
+            }
+        }
+        sneakPeekDuration = 2.0
+    }
+
+    /// Streamed continuously as real bytes arrive; each call pushes the
+    /// auto-hide timer forward so the HUD stays open for exactly the
+    /// duration of the transfer, plus a short grace period after it stops.
+    func updateAirDropReceiveProgress(_ progress: CGFloat) {
+        guard sneakPeek.type == .airdropReceive else { return }
+        sneakPeekDuration = 2.0
+        Task { @MainActor in
+            self.sneakPeek.value = min(max(progress, 0), 1)
+        }
+    }
+
+    /// Transfer finished successfully — pins progress at 100% and reveals
+    /// the resolved file path, then lingers longer before auto-closing so
+    /// the completed card is actually readable.
+    func completeAirDropReceive(filePath: String) {
+        guard sneakPeek.type == .airdropReceive else { return }
+        // Must outlast AirDropReceiveHUD's own expanded-phase timer (4s) plus
+        // its brief collapsing checkmark phase, or the outer timer here would
+        // yank the whole HUD away mid-display.
+        sneakPeekDuration = 5.5
+        Task { @MainActor in
+            withAnimation(.smooth) {
+                self.sneakPeek.value = 1.0
+                self.sneakPeek.deviceName = filePath
+            }
+        }
+    }
+
+    /// Transfer went away without finishing (declined/failed/cancelled) —
+    /// close immediately rather than showing a false "complete" state.
+    func cancelAirDropReceive() {
+        guard sneakPeek.type == .airdropReceive else { return }
+        Task { @MainActor in
+            withAnimation(.smooth) {
+                self.sneakPeek.show = false
+            }
+        }
+    }
+
     private var sneakPeekDuration: TimeInterval = 2
     private var sneakPeekTask: Task<Void, Never>?
+    private var sneakPeekHideDeadline: Date?
+    private var sneakPeekPausedRemaining: TimeInterval?
 
     // Helper function to manage sneakPeek timer using Swift Concurrency
     private func scheduleSneakPeekHide(after duration: TimeInterval) {
         sneakPeekTask?.cancel()
+        sneakPeekPausedRemaining = nil
+        sneakPeekHideDeadline = Date().addingTimeInterval(duration)
 
         sneakPeekTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
@@ -306,6 +365,24 @@ class KnotchViewCoordinator: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Freezes the auto-hide countdown at its current remaining time. Call
+    /// `resumeSneakPeekAutoHide()` to continue from where it left off —
+    /// this pauses, it doesn't restart. No-op if already paused or nothing
+    /// is scheduled.
+    func pauseSneakPeekAutoHide() {
+        guard sneakPeekTask != nil, sneakPeekPausedRemaining == nil else { return }
+        let remaining = sneakPeekHideDeadline?.timeIntervalSinceNow ?? 0
+        sneakPeekPausedRemaining = max(0.1, remaining)
+        sneakPeekTask?.cancel()
+        sneakPeekTask = nil
+    }
+
+    func resumeSneakPeekAutoHide() {
+        guard let remaining = sneakPeekPausedRemaining else { return }
+        sneakPeekPausedRemaining = nil
+        scheduleSneakPeekHide(after: remaining)
     }
 
     @Published var sneakPeek: sneakPeek = .init() {
