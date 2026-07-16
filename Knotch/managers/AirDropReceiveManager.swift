@@ -38,6 +38,15 @@ final class AirDropReceiveManager {
     }
 
     private func attach(to progress: Progress) {
+        // Distinguishes a real AirDrop transfer from other publishers of the
+        // same mechanism (Finder copies, Safari/Mail downloads): sharingd
+        // never sets `kind` on the progress it publishes, while Finder and
+        // Safari both explicitly tag theirs as `.file`. Verified empirically
+        // against a live AirDrop, a Finder copy, and a Safari download —
+        // AirDrop stayed nil throughout, the other two were `.file` from
+        // the first callback onward.
+        guard progress.kind == nil else { return }
+
         if activeProgress !== progress {
             tearDown()
         }
