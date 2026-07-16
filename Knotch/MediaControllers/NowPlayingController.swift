@@ -12,6 +12,7 @@ import Foundation
 final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     func updatePlaybackInfo() async {
         await fetchFavoriteStateIfSupported()
+        await fetchShuffleStateIfSupported()
     }
 
     // MARK: - Properties
@@ -72,6 +73,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private var process: Process?
     private var pipeHandler: JSONLinesPipeHandler?
     private var streamTask: Task<Void, Never>?
+    private var appleMusicShuffleObserverTask: Task<Void, Never>?
+    private var spotifyShuffleObserverTask: Task<Void, Never>?
 
     // MARK: - Initialization
     init?() {
@@ -101,11 +104,14 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             MRMediaRemoteSetRepeatModePointer, to: (@convention(c) (Int) -> Void).self)
 
         Task { await setupNowPlayingObserver() }
+        setupShuffleSyncObservers()
     }
 
     deinit {
         streamTask?.cancel()
-        
+        appleMusicShuffleObserverTask?.cancel()
+        spotifyShuffleObserverTask?.cancel()
+
         if let pipeHandler = self.pipeHandler {
             Task { await pipeHandler.close()
             }
@@ -152,9 +158,27 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
     
     func toggleShuffle() async {
-        // MRMediaRemoteSendCommandFunction(6, nil)
-        MRMediaRemoteSetShuffleModeFunction(playbackState.isShuffled ? 1 : 3)
-        playbackState.isShuffled.toggle()
+        // MediaRemote's shuffle command/state isn't reliably honored or reported
+        // by third-party apps (notably Spotify never reports it, and Apple Music
+        // only sometimes does). For apps we know have an AppleScript dictionary,
+        // toggle the real property directly and re-read it, matching
+        // AppleMusicController/SpotifyController.
+        switch playbackState.bundleIdentifier {
+        case "com.apple.Music":
+            try? await AppleScriptHelper.executeVoid(
+                "tell application \"Music\" to set shuffle enabled to not shuffle enabled")
+            try? await Task.sleep(for: .milliseconds(150))
+            await fetchShuffleStateIfSupported()
+        case "com.spotify.client":
+            try? await AppleScriptHelper.executeVoid(
+                "tell application \"Spotify\" to set shuffling to not shuffling")
+            try? await Task.sleep(for: .milliseconds(150))
+            await fetchShuffleStateIfSupported()
+        default:
+            // MRMediaRemoteSendCommandFunction(6, nil)
+            MRMediaRemoteSetShuffleModeFunction(playbackState.isShuffled ? 1 : 3)
+            playbackState.isShuffled.toggle()
+        }
     }
     
     func toggleRepeat() async {
@@ -217,6 +241,30 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             }
         } catch {
             assertionFailure("Failed to launch mediaremote-adapter.pl: \(error)")
+        }
+    }
+
+    /// Apple Music and Spotify each broadcast a distributed notification whenever
+    /// their player state (including shuffle) changes. MediaRemote's own shuffle
+    /// field doesn't reliably reflect these apps, so listen directly and re-read
+    /// the real property via AppleScript, same as the dedicated controllers do.
+    private func setupShuffleSyncObservers() {
+        appleMusicShuffleObserverTask = Task { @Sendable [weak self] in
+            let notifications = DistributedNotificationCenter.default().notifications(
+                named: NSNotification.Name("com.apple.Music.playerInfo")
+            )
+            for await _ in notifications {
+                await self?.fetchShuffleStateIfSupported()
+            }
+        }
+
+        spotifyShuffleObserverTask = Task { @Sendable [weak self] in
+            let notifications = DistributedNotificationCenter.default().notifications(
+                named: NSNotification.Name("com.spotify.client.PlaybackStateChanged")
+            )
+            for await _ in notifications {
+                await self?.fetchShuffleStateIfSupported()
+            }
         }
     }
 
@@ -296,11 +344,18 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         )
         
         newPlaybackState.volume = payload.volume ?? (diff ? self.playbackState.volume : 0.5)
-        
+
+        let previousBundleIdentifier = self.playbackState.bundleIdentifier
         self.playbackState = newPlaybackState
-        
+
         // Fetch favorite state for supported apps asynchronously
         // await fetchFavoriteStateIfSupported()
+
+        // MediaRemote's shuffleMode field is absent or stale for Apple Music/Spotify
+        // most of the time, so re-read the real value whenever the source app changes.
+        if newPlaybackState.bundleIdentifier != previousBundleIdentifier {
+            await fetchShuffleStateIfSupported()
+        }
     }
     
      private func fetchFavoriteStateIfSupported() async {
@@ -326,7 +381,45 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
              }
          }
      }
-    
+
+     private func fetchShuffleStateIfSupported() async {
+         let bundleID = playbackState.bundleIdentifier
+         let script: String
+
+         switch bundleID {
+         case "com.apple.Music":
+             guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").isEmpty else { return }
+             script = """
+             tell application "Music"
+                 try
+                     return shuffle enabled
+                 on error
+                     return false
+                 end try
+             end tell
+             """
+         case "com.spotify.client":
+             guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").isEmpty else { return }
+             script = """
+             tell application "Spotify"
+                 try
+                     return shuffling
+                 on error
+                     return false
+                 end try
+             end tell
+             """
+         default:
+             return
+         }
+
+         if let result = try? await AppleScriptHelper.execute(script) {
+             var updated = self.playbackState
+             updated.isShuffled = result.booleanValue
+             self.playbackState = updated
+         }
+     }
+
 }
 
 struct NowPlayingUpdate: Codable {
