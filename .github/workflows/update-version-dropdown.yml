@@ -3,7 +3,7 @@ name: Update Version Dropdown in Issue Form
 permissions:
   contents: write
 concurrency:
-  group: update-dropdown
+  group: push-to-main
   cancel-in-progress: false
 
 on:

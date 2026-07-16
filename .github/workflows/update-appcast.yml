@@ -1,5 +1,9 @@
 name: Update Appcast
 
+concurrency:
+  group: push-to-main
+  cancel-in-progress: false
+
 on:
   release:
     types: [published]
