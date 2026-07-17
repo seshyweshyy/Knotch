@@ -16,6 +16,16 @@ struct KnotchLiquidGlass: NSViewRepresentable {
             return NSView()
         }
         let glass = glassClass.init(frame: .zero)
+        glass.wantsLayer = true
+        // Same reasoning as the CATransaction wrap in setPath(_:on:) below —
+        // without this, AppKit's default implicit layer actions can animate
+        // bounds/position changes on their own default curve, independent of
+        // the SwiftUI spring actually driving the resize.
+        glass.layer?.actions = [
+            "bounds": NSNull(),
+            "position": NSNull(),
+            "path": NSNull(),
+        ]
 
         applyProperties(to: glass)
 
@@ -39,17 +49,23 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         // but the straight edges need exact bounds to align, so they show
         // no lensing at all. Recomputing on AppKit's own frame-change
         // notification instead guarantees bounds are final when we read them.
+        // Registering with a selector (rather than the block+queue form)
+        // matters here: NotificationCenter delivers block observers with an
+        // explicit queue asynchronously (one run-loop tick late), which
+        // during the open spring made the glass visibly lag a beat behind
+        // the SwiftUI-driven black mask before snapping into place.
+        // Selector-based observers are invoked synchronously at post time,
+        // matching the mask's per-frame animation.
         glass.postsFrameChangedNotifications = true
         context.coordinator.glassView = glass
         context.coordinator.topCornerRadius = topCornerRadius
         context.coordinator.bottomCornerRadius = bottomCornerRadius
-        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
-            forName: NSView.frameDidChangeNotification,
-            object: glass,
-            queue: .main
-        ) { [weak coordinator = context.coordinator] _ in
-            coordinator?.applyPath()
-        }
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.handleFrameChange),
+            name: NSView.frameDidChangeNotification,
+            object: glass
+        )
 
         return glass
     }
@@ -62,9 +78,11 @@ struct KnotchLiquidGlass: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
-        if let observer = coordinator.frameObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        NotificationCenter.default.removeObserver(
+            coordinator,
+            name: NSView.frameDidChangeNotification,
+            object: nsView
+        )
     }
 
     // Setting `style` resets _variant back to a style-appropriate default
@@ -87,11 +105,14 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         view.setValue(variant, forKey: "_variant")
     }
 
-    final class Coordinator {
+    final class Coordinator: NSObject {
         weak var glassView: NSView?
         var topCornerRadius: CGFloat = 0
         var bottomCornerRadius: CGFloat = 0
-        var frameObserver: NSObjectProtocol?
+
+        @objc func handleFrameChange(_ notification: Notification) {
+            applyPath()
+        }
 
         // NSGlassEffectView's edge lensing/refraction is tied to its own
         // path, not to any external SwiftUI .clipShape() applied afterward —
@@ -123,7 +144,21 @@ struct KnotchLiquidGlass: NSViewRepresentable {
             typealias SetPathIMP = @convention(c) (AnyObject, Selector, CGPath) -> Void
             let imp = method_getImplementation(method)
             let function = unsafeBitCast(imp, to: SetPathIMP.self)
+
+            // NSGlassEffectView morphs path changes with its own internal
+            // animation (that's the "liquid" part of the effect), on a curve
+            // independent of whatever SwiftUI animation is driving the rest
+            // of the notch. That's what made the glass edges visibly lag
+            // flat/unlensed before catching up to the real shape, no matter
+            // how promptly applyPath() itself was called. Disabling implicit
+            // actions for this transaction forces the path to apply
+            // instantly, so the glass tracks the same per-frame shape as the
+            // SwiftUI-driven black mask instead of animating to it on its
+            // own schedule.
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             function(view, selector, path)
+            CATransaction.commit()
         }
     }
 }

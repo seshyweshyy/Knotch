@@ -195,8 +195,21 @@ class KnotchViewModel: NSObject, ObservableObject {
             )
             self.openHomeWidth = w
             if self.notchState == .open && self.coordinator.currentView == .home && !TimerManager.shared.isCreatingTimer {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
-                    self.notchSize = self.computedHomeSize
+                let newSize = self.computedHomeSize
+                // Skip re-animating when nothing actually changed — this sink
+                // fires on every calendar/mirror/camera publish, including ones
+                // that don't affect the computed width, and re-triggering the
+                // spring with a no-op target can still interrupt/restart an
+                // in-flight open animation under a different curve.
+                guard newSize != self.notchSize else { return }
+                // Uses the same curve as the open transition (liquidReleaseSpring)
+                // rather than a different spring — this notchSize correction can
+                // land while the open animation is still in flight (e.g. right
+                // after open() kicks off an async music-state fetch), and two
+                // different curves fighting over the same property is what made
+                // the notch mask/glass visibly kink and snap into place.
+                withAnimation(liquidReleaseSpring) {
+                    self.notchSize = newSize
                 }
             }
         }
@@ -217,8 +230,19 @@ class KnotchViewModel: NSObject, ObservableObject {
                     cameraAvailable: self.webcamManager.cameraAvailable
                 )
                 self.openHomeWidth = w
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
-                    self.notchSize = self.computedHomeSize
+                let newSize = self.computedHomeSize
+                // coordinator.objectWillChange fires on ANY published change
+                // on the coordinator (sneakPeek, expandingView, etc.), most of
+                // which don't affect the computed width — e.g. the async
+                // playback-state fetch kicked off by open()'s forceUpdate()
+                // call lands mid-open-transition. Skip no-op corrections, and
+                // use the same curve as the open transition (liquidReleaseSpring)
+                // for real ones so a legitimate width change here can't fight
+                // the still-in-flight open spring and cause the notch mask to
+                // visibly lag, then snap into alignment.
+                guard newSize != self.notchSize else { return }
+                withAnimation(liquidReleaseSpring) {
+                    self.notchSize = newSize
                 }
             }
             .store(in: &cancellables)
