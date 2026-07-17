@@ -502,6 +502,15 @@ struct ContentView: View {
 
     @State private var gestureProgress: CGFloat = .zero
 
+    // gestureProgress only goes negative while swiping up to close (handleUpGesture);
+    // it goes positive while swiping down to open from closed, when this content
+    // isn't even mounted yet. Mirrors the 20pt used by the open/close mount
+    // transition (see AnyTransition.blur) so the drag hands off into it smoothly
+    // once the swipe crosses the close threshold.
+    private var closeSwipeBlur: CGFloat {
+        max(0, min(-gestureProgress, 20))
+    }
+
     @State private var haptics: Bool = false
     
     @State private var isUnlockAnimating: Bool = false
@@ -998,7 +1007,13 @@ struct ContentView: View {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
                                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                                .blur(radius: closeSwipeBlur)
                                 .liquidStretch(vm)
+                                .transition(
+                                    .opacity
+                                    .combined(with: .blur(radius: 20))
+                                    .animation(.smooth(duration: 0.35))
+                                )
                         } else {
                             Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                         }
@@ -1078,11 +1093,13 @@ struct ContentView: View {
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
+                    .combined(with: .blur(radius: 20))
                     .animation(.smooth(duration: 0.35))
                 )
                 .zIndex(1)
                 .allowsHitTesting(vm.notchState == .open)
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                .blur(radius: closeSwipeBlur)
             }
         }
         // Shared across the whole header+content group so a left/right pull

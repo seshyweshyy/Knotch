@@ -26,9 +26,18 @@ struct StableHoverTracker: NSViewRepresentable {
         nsView.onHoverChange = onHoverChange
     }
 
+    // Switching tabs (home -> shelf) or closing the notch unmounts this view
+    // entirely — if the cursor was over the wheel at that moment, nothing would
+    // otherwise fire mouseExited to clear the hover flag, leaving it stuck true
+    // and blocking gestures on whatever's shown next.
+    static func dismantleNSView(_ nsView: TrackingNSView, coordinator: ()) {
+        nsView.reset()
+    }
+
     final class TrackingNSView: NSView {
         var onHoverChange: ((Bool) -> Void)?
         private var trackingArea: NSTrackingArea?
+        private var isHovering = false
 
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
@@ -43,14 +52,42 @@ struct StableHoverTracker: NSViewRepresentable {
             )
             addTrackingArea(area)
             trackingArea = area
+
+            // updateTrackingAreas() re-fires on every geometry change, including
+            // each tick of the notch's open/close spring animation as this view's
+            // frame is resized into place. AppKit's own mouseEntered/mouseExited
+            // synthesis for a moving tracking area only reflects the cursor
+            // position at the instant the area changed — if the cursor sits still
+            // while the frame animates out from under it, no further event ever
+            // fires, so hover state can get stuck true (blocking gestures) after
+            // the animation settles. Re-deriving from the live cursor position
+            // here on every recomputation keeps it self-correcting instead.
+            setHovering(currentMouseIsInsideBounds())
+        }
+
+        private func currentMouseIsInsideBounds() -> Bool {
+            guard let window else { return false }
+            let pointInWindow = window.mouseLocationOutsideOfEventStream
+            let pointInView = convert(pointInWindow, from: nil)
+            return bounds.contains(pointInView)
+        }
+
+        private func setHovering(_ hovering: Bool) {
+            guard hovering != isHovering else { return }
+            isHovering = hovering
+            onHoverChange?(hovering)
+        }
+
+        func reset() {
+            setHovering(false)
         }
 
         override func mouseEntered(with event: NSEvent) {
-            onHoverChange?(true)
+            setHovering(true)
         }
 
         override func mouseExited(with event: NSEvent) {
-            onHoverChange?(false)
+            setHovering(false)
         }
     }
 }
