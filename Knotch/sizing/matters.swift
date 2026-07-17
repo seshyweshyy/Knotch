@@ -107,7 +107,7 @@ enum MusicPlayerImageSizes {
 enum WidgetWidth {
     static let music: CGFloat    = 380
     static let calendar: CGFloat = 220
-    static let camera: CGFloat   = 100
+    static let camera: CGFloat   = 142
     static let calendarWithCam: CGFloat = 180
     static let spacing: CGFloat  = 12
     static let dividerWidth: CGFloat = 1
@@ -132,7 +132,10 @@ func computedOpenNotchHomeWidth(
 
     guard !widths.isEmpty else { return openNotchSize.width }
 
-    let dividers: CGFloat = showMusic && (showCal || showCam) ? WidgetWidth.dividerWidth : 0
+    var dividerCount = 0
+    if showMusic && showCal { dividerCount += 1 }
+    if showCam && (showMusic || showCal) { dividerCount += 1 }
+    let dividers: CGFloat = WidgetWidth.dividerWidth * CGFloat(dividerCount)
     let spacingTotal = WidgetWidth.spacing * CGFloat(widths.count - 1)
     let total = widths.reduce(0, +) + spacingTotal + dividers + WidgetWidth.horizontalPad
 

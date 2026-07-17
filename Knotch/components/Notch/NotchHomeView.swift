@@ -791,6 +791,9 @@ struct NotchHomeView: View {
                     .liquidStretch(vm)
             }
             if showCam {
+                if showCal || showMusic {
+                    Divider()
+                }
                 CameraPreviewView(webcamManager: webcamManager)
                     .frame(width: WidgetWidth.camera)
                     .scaledToFit()

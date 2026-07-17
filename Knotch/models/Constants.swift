@@ -157,7 +157,7 @@ extension Defaults.Keys {
     static let semiLiquidGlassTransition = Key<Double>("semiLiquidGlassTransition", default: 0.5)
     
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
-    static let showCalendar = Key<Bool>("showCalendar", default: false)
+    static let showCalendar = Key<Bool>("showCalendar", default: true)
     static let calendarApp = Key<CalendarApp>("calendarApp", default: .apple)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let sliderColor = Key<SliderColorEnum>(
