@@ -56,9 +56,22 @@ struct AlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: KnotchViewModel
     let albumArtNamespace: Namespace.ID
+    var size: CGFloat = 132
+    // How dark albumArtDarkOverlay goes when paused.
+    var pausedFadeOpacity: CGFloat = 0.3
+    // Multiplies the corner radius so callers can round the art a bit less
+    // (or more) than the standard home view without touching the shared
+    // MusicPlayerImageSizes values every other consumer relies on.
+    var cornerRadiusScale: CGFloat = 0.85
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+
+    private var activeCornerRadius: CGFloat {
+        (vm.notchState == .open
+            ? MusicPlayerImageSizes.cornerRadiusInset.opened
+            : MusicPlayerImageSizes.cornerRadiusInset.closed) * cornerRadiusScale
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -71,7 +84,7 @@ struct AlbumArtView: View {
         // (or anything else that briefly offers more space) can never resize this —
         // it previously filled whatever height it was given and clipped on the notch's
         // rounded corner during a hard pull.
-        .frame(width: 132, height: 132)
+        .frame(width: size, height: size)
     }
     
     @State private var blurredArt: NSImage = MusicManager.shared.albumArt
@@ -79,11 +92,7 @@ struct AlbumArtView: View {
         Image(nsImage: blurredArt)
             .resizable()
             .clipped()
-            .clipShape(
-                RoundedRectangle(cornerRadius: vm.notchState == .open
-                    ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                    : MusicPlayerImageSizes.cornerRadiusInset.closed)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: activeCornerRadius))
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(x: 1.3, y: 1.4)
             .rotationEffect(.degrees(92))
@@ -116,7 +125,7 @@ struct AlbumArtView: View {
         Rectangle()
             .aspectRatio(1, contentMode: .fit)
             .foregroundColor(Color.black)
-            .opacity(musicManager.isPlaying ? 0 : 0.8)
+            .opacity(musicManager.isPlaying ? 0 : pausedFadeOpacity)
             .blur(radius: 50)
             .allowsHitTesting(false)
     }
@@ -132,19 +141,11 @@ struct AlbumArtView: View {
             // Round the letterboxed thumbnail itself, not just the square
             // frame around it — otherwise non-square art keeps sharp
             // corners since it no longer touches the frame's edges.
-            .clipShape(
-                RoundedRectangle(cornerRadius: (vm.notchState == .open
-                    ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                    : MusicPlayerImageSizes.cornerRadiusInset.closed) / 2)
-            )
-            .frame(width: 132, height: 132)
+            .clipShape(RoundedRectangle(cornerRadius: activeCornerRadius / 2))
+            .frame(width: size, height: size)
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipped()
-            .clipShape(
-                RoundedRectangle(cornerRadius: vm.notchState == .open
-                    ? MusicPlayerImageSizes.cornerRadiusInset.opened
-                    : MusicPlayerImageSizes.cornerRadiusInset.closed)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: activeCornerRadius))
             .rotation3DEffect(
                 .degrees(rotationDegrees),
                 axis: (x: 0, y: 1, z: 0),
@@ -168,7 +169,8 @@ struct AlbumArtView: View {
     
     @ViewBuilder
     private var appIconOverlay: some View {
-        if vm.notchState == .open && !musicManager.usingAppIconForArtwork && rotationDegrees == 0 {
+        // Compact mode's smaller album art has no room for this overlay.
+        if vm.notchState == .open && !musicManager.usingAppIconForArtwork && rotationDegrees == 0 && !Defaults[.enableCompactUI] {
             AppIcon(for: musicManager.bundleIdentifier ?? Defaults[.defaultPlayer].bundleIdentifier ?? "com.apple.Music")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -225,6 +227,7 @@ struct MusicControlsView: View {
                             textColor: .white,
                             frameWidth: width - trailingReserve
                         )
+                        .edgeFade()
                         MarqueeText(
                             $musicManager.artistName,
                             font: .headline,
@@ -235,6 +238,7 @@ struct MusicControlsView: View {
                             frameWidth: width - trailingReserve
                         )
                         .fontWeight(.medium)
+                        .edgeFade()
                     }
                 }
                 .buttonStyle(.plain)
@@ -651,9 +655,10 @@ struct MusicSlotToolbar: View {
 
     // The lock-screen widget shows a non-interactive icon for the audio output slot instead of the popover (see LockScreenAudioOutputIndicator).
     var isLockScreenContext: Bool = false
+    var spacing: CGFloat = 4
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: spacing) {
             Spacer()
             ForEach(Array(activeSlots.enumerated()), id: \.offset) { _, slot in
                 slotView(for: slot)
@@ -763,7 +768,45 @@ struct NotchHomeView: View {
         Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 
+    @ViewBuilder
     private var mainContent: some View {
+        if Defaults[.enableCompactUI] {
+            compactContent
+        } else {
+            standardContent
+        }
+    }
+
+    // Calendar only shows if enabled; when music is disabled but calendar
+    // isn't, calendar is the only thing left to show regardless of the
+    // swipe-toggled flag.
+    private var compactShowingCalendar: Bool {
+        Defaults[.compactShowCalendarView] && (vm.showingCompactCalendar || !Defaults[.compactShowMusicView])
+    }
+
+    private var compactContent: some View {
+        Group {
+            if compactShowingCalendar {
+                CompactCalendarView()
+                    .transition(compactViewTransition)
+            } else {
+                CompactMusicPlayerView(albumArtNamespace: albumArtNamespace)
+                    .transition(compactViewTransition)
+            }
+        }
+        .animation(.smooth(duration: 0.35), value: compactShowingCalendar)
+    }
+
+    // Old content slides up and out while new content slides up into place —
+    // matches the direction of the swipe-down gesture that triggers the swap.
+    private var compactViewTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .blur(radius: 14)),
+            removal: .move(edge: .top).combined(with: .opacity).combined(with: .blur(radius: 14))
+        )
+    }
+
+    private var standardContent: some View {
         let showMusic = coordinator.musicLiveActivityEnabled
         let showCal = Defaults[.showCalendar]
         let showCam = shouldShowCamera

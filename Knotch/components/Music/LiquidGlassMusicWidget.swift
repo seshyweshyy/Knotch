@@ -71,6 +71,7 @@ struct LiquidGlassMusicWidget: View {
                     )
                     .fontWeight(.semibold)
                     .id("title-\(isExpanded)")
+                    .edgeFade()
                     MarqueeText(
                         .constant(musicManager.artistName.isEmpty ? "—" : musicManager.artistName),
                         font: .subheadline,
@@ -81,6 +82,7 @@ struct LiquidGlassMusicWidget: View {
                         frameWidth: isExpanded ? 260 : 180
                     )
                     .id("artist-\(isExpanded)")
+                    .edgeFade()
                 }
                 .frame(maxWidth: .infinity)
                 Spacer()

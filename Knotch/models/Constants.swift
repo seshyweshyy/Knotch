@@ -124,7 +124,11 @@ extension Defaults.Keys {
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
-    
+    static let enableCompactUI = Key<Bool>("enableCompactUI", default: false)
+    static let compactShowMusicView = Key<Bool>("compactShowMusicView", default: true)
+    static let compactShowCalendarView = Key<Bool>("compactShowCalendarView", default: true)
+    static let compactShowReminders = Key<Bool>("compactShowReminders", default: true)
+
     // MARK: Behavior
     static let minimumHoverDuration = Key<TimeInterval>("minimumHoverDuration", default: 0.3)
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)

@@ -32,6 +32,7 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     @Published var edgeAutoOpenActive: Bool = false
     @Published var isHoveringCalendar: Bool = false
+    @Published var showingCompactCalendar: Bool = false
     @Published var isBatteryPopoverActive: Bool = false
     @Published var isMediaOutputPopoverActive: Bool = false
 
@@ -104,7 +105,10 @@ class KnotchViewModel: NSObject, ObservableObject {
     @Published var openHomeWidth: CGFloat = openNotchHomeSize.width
 
     var computedHomeSize: CGSize {
-        CGSize(width: openHomeWidth, height: openNotchHomeSize.height)
+        if Defaults[.enableCompactUI] {
+            return compactOpenNotchSize
+        }
+        return CGSize(width: openHomeWidth, height: openNotchHomeSize.height)
     }
     
     func lockNotch() {
@@ -349,7 +353,7 @@ class KnotchViewModel: NSObject, ObservableObject {
         }
         self.notchState = .open
         // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
-        dragDiagnosticsLogger.debug("[KnotchViewModel] notchState -> open")
+        //dragDiagnosticsLogger.debug("[KnotchViewModel] notchState -> open")
         MusicManager.shared.forceUpdate()
     }
 
@@ -372,6 +376,7 @@ class KnotchViewModel: NSObject, ObservableObject {
         self.notchState = .closed
         self.isBatteryPopoverActive = false
         self.isMediaOutputPopoverActive = false
+        self.showingCompactCalendar = false
         self.coordinator.sneakPeek.show = false
         self.edgeAutoOpenActive = false
 

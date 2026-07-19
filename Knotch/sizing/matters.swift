@@ -42,6 +42,17 @@ let windowSize: CGSize = .init(
     height: openNotchHomeSize.height + shadowPadding + liquidPullMaxStretch
 )
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 39), closed: (top: 6, bottom: 14))
+let compactCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 35, bottom: 35), closed: cornerRadiusInsets.closed)
+
+// Fixed panel size for Compact UI mode — unlike the standard home view, this
+// doesn't grow/shrink with which widgets are enabled.
+let compactOpenNotchSize: CGSize = .init(width: 420, height: 160)
+
+// Shared content height for both compact views (music player and calendar),
+// so switching between them never changes the panel's apparent size — each
+// naturally sizes differently on its own, so both need to opt into this
+// same fixed value rather than reporting their own intrinsic height.
+let compactContentHeight: CGFloat = 120
 
 enum MusicPlayerImageSizes {
     static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 4.0)

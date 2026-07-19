@@ -38,6 +38,7 @@ private let knotchTabs: [SettingsTabItem] = [
     // Content
     SettingsTabItem(id: "Widgets", title: "Widgets", systemImage: "rectangle.3.group", tint: .indigo, group: "Content"),
     SettingsTabItem(id: "Media", title: "Media", systemImage: "play.laptopcomputer", tint: .green, group: "Content"),
+    SettingsTabItem(id: "Compact", title: "Compact Mode", systemImage: "rectangle.compress.vertical", tint: .pink, group: "Content"),
     SettingsTabItem(id: "LockScreen", title: "Lock Screen", systemImage: "lock.fill", tint: .black, group: "Content"),
     SettingsTabItem(id: "Calendar", title: "Calendar", systemImage: "calendar", tint: .cyan, group: "Content"),
     SettingsTabItem(id: "Shelf", title: "Shelf", systemImage: "books.vertical", tint: .brown, group: "Content"),
@@ -579,6 +580,8 @@ struct SettingsView: View {
                         SettingsForm(tabID: "Widgets") { Widgets() }
                     case "Media":
                         SettingsForm(tabID: "Media") { Media() }
+                    case "Compact":
+                        SettingsForm(tabID: "Compact") { Compact() }
                     case "LockScreen":
                         SettingsForm(tabID: "LockScreen") { LockScreen() }
                     case "Calendar":
@@ -1209,6 +1212,57 @@ struct HUD: View {
                 accessibilityAuthorized = granted
             }
         }
+    }
+}
+
+// MARK: - Compact
+
+struct Compact: View {
+    @Default(.enableCompactUI) var enableCompactUI
+    @Default(.compactShowMusicView) var compactShowMusicView
+    @Default(.compactShowCalendarView) var compactShowCalendarView
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .enableCompactUI) {
+                    Text("Enable Compact UI")
+                }
+                .settingsHighlight(id: "Compact-Enable Compact UI")
+            } header: {
+                Text("UI Mode")
+            } footer: {
+                Text("Compact mode replaces the standard media player with a smaller, notch-hugging layout, and hides the shelf and header icons.")
+            }
+
+            Section {
+                Defaults.Toggle(key: .compactShowMusicView) {
+                    Text("Music view")
+                }
+                .disabled(!enableCompactUI)
+                .settingsHighlight(id: "Compact-Music view")
+                Defaults.Toggle(key: .compactShowCalendarView) {
+                    Text("Calendar view")
+                }
+                .disabled(!enableCompactUI)
+                .settingsHighlight(id: "Compact-Calendar view")
+            } header: {
+                Text("Views")
+            } footer: {
+                Text("With both enabled, swipe down on the music view to reveal the calendar. With only one enabled, that view is always shown and the swipe gesture does nothing.")
+            }
+
+            Section {
+                Defaults.Toggle(key: .compactShowReminders) {
+                    Text("Show reminders")
+                }
+                .disabled(!enableCompactUI || !compactShowCalendarView)
+                .settingsHighlight(id: "Compact-Show reminders")
+            } header: {
+                Text("Calendar")
+            }
+        }
+        .accentColor(.effectiveAccent)
     }
 }
 

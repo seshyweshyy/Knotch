@@ -59,7 +59,7 @@ class QuickShareService: ObservableObject {
                     // The AirDrop NSSharingService returned by the picker enumeration
                     // sometimes has an uninitialized (zero-size) .image until the
                     // picker actually displays it. Constructing a fresh instance by
-                    // name — same trick Atoll uses — guarantees a fully-loaded icon.
+                    // name guarantees a fully-loaded icon.
                     let airdropImage = NSSharingService(named: .sendViaAirDrop)?.image ?? svc.image
                     return Self.resizedIconData(from: airdropImage)
                 }

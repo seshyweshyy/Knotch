@@ -229,7 +229,9 @@ struct AirDropReceiveHUD: View {
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, 14)
+        // Wide enough to clear the panel's rounded corners (26/28pt radii),
+        // plus a bit extra beyond that purely for visual breathing room.
+        .padding(.horizontal, 30)
         .frame(width: expandedWidth, height: expandedContentHeight)
         .padding(.top, vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)

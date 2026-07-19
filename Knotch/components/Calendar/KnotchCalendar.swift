@@ -277,9 +277,232 @@ struct CalendarView: View {
     }
 }
 
+// MARK: - Compact Calendar
+
+struct CompactCalendarView: View {
+    @EnvironmentObject var vm: KnotchViewModel
+    @Environment(\.openURL) private var openURL
+    @ObservedObject private var calendarManager = CalendarManager.shared
+    @State private var selectedDate = Date()
+
+    // The full-size calendar view keeps completed/ended events visible but
+    // faded (CalendarEventRow/ReminderRow's own opacity handling) — with only
+    // one event row's worth of room here, a faded-but-present item just wastes
+    // that slot, so this hides them outright instead.
+    private var filteredEvents: [EventModel] {
+        EventListView.filteredEvents(events: calendarManager.events).filter { event in
+            if event.type.isReminder && !Defaults[.compactShowReminders] {
+                return false
+            }
+            if case .reminder(let completed) = event.type, completed {
+                return false
+            }
+            if event.eventStatus == .ended && Calendar.current.isDateInToday(event.start) {
+                return false
+            }
+            return true
+        }
+    }
+
+    private var allDayEvents: [EventModel] {
+        filteredEvents.filter { $0.isAllDay }
+    }
+
+    private var timedEvents: [EventModel] {
+        filteredEvents.filter { !$0.isAllDay }
+    }
+
+    // Same notch-hugging pull-up the music view uses for its album art —
+    // tucks the header and month label up alongside the physical cutout
+    // instead of leaving a flat gap above them.
+    private var pullUp: CGFloat {
+        max(vm.effectiveClosedNotchHeight - 4, 20) - 2
+    }
+
+    // The header sits a bit lower than a full pull-up — leaves the same kind
+    // of extra bottom space the grid needed the same treatment for.
+    private var headerPullUp: CGFloat {
+        pullUp - 7
+    }
+
+    // The grid sits a bit lower than the header — pulling it up by the exact
+    // same amount looked too tight against the top edge.
+    private var gridPullUp: CGFloat {
+        pullUp - 9
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
+                header
+                    .offset(y: -headerPullUp)
+                    .padding(.bottom, -headerPullUp)
+                eventsArea
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            MonthGridView(selectedDate: $selectedDate)
+                .frame(width: 148)
+                .offset(y: -gridPullUp)
+                .padding(.bottom, -gridPullUp)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 1)
+        .padding(.bottom, 10)
+        // A hard height, not maxHeight — otherwise a day with more events
+        // (more all-day pills, in particular) makes this view report a
+        // taller natural size and the whole panel grows with it. Shared with
+        // CompactMusicPlayerView so the panel is pinned to the exact same
+        // size switching between the two, regardless of either's own content.
+        // No .clipped() here (matching CompactMusicPlayerView) since the
+        // pull-up above deliberately overflows above this frame's top edge.
+        .frame(height: compactContentHeight, alignment: .top)
+        .frame(maxWidth: .infinity)
+        .onChange(of: selectedDate) {
+            calendarManager.scheduleUpdate(for: selectedDate)
+        }
+        .onAppear {
+            selectedDate = Date.now
+            calendarManager.scheduleUpdate(for: Date.now)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                .font(.system(size: 12, weight: .bold, design: .default))
+                .foregroundColor(.red)
+                // Forces a fresh view (rather than an in-place text update)
+                // whenever the weekday changes, so the scale/opacity
+                // transition below actually has something to animate.
+                .id(selectedDate.formatted(.dateTime.weekday(.abbreviated)))
+                .transition(.opacity.combined(with: .scale(scale: 0.5)))
+                .animation(.spring(response: 0.35, dampingFraction: 0.6), value: selectedDate)
+            Text("\(Calendar.current.component(.day, from: selectedDate))")
+                .font(.system(size: 30, weight: .light, design: .default))
+                .foregroundColor(.white)
+                .contentTransition(.numericText(value: Double(Calendar.current.component(.day, from: selectedDate))))
+                .animation(.snappy(duration: 0.35), value: selectedDate)
+        }
+    }
+
+    // Capped at a fixed number of rows (1 all-day pill + 1 timed event +
+    // 1 overflow summary) regardless of how many events exist, so this
+    // view's height never depends on the day's event count.
+    private let maxAllDayPills = 1
+
+    // All-day events are pinned above the timed list, rendered small as
+    // pills rather than full event rows.
+    private var pillTransition: AnyTransition {
+        .opacity.combined(with: .blur(radius: 4))
+    }
+
+    @ViewBuilder
+    private var eventsArea: some View {
+        if allDayEvents.isEmpty && timedEvents.isEmpty {
+            emptyState
+        } else {
+            let hiddenEvents = allDayEvents.dropFirst(maxAllDayPills) + timedEvents.dropFirst(1)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(allDayEvents.prefix(maxAllDayPills)) { event in
+                    CompactAllDayPill(event: event)
+                        .transition(pillTransition)
+                }
+                if let firstTimed = timedEvents.first {
+                    Button {
+                        if let url = firstTimed.calendarAppURL() { openURL(url) }
+                    } label: {
+                        if case .reminder(let completed) = firstTimed.type {
+                            ReminderRow(event: firstTimed, isCompleted: completed, showFullTitle: false, compactSizing: true)
+                        } else {
+                            CalendarEventRow(event: firstTimed, showFullTitle: false, compactSizing: true)
+                        }
+                    }
+                    .buttonStyle(EventRowButtonStyle(color: Color(firstTimed.calendar.color)))
+                    // Same day, different event (e.g. after switching from a
+                    // day with no timed events) — this id forces a fresh view
+                    // so the transition actually fires instead of the Button
+                    // just updating its label content in place.
+                    .id(firstTimed.id)
+                    .transition(pillTransition)
+                }
+                if !hiddenEvents.isEmpty {
+                    CompactMoreEventsRow(events: Array(hiddenEvents))
+                        .id(selectedDate)
+                        .transition(pillTransition)
+                }
+            }
+            // calendarManager.events arrives asynchronously from
+            // CalendarManager.scheduleUpdate (a detached Task) well after the
+            // withAnimation block around the day tap has already ended, so
+            // the pills' insert/remove transitions above never had an active
+            // animation to run inside. This re-wraps that later, unrelated
+            // update in its own animation.
+            .animation(.easeInOut(duration: 0.4), value: calendarManager.events)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Calendar.current.isDateInToday(selectedDate) ? "No more events today" : "No events")
+                .font(.system(size: 13, weight: .semibold, design: .default))
+                .foregroundColor(.white.opacity(0.85))
+            Text(Calendar.current.isDateInToday(selectedDate) ? "Your day is clear" : "This day is clear")
+                .font(.system(size: 12, weight: .regular, design: .default))
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+private struct CompactAllDayPill: View {
+    let event: EventModel
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "calendar")
+                .font(.system(size: 9, weight: .semibold, design: .default))
+                .foregroundColor(Color(event.calendar.color))
+            Text(event.title)
+                .font(.system(size: 10, weight: .medium, design: .default))
+                // Tinted with the calendar color, same as CalendarEventRow's
+                // title, instead of plain white.
+                .foregroundColor(Color(event.calendar.color))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        // Same background dimness as CalendarEventRow's normal events, not
+        // its own separate, more-visible tint.
+        .background(Color(event.calendar.color).opacity(0.12))
+        .clipShape(Capsule())
+        // Bounds the title's width so an unusually long one truncates with
+        // "…" instead of just growing the pill to fit.
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// Bar colors and count reflect the actual remaining events, not a placeholder.
+private struct CompactMoreEventsRow: View {
+    let events: [EventModel]
+    private let maxBars = 2
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(events.prefix(maxBars).enumerated()), id: \.offset) { _, event in
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Color(event.calendar.color))
+                    .frame(width: 3, height: 12)
+            }
+            Text("\(events.count) more event\(events.count == 1 ? "" : "s")")
+                .font(.system(size: 11, weight: .regular, design: .default))
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
 struct EmptyEventsView: View {
     let selectedDate: Date
-    
+
     var body: some View {
         VStack {
             Image(systemName: "calendar.badge.checkmark")
@@ -301,9 +524,10 @@ private struct ReminderRow: View {
     let event: EventModel
     let isCompleted: Bool
     let showFullTitle: Bool
+    var compactSizing: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: compactSizing ? 6 : 8) {
             ReminderToggle(
                 isOn: Binding(
                     get: { isCompleted },
@@ -315,26 +539,27 @@ private struct ReminderRow: View {
                         }
                     }
                 ),
-                color: Color(event.calendar.color)
+                color: Color(event.calendar.color),
+                size: compactSizing ? 11 : 14
             )
             .opacity(1.0)
             HStack {
                 Text(event.title)
-                    .font(.callout)
+                    .font(compactSizing ? .caption : .callout)
                     .foregroundColor(.white)
                     .lineLimit(showFullTitle ? nil : 1)
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 4) {
                     if event.isAllDay {
                         Text("All-day")
-                            .font(.caption)
+                            .font(compactSizing ? .caption2 : .caption)
                             .fontWeight(.medium)
-                            .foregroundColor(.white)
+                            .foregroundColor(Color(white: 0.6))
                             .lineLimit(1)
                     } else {
                         Text(event.start, style: .time)
-                            .foregroundColor(.white)
-                            .font(.caption)
+                            .foregroundColor(Color(white: 0.6))
+                            .font(compactSizing ? .caption2 : .caption)
                     }
                 }
             }
@@ -352,7 +577,27 @@ private struct ReminderRow: View {
 private struct CalendarEventRow: View {
     let event: EventModel
     let showFullTitle: Bool
+    // Forces a single-line title and hides the location row, so every
+    // instance renders at the exact same fixed height regardless of content
+    // — matching CompactAllDayPill's always-one-line sizing. Off by default
+    // so the full-size CalendarView keeps wrapping long titles as before.
+    var compactSizing: Bool = false
     @Environment(\.eventRowPressed) private var isPressed
+
+    // "9:00am - 9:45am" — no space before am/pm.
+    private static let compactTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mma"
+        f.amSymbol = "am"
+        f.pmSymbol = "pm"
+        return f
+    }()
+
+    private var compactTimeRangeText: String {
+        let start = Self.compactTimeFormatter.string(from: event.start)
+        let end = Self.compactTimeFormatter.string(from: event.end)
+        return "\(start) - \(end)"
+    }
 
     var body: some View {
         let calColor: Color = isPressed ? .black : Color(event.calendar.color)
@@ -365,47 +610,75 @@ private struct CalendarEventRow: View {
                 .padding(.vertical, 4)
                 .padding(.leading, 4)
 
-            HStack(alignment: .top, spacing: 4) {
-                VStack(alignment: .leading, spacing: 2) {
+            if compactSizing {
+                // Time sits on its own line under the title instead of a
+                // trailing column, so every row is exactly title + time —
+                // two fixed lines regardless of what's in either of them.
+                VStack(alignment: .leading, spacing: 0) {
                     Text(event.title)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(calColor)
-                        .lineLimit(showFullTitle ? nil : 2)
+                        .lineLimit(1)
+                    Text(event.isAllDay ? "All-day" : compactTimeRangeText)
+                        .font(.caption2)
+                        .foregroundColor(calColor.opacity(0.8))
+                        .lineLimit(1)
+                }
+                // Without this, an unusually long title has nothing bounding
+                // its width, so lineLimit(1) never gets a chance to truncate
+                // it — the row just grows to fit instead.
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 8)
+                .padding(.trailing, 10)
+                .padding(.vertical, 3)
+            } else {
+                HStack(alignment: .top, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(calColor)
+                            .lineLimit(showFullTitle ? nil : 2)
 
-                    if let location = event.location, !location.isEmpty {
-                        HStack(spacing: 3) {
-                            MapPinIcon(color: calColor)
-                                .frame(width: 10, height: 10)
-                            Text(location)
-                                .font(.system(size: 10))
-                                .foregroundColor(calColor.opacity(0.9))
-                                .lineLimit(1)
+                        if let location = event.location, !location.isEmpty {
+                            HStack(spacing: 3) {
+                                MapPinIcon(color: calColor)
+                                    .frame(width: 10, height: 10)
+                                Text(location)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(calColor.opacity(0.9))
+                                    .lineLimit(1)
+                            }
                         }
                     }
-                }
-                Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 2) {
-                    if event.isAllDay {
-                        Text("All-day")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(calColor)
-                            .lineLimit(1)
-                    } else {
-                        Text(event.start, style: .time)
-                            .foregroundColor(calColor)
-                        Text(event.end, style: .time)
-                            .foregroundColor(calColor.opacity(0.75))
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        if event.isAllDay {
+                            Text("All-day")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(calColor)
+                                .lineLimit(1)
+                        } else {
+                            Text(event.start, style: .time)
+                                .foregroundColor(calColor)
+                            Text(event.end, style: .time)
+                                .foregroundColor(calColor.opacity(0.75))
+                        }
                     }
+                    .font(.caption2)
+                    .frame(minWidth: 44, alignment: .trailing)
                 }
-                .font(.caption2)
-                .frame(minWidth: 44, alignment: .trailing)
+                .padding(.leading, 8)
+                .padding(.trailing, 10)
+                .padding(.vertical, 3)
             }
-            .padding(.leading, 8)
-            .padding(.trailing, 10)
-            .padding(.vertical, 3)
         }
+        // Belt-and-suspenders on top of the fixed 2-line content above:
+        // an explicit height guarantees every compact row is pixel-identical
+        // regardless of any remaining text-metric variance between events.
+        .frame(height: compactSizing ? 30 : nil)
         .background(
             Color(event.calendar.color).opacity(0.12)
         )
@@ -575,6 +848,7 @@ extension EnvironmentValues {
 struct ReminderToggle: View {
     @Binding var isOn: Bool
     var color: Color
+    var size: CGFloat = 14
 
     var body: some View {
         Button(action: {
@@ -583,17 +857,17 @@ struct ReminderToggle: View {
             ZStack {
                 // Outer ring
                 Circle()
-                    .strokeBorder(color, lineWidth: 2)
-                    .frame(width: 14, height: 14)
+                    .strokeBorder(color, lineWidth: size * (2.0 / 14.0))
+                    .frame(width: size, height: size)
                 // Inner fill
                 if isOn {
                     Circle()
                         .fill(color)
-                        .frame(width: 8, height: 8)
+                        .frame(width: size * (8.0 / 14.0), height: size * (8.0 / 14.0))
                 }
                 Circle()
                     .fill(Color.black.opacity(0.001))
-                    .frame(width: 14, height: 14)
+                    .frame(width: size, height: size)
             }
         }
         .buttonStyle(PlainButtonStyle())

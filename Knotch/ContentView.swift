@@ -145,6 +145,11 @@ struct MusicLiveActivity: View {
             )
             .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -3 : -1.5)
         }
+        // Only during the sneak peek does the top corner curve inward (12pt)
+        // instead of the flat default (6pt) — the album art/waveform sat
+        // flush against the edges with no padding, which only became visibly
+        // crowded once that curve was added.
+        .padding(.horizontal, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? 6 : 0)
         .frame(
             height: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? vm.effectiveClosedNotchHeight + 8
@@ -529,8 +534,23 @@ struct ContentView: View {
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
 
+    private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
+        Defaults[.enableCompactUI] ? compactCornerRadiusInsets : cornerRadiusInsets
+    }
+
     private var topCornerRadius: CGFloat {
-            vm.notchState == .open ? cornerRadiusInsets.opened.top : cornerRadiusInsets.closed.top
+            // A milder version of Compact mode's big notch-hugging top radius
+            // (35) — applied here regardless of whether Compact mode itself
+            // is on, so the expanded AirDrop card always gets it.
+            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive && airdropHUDExpanded {
+                return 26
+            }
+            // Same concave treatment, scaled down further for this much
+            // smaller pill.
+            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && vm.notchState == .closed {
+                return 12
+            }
+            return vm.notchState == .open ? activeCornerRadiusInsets.opened.top : activeCornerRadiusInsets.closed.top
         }
 
     // Matches the condition that shows MusicLiveActivity below — the
@@ -589,18 +609,18 @@ struct ContentView: View {
             : vm.notchState == .open
                 // Kept small — the album art hugs this corner with minimal padding,
                 // so a larger boost here clips straight into it during a hard pull.
-                ? cornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
+                ? activeCornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
                 : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
                     ? 22
                     : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-                        ? bluetoothHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 3
+                        ? bluetoothHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 3
                             : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
-                                ? airdropHUDExpanded ? 28 : cornerRadiusInsets.closed.bottom + 4
+                                ? airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
                             : isExpandedBatteryBanner
                                 ? 28
                                 : inlineHUDShowing && isHovering
-                                    ? cornerRadiusInsets.closed.bottom + 6
-                                    : cornerRadiusInsets.closed.bottom
+                                    ? activeCornerRadiusInsets.closed.bottom + 6
+                                    : activeCornerRadiusInsets.closed.bottom
     }
 
     // Matches the condition that shows InlineHUD below (coordinator.sneakPeek
@@ -796,7 +816,7 @@ struct ContentView: View {
                                 handleUpGesture(translation: translation, phase: phase)
                             }
                     }
-                    .conditionalModifier(Defaults[.enableGestures]) { view in
+                    .conditionalModifier(Defaults[.enableGestures] && !Defaults[.enableCompactUI]) { view in
                         view
                             .panGesture(direction: .left) { translation, phase in
                                 handleHorizontalGesture(translation: translation, phase: phase, sign: -1)
@@ -1003,7 +1023,7 @@ struct ContentView: View {
                             TimerCompactPill()
                                 .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
                                 .transition(.opacity)
-                        } else if vm.notchState == .open {
+                        } else if vm.notchState == .open && !Defaults[.enableCompactUI] {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
                                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
@@ -1050,9 +1070,15 @@ struct ContentView: View {
                                         Image(systemName: "music.note")
                                         GeometryReader { geo in
                                             MarqueeText(.constant(musicManager.songTitle + " - " + musicManager.artistName),  textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray, minDuration: 1, frameWidth: geo.size.width)
+                                                .edgeFade()
                                         }
                                     }
                                     .foregroundStyle(.gray)
+                                    // No horizontal padding here before meant the icon/text
+                                    // sat flush against the leading/trailing edge — fine
+                                    // against the old flat 6pt corner, but crowded now that
+                                    // the top corner curves inward at 12pt.
+                                    .padding(.horizontal, 12)
                                     .padding(.bottom, 10)
                                 }
                             }
@@ -1074,8 +1100,15 @@ struct ContentView: View {
                         // so each element stays in place relative to its neighbors.
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
-                        ShelfView()
-                            .liquidStretch(vm)
+                        // The shelf ("tray") is unreachable in Compact mode — fall
+                        // back to the home content instead of ever showing it,
+                        // regardless of how currentView got set.
+                        if Defaults[.enableCompactUI] {
+                            NotchHomeView(albumArtNamespace: albumArtNamespace)
+                        } else {
+                            ShelfView()
+                                .liquidStretch(vm)
+                        }
                     }
                 }
                 // Pin content to the un-stretched target height so the liquid pull only
@@ -1209,14 +1242,28 @@ struct ContentView: View {
             // the tab switch itself has already committed on the initial movement.
             // Clamped tighter while the timer ruler is up — its content doesn't
             // fill the extra height, so a full stretch left a visible gap below it.
-            let pullClamp = TimerManager.shared.isCreatingTimer ? liquidPullClamp * 0.3 : liquidPullClamp
+            // Also toned down in Compact mode, whose smaller fixed panel doesn't
+            // want the same amount of stretch as the standard layout.
+            let pullClamp = TimerManager.shared.isCreatingTimer ? liquidPullClamp * 0.3
+                : Defaults[.enableCompactUI] ? liquidPullClamp * 0.4
+                : liquidPullClamp
             vm.liquidPull = min(translation, pullClamp)
 
             if hasTriggeredSwipe {
                 return
             }
 
-            if Defaults[.swipeToCycleViews] && !TimerManager.shared.isCreatingTimer {
+            if Defaults[.enableCompactUI] && coordinator.currentView == .home {
+                // Only something to swipe between when both compact views are
+                // enabled — otherwise whichever one is on is always shown.
+                if Defaults[.compactShowMusicView] && Defaults[.compactShowCalendarView] {
+                    hasTriggeredSwipe = true
+                    if Defaults[.enableHaptics] { haptics.toggle() }
+                    withAnimation(animationSpring) {
+                        vm.showingCompactCalendar.toggle()
+                    }
+                }
+            } else if Defaults[.swipeToCycleViews] && !TimerManager.shared.isCreatingTimer && !Defaults[.enableCompactUI] {
                 let destination: NotchViews = coordinator.currentView == .home ? .shelf : .home
                 let destinationEnabled = destination == .home
                     ? Defaults[.showHomeView]
