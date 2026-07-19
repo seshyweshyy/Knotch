@@ -1,21 +1,21 @@
 name: Update Version Dropdown in Issue Form
-# Least-privilege: only needs to push the updated issue template file.
 permissions:
   contents: write
 concurrency:
-  group: push-to-main
+  group: update-dropdown
   cancel-in-progress: false
 
 on:
+  workflow_run:
+    workflows: ["Update Appcast"]
+    types: [completed]
   push:
     tags:
       - '*'
   workflow_dispatch: {}
-  release:
-    types:
-      - published
 jobs:
   update-dropdown:
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
 
     steps:
