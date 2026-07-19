@@ -3,6 +3,31 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.7.7</title>
+            <pubDate>Sun, 19 Jul 2026 15:00:01 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>25</sparkle:version>
+            <sparkle:shortVersionString>1.7.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2 id="sparkles-new-features">✨ New Features</h2>
+<ul>
+<li><strong>Added compact UI mode</strong></li>
+</ul>
+<h2 id="wrench-fixes">🔧 Fixes</h2>
+<ul>
+<li>Fixed mirror widget sizing</li>
+<li>Fixed issue where calendar wheel hover recognition prevented gesture
+reactivity</li>
+<li>Added blur effect on notch open and close</li>
+<li>Implemented a potential fix for liquid glass black mask lagging
+during notch open animation</li>
+<li>Added release notes to update popup in settings</li>
+<li>Added airdrop progress HUD toggle to settings</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.7/Knotch.v.1.7.7.zip" length="15058889" type="application/octet-stream" sparkle:edSignature="bBspLUw5C9StrTByuOM+wwnA7GMi44YuDDgMaAaIjehfz1PYrJKD4XWJ4uo8SpskmdLeR7r7v3nGa7f/7gPEDw=="/>
+        </item>
+        <item>
             <title>1.7.6</title>
             <pubDate>Thu, 16 Jul 2026 14:23:06 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -30,15 +55,6 @@
             <sparkle:shortVersionString>1.7.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.5/Knotch.v.1.7.5.zip" length="15068253" type="application/octet-stream" sparkle:edSignature="C0nqekG8oYoJ+DxwYtEhNV8wXn9nXcQANoK5G+acs+t7ufXHNaTqaNjlGY2HhI/ULV2XSeQOOjHt2O3NbNs/CQ=="/>
-        </item>
-        <item>
-            <title>1.7.4</title>
-            <pubDate>Tue, 14 Jul 2026 12:00:09 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>22</sparkle:version>
-            <sparkle:shortVersionString>1.7.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.4/Knotch.v.1.7.4.zip" length="14385957" type="application/octet-stream" sparkle:edSignature="ccTvag8QfechDxrtaWhUGkQpi9ToOwcGiMPs+xtmssYODF7ysdc8HcoQMnPZ3glq6NMgOuJUuTiqiB0OTSTvBA=="/>
         </item>
         <item>
             <title>1.6.3</title>
