@@ -134,4 +134,5 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 - **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** — enabled Now Playing support on macOS 15.4+
 - **[NotchDrop](https://github.com/Lakr233/NotchDrop)** — foundation for the Shelf feature
 - **[QuartzNotch](https://github.com/Clayton630/QuartzNotch)** — live waveform FFT band-extraction and dB calibration approach
+- **[DynamicNotch](https://github.com/jackson-storm/dynamicnotch)** - various system HUDs UI
 - Website: [Knotch](https://knotch.seshyweshyy.com)
