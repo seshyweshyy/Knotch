@@ -99,7 +99,7 @@ struct CompactMusicPlayerView: View {
                         frameWidth: max(0, textAreaWidth - textLeadingInset)
                     )
                     Text(musicManager.artistName)
-                        .font(.system(size: 11.5, weight: .regular))
+                        .font(.system(size: 11.5, weight: .medium))
                         .foregroundColor(
                             Defaults[.playerColorTinting]
                                 ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray

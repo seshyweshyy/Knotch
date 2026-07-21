@@ -81,6 +81,7 @@ struct LiquidGlassMusicWidget: View {
                             : Color.white.opacity(0.65),
                         frameWidth: isExpanded ? 260 : 180
                     )
+                    .fontWeight(.medium)
                     .id("artist-\(isExpanded)")
                     .edgeFade()
                 }

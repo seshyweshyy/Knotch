@@ -93,6 +93,7 @@ struct MusicLiveActivity: View {
                         {
                             MarqueeText(
                                 .constant(musicManager.songTitle),
+                                font: .body.weight(.semibold),
                                 textColor: playerColorTinting
                                     ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                 minDuration: 0.4,
@@ -105,6 +106,7 @@ struct MusicLiveActivity: View {
                             )
                             Spacer(minLength: vm.closedNotchSize.width)
                             Text(musicManager.artistName)
+                                .fontWeight(.semibold)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .foregroundStyle(
