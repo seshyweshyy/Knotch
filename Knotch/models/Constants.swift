@@ -170,7 +170,6 @@ extension Defaults.Keys {
     )
     static let playerColorTinting = Key<Bool>("playerColorTinting", default: true)
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
-    static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
     
     // MARK: Gestures
@@ -191,6 +190,7 @@ extension Defaults.Keys {
     static let legacyEnableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
     static let hasMigratedSneakPeekSplit = Key<Bool>("hasMigratedSneakPeekSplit", default: false)
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
+    static let sneakPeekMusicDuration = Key<Double>("sneakPeekMusicDuration", default: 4.0)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)

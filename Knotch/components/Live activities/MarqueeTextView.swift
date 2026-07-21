@@ -30,12 +30,15 @@ struct MarqueeText: View {
     let backgroundColor: Color
     let minDuration: Double
     let frameWidth: CGFloat
-    
+    let dimmedSubstring: String?
+    let dimmedColor: Color
+    let scrollSpeed: CGFloat
+
     @State private var animate = false
     @State private var textSize: CGSize = .zero
     @State private var offset: CGFloat = 0
-    
-    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200) {
+
+    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30) {
         _text = text
         self.font = font
         self.nsFont = nsFont
@@ -43,18 +46,30 @@ struct MarqueeText: View {
         self.backgroundColor = backgroundColor
         self.minDuration = minDuration
         self.frameWidth = frameWidth
+        self.dimmedSubstring = dimmedSubstring
+        self.dimmedColor = dimmedColor
+        self.scrollSpeed = scrollSpeed
     }
-    
+
     private var needsScrolling: Bool {
         textSize.width > frameWidth
     }
-    
+
+    private func styledText(_ string: String) -> Text {
+        guard let dimmedSubstring, let range = string.range(of: dimmedSubstring) else {
+            return Text(string)
+        }
+        return Text(string[string.startIndex..<range.lowerBound])
+            + Text(string[range]).foregroundColor(dimmedColor)
+            + Text(string[range.upperBound...])
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 HStack(spacing: 20) {
-                    Text(text)
-                    Text(text)
+                    styledText(text)
+                    styledText(text)
                         .opacity(needsScrolling ? 1 : 0)
                 }
                 .id(text)
@@ -64,7 +79,7 @@ struct MarqueeText: View {
                 .offset(x: self.animate ? offset : 0)
                 .animation(
                     self.animate ?
-                        .linear(duration: Double(textSize.width / 30))
+                        .linear(duration: Double(textSize.width / scrollSpeed))
                         .delay(minDuration)
                         .repeatForever(autoreverses: false) : .none,
                     value: self.animate

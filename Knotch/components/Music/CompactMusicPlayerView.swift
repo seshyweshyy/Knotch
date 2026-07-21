@@ -55,8 +55,10 @@ struct CompactMusicPlayerView: View {
     private var notchHuggingHeader: some View {
         GeometryReader { geo in
             let totalWidth = geo.size.width
-            let spectrumWidth = AudioSpectrum.recommendedFrameSize.width
-            let spectrumHeight = AudioSpectrum.recommendedFrameSize.height
+            let baseSpectrumSize = AudioSpectrum.recommendedFrameSize
+            let spectrumScale: CGFloat = 1.1
+            let spectrumWidth = baseSpectrumSize.width * spectrumScale
+            let spectrumHeight = baseSpectrumSize.height * spectrumScale
             // A few points of the text's own leading edge sit inside the fade
             // mask's ramp — indent the text past it so the mask only ever eats
             // into blank space, not real characters.
@@ -80,6 +82,8 @@ struct CompactMusicPlayerView: View {
                     // view (MusicControlsWithVisualizer), rather than the plain
                     // white bars used on the lock screen widget.
                     AlbumArtWaveformMask(albumArt: musicManager.albumArt, isPlaying: $musicManager.isPlaying)
+                        .frame(width: baseSpectrumSize.width, height: baseSpectrumSize.height)
+                        .scaleEffect(spectrumScale)
                         .frame(width: spectrumWidth, height: spectrumHeight)
                 }
                 .padding(.trailing, 8)

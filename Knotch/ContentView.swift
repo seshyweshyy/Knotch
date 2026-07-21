@@ -545,6 +545,11 @@ struct ContentView: View {
             if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive && airdropHUDExpanded {
                 return 26
             }
+            // Same concave treatment as the AirDrop expanded card, mirrored
+            // for Bluetooth's expanded HUD.
+            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio && bluetoothHUDExpanded {
+                return 26
+            }
             // Same concave treatment, scaled down further for this much
             // smaller pill.
             if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && vm.notchState == .closed {
@@ -1068,12 +1073,21 @@ struct ContentView: View {
                                 if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard {
                                     HStack(alignment: .center) {
                                         Image(systemName: "music.note")
+                                            .foregroundStyle(Color.gray.opacity(0.6))
                                         GeometryReader { geo in
-                                            MarqueeText(.constant(musicManager.songTitle + " - " + musicManager.artistName),  textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray, minDuration: 1, frameWidth: geo.size.width)
-                                                .edgeFade()
+                                            MarqueeText(
+                                                .constant(musicManager.songTitle + " • " + musicManager.artistName),
+                                                font: .body.weight(.semibold),
+                                                textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray,
+                                                minDuration: 1,
+                                                frameWidth: geo.size.width,
+                                                dimmedSubstring: "•",
+                                                dimmedColor: Color.gray.opacity(0.6),
+                                                scrollSpeed: 34
+                                            )
+                                            .edgeFade()
                                         }
                                     }
-                                    .foregroundStyle(.gray)
                                     // No horizontal padding here before meant the icon/text
                                     // sat flush against the leading/trailing edge — fine
                                     // against the old flat 6pt corner, but crowded now that
@@ -1144,7 +1158,7 @@ struct ContentView: View {
 
     @ViewBuilder
     var dragDetector: some View {
-        if Defaults[.knotchShelf] && vm.notchState == .closed {
+        if Defaults[.knotchShelf] && vm.notchState == .closed && !Defaults[.enableCompactUI] {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())

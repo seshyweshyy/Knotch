@@ -643,7 +643,7 @@ class MusicManager: ObservableObject {
         let enabled = reason == .trackChange ? Defaults[.sneakPeekOnTrackChange] : Defaults[.sneakPeekOnResume]
         if isPlaying && enabled && coordinator.musicLiveActivityEnabled {
             if Defaults[.sneakPeekStyles] == .standard {
-                coordinator.toggleSneakPeek(status: true, type: .music)
+                coordinator.toggleSneakPeek(status: true, type: .music, duration: Defaults[.sneakPeekMusicDuration])
             } else {
                 coordinator.toggleExpandingView(status: true, type: .music)
             }

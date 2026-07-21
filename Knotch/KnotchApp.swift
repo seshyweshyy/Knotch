@@ -85,6 +85,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        SettingsWindowController.shared.showWindow()
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
         if let observer = screenLockedObserver {
@@ -287,8 +293,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleDragEntersNotchRegion(onScreen screen: NSScreen) {
+        guard !Defaults[.enableCompactUI] else { return }
         guard let uuid = screen.displayUUID else { return }
-        
+
         if Defaults[.showOnAllDisplays], let viewModel = viewModels[uuid] {
             viewModel.open()
             coordinator.currentView = .shelf

@@ -383,6 +383,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on track change", keywords: ["sneak peek", "playback", "track", "song"], highlightID: "Media-Show playback controls"),
             SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on resume", keywords: ["sneak peek", "playback", "resume", "play"], highlightID: "Media-Show sneak peek on resume"),
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek style", keywords: ["sneak peek", "style"], highlightID: "Media-Sneak peek style"),
+            SettingsSearchEntry(tabID: "Media", title: "Sneak peek duration", keywords: ["sneak peek", "duration", "timing"], highlightID: "Media-Sneak peek duration"),
             SettingsSearchEntry(tabID: "Media", title: "Media inactivity timeout", keywords: ["timeout", "inactivity", "media"], highlightID: "Media-Media inactivity timeout"),
             SettingsSearchEntry(tabID: "Media", title: "Full screen behavior", keywords: ["full screen", "hide", "behavior"], highlightID: "Media-Full screen behavior"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "LockScreen-Show album art"),
@@ -435,7 +436,6 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Advanced", title: "Extend hover area", keywords: ["hover", "area", "extend"], highlightID: "Advanced-Extend hover area"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide title bar", keywords: ["title bar", "hide"], highlightID: "Advanced-Hide title bar"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide from screen recording", keywords: ["screen recording", "privacy", "hide"], highlightID: "Advanced-Hide from screen recording"),
-            SettingsSearchEntry(tabID: "Advanced", title: "Custom visualizers", keywords: ["lottie", "visualizer", "custom"], highlightID: "Advanced-Custom visualizers"),
             // About
             SettingsSearchEntry(tabID: "About", title: "Check for Updates", keywords: ["version", "update", "check", "build", "changelog", "release"], highlightID: "About-Check for Updates"),
             SettingsSearchEntry(tabID: "About", title: "Automatically check for updates", keywords: ["auto", "automatic", "update", "check", "sparkle"], highlightID: "About-Automatic updates"),
@@ -1277,6 +1277,7 @@ struct Media: View {
     @Default(.sneakPeekOnTrackChange) private var sneakPeekOnTrackChange
     @Default(.sneakPeekOnResume) private var sneakPeekOnResume
     @Default(.sneakPeekStyles) var sneakPeekStyles
+    @Default(.sneakPeekMusicDuration) var sneakPeekMusicDuration
     @Default(.enableLyrics) var enableLyrics
 
     var body: some View {
@@ -1354,6 +1355,15 @@ struct Media: View {
                 }
                 .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Media-Sneak peek style")
+                Slider(value: $sneakPeekMusicDuration, in: 1...6, step: 0.5) {
+                    HStack {
+                        Text("Sneak peek duration")
+                        Spacer()
+                        Text("\(sneakPeekMusicDuration, specifier: "%.1f")s")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .settingsHighlight(id: "Media-Sneak peek duration")
                 HStack {
                     Stepper(value: $waitInterval, in: 0...10, step: 1) {
                         HStack {
@@ -1745,17 +1755,9 @@ struct Appearance: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
-    @Default(.useMusicVisualizer) var useMusicVisualizer
-    @Default(.customVisualizers) var customVisualizers
-    @Default(.selectedVisualizer) var selectedVisualizer
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
-    @State private var selectedListVisualizer: CustomVisualizer? = nil
-    @State private var isPresented: Bool = false
-    @State private var name: String = ""
-    @State private var url: String = ""
-    @State private var speed: CGFloat = 1.0
 
     var body: some View {
         Form {
@@ -1803,138 +1805,6 @@ struct Appearance: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
-
-            Section {
-                Toggle("Use music visualizer spectrogram", isOn: $useMusicVisualizer.animation())
-                    .disabled(true)
-                if !useMusicVisualizer {
-                    if customVisualizers.count > 0 {
-                        Picker("Selected animation", selection: $selectedVisualizer) {
-                            ForEach(customVisualizers, id: \.self) { visualizer in
-                                Text(visualizer.name).tag(visualizer)
-                            }
-                        }
-                        .tint(Color(nsColor: .labelColor))
-                    } else {
-                        HStack {
-                            Text("Selected animation")
-                            Spacer()
-                            Text("No custom animation available").foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Custom music live activity animation")
-                    customBadge(text: "Coming soon")
-                }
-            }
-
-            Section {
-                List {
-                    ForEach(customVisualizers, id: \.self) { visualizer in
-                        HStack {
-                            LottieView(url: visualizer.url, speed: visualizer.speed, loopMode: .loop)
-                                .frame(width: 30, height: 30, alignment: .center)
-                            Text(visualizer.name)
-                            Spacer(minLength: 0)
-                            if selectedVisualizer == visualizer {
-                                Text("selected")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.trailing, 8)
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .padding(.vertical, 2)
-                        .background(
-                            selectedListVisualizer != nil
-                                ? selectedListVisualizer == visualizer ? Color.effectiveAccent : Color.clear
-                                : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 5)
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if selectedListVisualizer == visualizer {
-                                selectedListVisualizer = nil
-                                return
-                            }
-                            selectedListVisualizer = visualizer
-                        }
-                    }
-                }
-                .safeAreaPadding(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
-                .frame(minHeight: 120)
-                .actionBar {
-                    HStack(spacing: 5) {
-                        Button {
-                            name = ""; url = ""; speed = 1.0; isPresented.toggle()
-                        } label: {
-                            Image(systemName: "plus").foregroundStyle(.secondary).contentShape(Rectangle())
-                        }
-                        Divider()
-                        Button {
-                            if let visualizer = selectedListVisualizer {
-                                selectedListVisualizer = nil
-                                customVisualizers.remove(at: customVisualizers.firstIndex(of: visualizer)!)
-                                if visualizer == selectedVisualizer && customVisualizers.count > 0 {
-                                    selectedVisualizer = customVisualizers[0]
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "minus").foregroundStyle(.secondary).contentShape(Rectangle())
-                        }
-                    }
-                }
-                .controlSize(.small)
-                .buttonStyle(PlainButtonStyle())
-                .overlay {
-                    if customVisualizers.isEmpty {
-                        Text("No custom visualizer")
-                            .foregroundStyle(Color(.secondaryLabelColor))
-                            .padding(.bottom, 22)
-                    }
-                }
-                .sheet(isPresented: $isPresented) {
-                    VStack(alignment: .leading) {
-                        Text("Add new visualizer").font(.largeTitle.bold()).padding(.vertical)
-                        TextField("Name", text: $name)
-                        TextField("Lottie JSON URL", text: $url)
-                        HStack {
-                            Text("Speed")
-                            Spacer(minLength: 80)
-                            Text("\(speed, specifier: "%.1f")s").multilineTextAlignment(.trailing).foregroundStyle(.secondary)
-                            Slider(value: $speed, in: 0...2, step: 0.1)
-                        }
-                        .padding(.vertical)
-                        HStack {
-                            Button { isPresented.toggle() } label: {
-                                Text("Cancel").frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            Button {
-                                let visualizer = CustomVisualizer(UUID: UUID(), name: name, url: URL(string: url)!, speed: speed)
-                                if !customVisualizers.contains(visualizer) { customVisualizers.append(visualizer) }
-                                isPresented.toggle()
-                            } label: {
-                                Text("Add").frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .buttonStyle(BorderedProminentButtonStyle())
-                        }
-                    }
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .controlSize(.extraLarge)
-                    .padding()
-                }
-            } header: {
-                HStack(spacing: 0) {
-                    Text("Custom vizualizers (Lottie)")
-                    if !Defaults[.customVisualizers].isEmpty {
-                        Text(" – \(Defaults[.customVisualizers].count)").foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .settingsHighlight(id: "Advanced-Custom visualizers")
 
             Section {
                 Defaults.Toggle(key: .showMirror) {

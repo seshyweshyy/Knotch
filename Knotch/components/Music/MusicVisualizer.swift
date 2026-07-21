@@ -219,7 +219,7 @@ struct AlbumArtWaveformMask: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: Self.artSize.width, height: Self.artSize.height)
-                .blur(radius: 4)
+                .blur(radius: 5)
                 .saturation(1.1)
                 .brightness(0.03)
             Color.white.opacity(0.04)

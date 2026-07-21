@@ -26,7 +26,7 @@ struct BluetoothHUDView: View {
     @EnvironmentObject var vm: KnotchViewModel
 
     // Expanded width of the notch pill for this HUD
-    private let expandedWidth: CGFloat = 280
+    private let expandedWidth: CGFloat = 320
     private let compactWidth: CGFloat = 120
 
     // Matches BatteryNotchBanner/AirDropReceiveHUD's treatment: when glass is
@@ -73,8 +73,7 @@ struct BluetoothHUDView: View {
                 HStack(spacing: 0) {
                     deviceIcon
                         .frame(width: 52, height: 36)
-                        .padding(.leading, 10)
-                    
+
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Connected")
                             .font(.system(size: 11, weight: .regular))
@@ -86,16 +85,18 @@ struct BluetoothHUDView: View {
                     }
                     .padding(.leading, 8)
                     .transition(.opacity.combined(with: .move(edge: .leading)))
-                    
+
                     Spacer()
-                    
+
                     if batteryFraction >= 0 {
                         BatteryRingView(fraction: batteryFraction, lineWidth: 3.5)
                             .frame(width: 34, height: 34)
-                            .padding(.trailing, 10)
                             .transition(.opacity.combined(with: .scale(scale: 0.7)))
                     }
                 }
+                // Wide enough to clear the panel's rounded corners (26/28pt radii),
+                // plus a bit extra beyond that purely for visual breathing room.
+                .padding(.horizontal, 30)
                 .frame(width: expandedWidth, height: 44)
                 .padding(.top, vm.effectiveClosedNotchHeight)
                 .padding(.bottom, 10)
