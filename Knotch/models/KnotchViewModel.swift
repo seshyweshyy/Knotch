@@ -11,6 +11,8 @@ import SwiftUI
 import os
 
 private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
+// TEMP DIAGNOSTIC — remove once the every-open X-drift bug is root-caused.
+let notchDriftDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "NotchDriftDiagnostics")
 
 class KnotchViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
@@ -38,14 +40,26 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     @Published var screenUUID: String?
 
-    @Published var notchSize: CGSize = getClosedNotchSize()
+    // TEMP DIAGNOSTIC didSet logging below — remove once the every-open
+    // X-drift bug is root-caused.
+    @Published var notchSize: CGSize = getClosedNotchSize() {
+        didSet {
+            guard notchSize != oldValue else { return }
+            notchDriftDiagnosticsLogger.debug("[notchSize] \(String(describing: oldValue)) -> \(String(describing: self.notchSize))")
+        }
+    }
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
 
     // Cosmetic "liquid pull" stretch amount, shared so any gesture surface
     // inside the notch (not just the notch body itself) can drive it —
     // e.g. the calendar day scroller's own horizontal drag.
     @Published var liquidPull: CGFloat = .zero
-    @Published var liquidPullHorizontal: CGFloat = .zero
+    @Published var liquidPullHorizontal: CGFloat = .zero {
+        didSet {
+            guard liquidPullHorizontal != oldValue else { return }
+            notchDriftDiagnosticsLogger.debug("[liquidPullHorizontal] \(oldValue) -> \(self.liquidPullHorizontal)")
+        }
+    }
 
     private var liquidVerticalFactor: CGFloat {
         min(liquidPull, liquidPullClamp) / liquidPullClamp
@@ -85,6 +99,23 @@ class KnotchViewModel: NSObject, ObservableObject {
     var hudOvershootAnchorX: CGFloat {
         hudEdgeOvershoot >= 0 ? 0 : 1
     }
+
+    // Set at the top of open() — lets setupWidgetWidthObserver's correction
+    // sinks tell whether a width correction is landing while the open
+    // spring is still settling (see their use below).
+    private var lastOpenAt: Date = .distantPast
+
+    // True from open() until MusicManager.forceUpdate()'s async playback-state
+    // fetch reports back. A width correction landing while this is true is
+    // very likely a direct consequence of that fetch resolving, rather than
+    // an unrelated later change (e.g. the user toggling Settings) — see
+    // applyCorrectedNotchSize below. forceUpdate()'s fetch time varies with
+    // system load (AppleScript queries in particular), so a fixed timer
+    // alone under- or over-shoots depending on how fast it happens to
+    // resolve — which is why the resulting glitch was intermittent rather
+    // than consistent. Tracking the real completion removes that guesswork;
+    // openSettleWindow stays as a fallback in case completion never fires.
+    private var isSettlingFromOpen: Bool = false
 
     func triggerHUDLimitBounce(rightEdge: Bool) {
         guard Defaults[.hudOvershootEnabled] else { return }
@@ -206,15 +237,7 @@ class KnotchViewModel: NSObject, ObservableObject {
                 // spring with a no-op target can still interrupt/restart an
                 // in-flight open animation under a different curve.
                 guard newSize != self.notchSize else { return }
-                // Uses the same curve as the open transition (liquidReleaseSpring)
-                // rather than a different spring — this notchSize correction can
-                // land while the open animation is still in flight (e.g. right
-                // after open() kicks off an async music-state fetch), and two
-                // different curves fighting over the same property is what made
-                // the notch mask/glass visibly kink and snap into place.
-                withAnimation(liquidReleaseSpring) {
-                    self.notchSize = newSize
-                }
+                self.applyCorrectedNotchSize(newSize)
             }
         }
         .store(in: &cancellables)
@@ -239,17 +262,48 @@ class KnotchViewModel: NSObject, ObservableObject {
                 // on the coordinator (sneakPeek, expandingView, etc.), most of
                 // which don't affect the computed width — e.g. the async
                 // playback-state fetch kicked off by open()'s forceUpdate()
-                // call lands mid-open-transition. Skip no-op corrections, and
-                // use the same curve as the open transition (liquidReleaseSpring)
-                // for real ones so a legitimate width change here can't fight
-                // the still-in-flight open spring and cause the notch mask to
-                // visibly lag, then snap into alignment.
+                // call lands mid-open-transition.
                 guard newSize != self.notchSize else { return }
-                withAnimation(liquidReleaseSpring) {
-                    self.notchSize = newSize
-                }
+                self.applyCorrectedNotchSize(newSize)
             }
             .store(in: &cancellables)
+    }
+
+    // Fallback cap on isSettlingFromOpen in case MusicManager.forceUpdate()'s
+    // completion never fires for some reason (e.g. no active controller ever
+    // becomes active) — without this, a missed completion would leave
+    // isSettlingFromOpen stuck true and corrections would keep snapping
+    // instantly instead of animating once the notch is genuinely just
+    // sitting open. Comfortably longer than forceUpdate() should ever take.
+    private let openSettleWindow: TimeInterval = 1.5
+
+    // Applying a width correction here always used liquidReleaseSpring to
+    // match the open transition's curve, but that alone doesn't stop it from
+    // *retargeting* an open spring that's still mid-flight. open() kicks off
+    // an async MusicManager.forceUpdate() fetch, and if that changes
+    // coordinator.sneakPeek/expandingView (which computedOpenNotchHomeWidth
+    // reads via musicLiveActivityEnabled/showMusic-adjacent state) once it
+    // resolves, this fires while the original open spring may still be in
+    // flight. Two overlapping springs aiming at different targets compounds
+    // into an extra, irregular wobble on top of the open spring's own
+    // (consistent) overshoot — and since forceUpdate()'s resolve time varies
+    // with system load, that extra wobble showed up intermittently rather
+    // than as a fixed part of the curve. isSettlingFromOpen tracks the real
+    // completion instead of guessing a fixed duration, so this reliably
+    // applies the correction instantly (no animation) for exactly as long as
+    // open() is still catching up, and animates normally for anything after.
+    private func applyCorrectedNotchSize(_ newSize: CGSize) {
+        if isSettlingFromOpen || Date().timeIntervalSince(lastOpenAt) < openSettleWindow {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                self.notchSize = newSize
+            }
+        } else {
+            withAnimation(liquidReleaseSpring) {
+                self.notchSize = newSize
+            }
+        }
     }
 
     // Computed property for effective notch height
@@ -340,7 +394,27 @@ class KnotchViewModel: NSObject, ObservableObject {
     }
 
     func open() {
+        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
+        notchDriftDiagnosticsLogger.debug("[vm.open] called, notchState=\(String(describing: self.notchState)) at \(Date().timeIntervalSince1970)")
         guard !isScreenLocked else { return }
+        lastOpenAt = Date()
+        // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug
+        // is root-caused. See KnotchSkyLightWindow.knotchWillOpen for why.
+        NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+        // liquidPullHorizontal/hudEdgeOvershoot only reset on a gesture's
+        // .ended phase or a HUD bounce completing — an interrupted drag or a
+        // HUD limit bounce shortly before opening can leave either non-zero.
+        // Since they ride the same vm.notchState-keyed liquidReleaseSpring as
+        // the rest of this transition, a stale nonzero value visibly
+        // overshoots left/right on open instead of just staying at zero.
+        // Resetting with animations disabled snaps them to zero with no
+        // animation, rather than animating "back" to zero through the spring.
+        var resetTransaction = Transaction()
+        resetTransaction.disablesAnimations = true
+        withTransaction(resetTransaction) {
+            liquidPullHorizontal = .zero
+            hudEdgeOvershoot = .zero
+        }
         // openHomeWidth is normally kept current by a reactive observer, but that
         // observer can lag by a beat behind state that just changed (e.g. right as
         // the notch opens) — recomputing it fresh here avoids opening to a stale
@@ -354,7 +428,10 @@ class KnotchViewModel: NSObject, ObservableObject {
         self.notchState = .open
         // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
         //dragDiagnosticsLogger.debug("[KnotchViewModel] notchState -> open")
-        MusicManager.shared.forceUpdate()
+        isSettlingFromOpen = true
+        MusicManager.shared.forceUpdate { [weak self] in
+            self?.isSettlingFromOpen = false
+        }
     }
 
     private func refreshOpenHomeWidth() {

@@ -94,6 +94,22 @@ class KnotchSkyLightWindow: NSPanel {
                 self?.refreshGlassBackdrop()
             }
             .store(in: &observers)
+
+        // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug
+        // is root-caused. Measured pixel data shows the glass's own edge/
+        // lensing boundary (not vm.notchSize, not corner radius — both
+        // confirmed to change exactly once, cleanly) keeps drifting for
+        // ~200ms after the panel's width has already settled, specifically
+        // near the top where the glass highlight is concentrated. Given the
+        // backdrop-capture staleness this class already works around above,
+        // this tests whether the SAME staleness — now triggered by the
+        // panel's own resize, not just space/app changes — explains it.
+        NotificationCenter.default
+            .publisher(for: .knotchWillOpen)
+            .sink { [weak self] _ in
+                self?.refreshGlassBackdrop()
+            }
+            .store(in: &observers)
     }
     
     private func updateSharingType() {
@@ -140,4 +156,13 @@ class KnotchSkyLightWindow: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+}
+
+extension Notification.Name {
+    // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug is
+    // root-caused. Posted from KnotchViewModel.open() to test whether
+    // NSGlassEffectView's backdrop-capture staleness (see setupObservers()
+    // above) also applies to the panel's own resize, not just space/app
+    // changes.
+    static let knotchWillOpen = Notification.Name("com.Knotch.knotchWillOpen")
 }

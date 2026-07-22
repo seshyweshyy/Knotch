@@ -727,6 +727,8 @@ struct ContentView: View {
         
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
+                // Single source of truth for the panel's target width/height,
+                // fed into NotchGeometryModifier below alongside the corner
                 let mainLayout = NotchLayout()
                     .frame(alignment: .top)
                     .padding(
@@ -803,6 +805,16 @@ struct ContentView: View {
                         return view
                             .animation(vm.notchState == .open ? liquidReleaseSpring : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
+                    }
+                    // TEMP DIAGNOSTIC — remove once the every-open X-drift bug is
+                    // root-caused. Logs whenever the corner radii feeding
+                    // currentNotchShape change, to correlate against notchSize/
+                    // liquidPullHorizontal logging in KnotchViewModel.
+                    .onChange(of: topCornerRadius) { old, new in
+                        notchDriftDiagnosticsLogger.debug("[topCornerRadius] \(old) -> \(new)")
+                    }
+                    .onChange(of: currentBottomCornerRadius) { old, new in
+                        notchDriftDiagnosticsLogger.debug("[currentBottomCornerRadius] \(old) -> \(new)")
                     }
                     .contentShape(Rectangle())
                     .onHover { hovering in
@@ -1175,6 +1187,8 @@ struct ContentView: View {
     }
 
     private func doOpen() {
+        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
+        notchDriftDiagnosticsLogger.debug("[doOpen] called, isHovering=\(isHovering) notchState=\(String(describing: vm.notchState)) gestureProgress=\(gestureProgress)")
         guard !vm.isScreenLocked else { return }
         withAnimation(liquidReleaseSpring) {
             vm.open()
@@ -1184,9 +1198,11 @@ struct ContentView: View {
     // MARK: - Hover Management
 
     private func handleHover(_ hovering: Bool) {
+        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
+        notchDriftDiagnosticsLogger.debug("[handleHover] hovering=\(hovering) notchState=\(String(describing: vm.notchState))")
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
-        
+
         if hovering {
             withAnimation(animationSpring) {
                 isHovering = true
@@ -1311,7 +1327,22 @@ struct ContentView: View {
 
         if translation > Defaults[.gestureSensitivity] {
             if Defaults[.enableHaptics] { haptics.toggle() }
-            withAnimation(animationSpring) { gestureProgress = .zero }
+            // Snapping this instantly (not via animationSpring) matters here:
+            // mainLayout has two stacked .animation(_:value:) modifiers on the
+            // same subtree — one keyed on gestureProgress, one keyed on
+            // vm.notchState (the geometry spring doOpen() below triggers).
+            // Stacking .animation(_:value:) with different trigger values on
+            // the same view chain is unreliable in SwiftUI — when a fast
+            // swipe crosses the threshold, gestureProgress is still mid-flight
+            // from the ongoing animationSpring update just above, and
+            // resetting it via ANOTHER withAnimation right as doOpen() fires
+            // let the two compete over the same geometry, which is what made
+            // the notch mask visibly lag on fast swipes but not slow ones
+            // (a slow swipe crosses the threshold with gestureProgress much
+            // closer to already settled, so there's less to collide over).
+            var noAnimation = Transaction()
+            noAnimation.disablesAnimations = true
+            withTransaction(noAnimation) { gestureProgress = .zero }
             doOpen()
         }
     }

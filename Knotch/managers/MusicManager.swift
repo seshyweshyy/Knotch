@@ -788,7 +788,7 @@ class MusicManager: ObservableObject {
         }
     }
 
-    func forceUpdate() {
+    func forceUpdate(completion: (() -> Void)? = nil) {
         // Request immediate update from the active controller
         Task { [weak self] in
             if self?.activeController?.isActive() == true {
@@ -798,6 +798,12 @@ class MusicManager: ObservableObject {
                     await self?.activeController?.updatePlaybackInfo()
                 }
             }
+            // Callers (e.g. KnotchViewModel.open()) use this to know when it's
+            // safe to stop treating a notchSize correction as "still catching
+            // up from open" — always fire it, even when the guard above skips
+            // the actual poll, so callers never wait on a signal that never
+            // comes.
+            await MainActor.run { completion?() }
         }
     }
     
