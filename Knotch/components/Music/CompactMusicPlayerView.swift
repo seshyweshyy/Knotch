@@ -67,7 +67,7 @@ struct CompactMusicPlayerView: View {
 
             ZStack(alignment: .top) {
                 HStack {
-                    AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace, size: albumArtSize, pausedFadeOpacity: 0.92, cornerRadiusScale: 0.85)
+                    AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace, size: albumArtSize, pausedFadeOpacity: 0.95, cornerRadiusScale: 0.7)
                     Spacer()
                 }
                 .offset(y: -pullUp)

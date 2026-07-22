@@ -806,16 +806,6 @@ struct ContentView: View {
                             .animation(vm.notchState == .open ? liquidReleaseSpring : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                     }
-                    // TEMP DIAGNOSTIC — remove once the every-open X-drift bug is
-                    // root-caused. Logs whenever the corner radii feeding
-                    // currentNotchShape change, to correlate against notchSize/
-                    // liquidPullHorizontal logging in KnotchViewModel.
-                    .onChange(of: topCornerRadius) { old, new in
-                        notchDriftDiagnosticsLogger.debug("[topCornerRadius] \(old) -> \(new)")
-                    }
-                    .onChange(of: currentBottomCornerRadius) { old, new in
-                        notchDriftDiagnosticsLogger.debug("[currentBottomCornerRadius] \(old) -> \(new)")
-                    }
                     .contentShape(Rectangle())
                     .onHover { hovering in
                         handleHover(hovering)
@@ -1202,8 +1192,6 @@ struct ContentView: View {
     }
 
     private func doOpen() {
-        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
-        notchDriftDiagnosticsLogger.debug("[doOpen] called, isHovering=\(isHovering) notchState=\(String(describing: vm.notchState)) gestureProgress=\(gestureProgress)")
         guard !vm.isScreenLocked else { return }
         withAnimation(liquidReleaseSpring) {
             vm.open()
@@ -1213,8 +1201,6 @@ struct ContentView: View {
     // MARK: - Hover Management
 
     private func handleHover(_ hovering: Bool) {
-        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
-        notchDriftDiagnosticsLogger.debug("[handleHover] hovering=\(hovering) notchState=\(String(describing: vm.notchState))")
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
 

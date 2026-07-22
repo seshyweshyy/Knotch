@@ -11,8 +11,6 @@ import SwiftUI
 import os
 
 private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
-// TEMP DIAGNOSTIC — remove once the every-open X-drift bug is root-caused.
-let notchDriftDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "NotchDriftDiagnostics")
 
 class KnotchViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
@@ -40,26 +38,14 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     @Published var screenUUID: String?
 
-    // TEMP DIAGNOSTIC didSet logging below — remove once the every-open
-    // X-drift bug is root-caused.
-    @Published var notchSize: CGSize = getClosedNotchSize() {
-        didSet {
-            guard notchSize != oldValue else { return }
-            notchDriftDiagnosticsLogger.debug("[notchSize] \(String(describing: oldValue)) -> \(String(describing: self.notchSize))")
-        }
-    }
+    @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
 
     // Cosmetic "liquid pull" stretch amount, shared so any gesture surface
     // inside the notch (not just the notch body itself) can drive it —
     // e.g. the calendar day scroller's own horizontal drag.
     @Published var liquidPull: CGFloat = .zero
-    @Published var liquidPullHorizontal: CGFloat = .zero {
-        didSet {
-            guard liquidPullHorizontal != oldValue else { return }
-            notchDriftDiagnosticsLogger.debug("[liquidPullHorizontal] \(oldValue) -> \(self.liquidPullHorizontal)")
-        }
-    }
+    @Published var liquidPullHorizontal: CGFloat = .zero
 
     private var liquidVerticalFactor: CGFloat {
         min(liquidPull, liquidPullClamp) / liquidPullClamp
@@ -394,12 +380,14 @@ class KnotchViewModel: NSObject, ObservableObject {
     }
 
     func open() {
-        // TEMP DIAGNOSTIC — remove once the fast-hover X-drift bug is root-caused.
-        notchDriftDiagnosticsLogger.debug("[vm.open] called, notchState=\(String(describing: self.notchState)) at \(Date().timeIntervalSince1970)")
         guard !isScreenLocked else { return }
         lastOpenAt = Date()
-        // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug
-        // is root-caused. See KnotchSkyLightWindow.knotchWillOpen for why.
+        // NSGlassEffectView's backdrop capture goes stale the same way it
+        // does on space/app switches (see KnotchSkyLightWindow's other use
+        // of refreshGlassBackdrop) — just triggered by this panel's own
+        // resize instead. Without this nudge, the glass visibly kept
+        // resolving its edges for a beat after the open spring had already
+        // settled. See KnotchSkyLightWindow.knotchWillOpen for the handler.
         NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
         // liquidPullHorizontal/hudEdgeOvershoot only reset on a gesture's
         // .ended phase or a HUD bounce completing — an interrupted drag or a

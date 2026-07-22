@@ -95,15 +95,14 @@ class KnotchSkyLightWindow: NSPanel {
             }
             .store(in: &observers)
 
-        // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug
-        // is root-caused. Measured pixel data shows the glass's own edge/
-        // lensing boundary (not vm.notchSize, not corner radius — both
-        // confirmed to change exactly once, cleanly) keeps drifting for
-        // ~200ms after the panel's width has already settled, specifically
-        // near the top where the glass highlight is concentrated. Given the
-        // backdrop-capture staleness this class already works around above,
-        // this tests whether the SAME staleness — now triggered by the
-        // panel's own resize, not just space/app changes — explains it.
+        // Same backdrop-capture staleness this class already works around
+        // above (space/app switches), just triggered by the panel's own
+        // open resize instead. Without this, the glass's edge/lensing kept
+        // visibly drifting for ~200ms after the panel's width had already
+        // settled — confirmed via pixel measurement that neither
+        // vm.notchSize nor the corner radii were the cause (both change
+        // exactly once, cleanly); it was specifically the glass material
+        // catching up to geometry it already had.
         NotificationCenter.default
             .publisher(for: .knotchWillOpen)
             .sink { [weak self] _ in
