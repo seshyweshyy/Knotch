@@ -1086,8 +1086,18 @@ struct ContentView: View {
                             else if coordinator.sneakPeek.type == .music {
                                 if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard {
                                     HStack(alignment: .center) {
+                                        // Zero-width, hidden — reserves exactly the same
+                                        // intrinsic height the visible music.note icon used
+                                        // to contribute as a real sibling here, so the
+                                        // .fixedSize() below still computes the original
+                                        // (compact) ideal height for this row instead of
+                                        // falling back to GeometryReader's own ambiguous
+                                        // ideal size, which drifted taller. Takes no
+                                        // horizontal space, so it doesn't push the visible
+                                        // (now inline) icon+text away from the leading edge.
                                         Image(systemName: "music.note")
-                                            .foregroundStyle(Color.gray.opacity(0.6))
+                                            .hidden()
+                                            .frame(width: 0)
                                         GeometryReader { geo in
                                             MarqueeText(
                                                 .constant(musicManager.songTitle + " • " + musicManager.artistName),
@@ -1097,16 +1107,21 @@ struct ContentView: View {
                                                 frameWidth: geo.size.width,
                                                 dimmedSubstring: "•",
                                                 dimmedColor: Color.gray.opacity(0.6),
-                                                scrollSpeed: 34
+                                                scrollSpeed: 34,
+                                                leadingIcon: "music.note",
+                                                leadingIconColor: Color.gray.opacity(0.6),
+                                                centerWhenFits: true
                                             )
-                                            .edgeFade()
+                                            .edgeFade(leading: 6)
                                         }
                                     }
-                                    // No horizontal padding here before meant the icon/text
-                                    // sat flush against the leading/trailing edge — fine
-                                    // against the old flat 6pt corner, but crowded now that
-                                    // the top corner curves inward at 12pt.
-                                    .padding(.horizontal, 12)
+                                    // Leading kept tighter than trailing — this row's own
+                                    // bottom-left corner doesn't curve in as sharply as the
+                                    // notch's top corner does, so it can sit closer to the
+                                    // edge and give the marquee more room before it needs to
+                                    // scroll at all.
+                                    .padding(.leading, 5)
+                                    .padding(.trailing, 12)
                                     .padding(.bottom, 10)
                                 }
                             }

@@ -462,9 +462,16 @@ struct CompactCalendarView: View {
                 : (showAllDaySummary ? [] : allDayEvents.dropFirst(allDayPillCount)) + timedEvents.dropFirst(1)
             VStack(alignment: .leading, spacing: 4) {
                 if showAllDaySummary {
-                    CompactAllDaySummaryRow(events: allDayEvents)
-                        .id(selectedDate)
-                        .transition(pillTransition)
+                    Button {
+                        if let firstAllDay = allDayEvents.first, let url = firstAllDay.calendarAppURL() {
+                            openURL(url)
+                        }
+                    } label: {
+                        CompactAllDaySummaryRow(events: allDayEvents)
+                    }
+                    .buttonStyle(OpacityReactiveButtonStyle())
+                    .id(selectedDate)
+                    .transition(pillTransition)
                 } else {
                     ForEach(allDayEvents.prefix(allDayPillCount)) { event in
                         Button {
@@ -950,6 +957,17 @@ private struct EventRowButtonStyle: ButtonStyle {
                 }
             }
             .clipShape(isCapsule ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: 5)))
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+// The classic dim-on-press feedback, no colored background — used where a
+// calendar-color highlight wouldn't make sense (e.g. a row standing in for
+// several events, each with a different calendar color).
+private struct OpacityReactiveButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.5 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
