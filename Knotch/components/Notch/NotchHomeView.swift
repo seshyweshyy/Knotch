@@ -801,8 +801,8 @@ struct NotchHomeView: View {
     // matches the direction of the swipe-down gesture that triggers the swap.
     private var compactViewTransition: AnyTransition {
         .asymmetric(
-            insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .blur(radius: 14)),
-            removal: .move(edge: .top).combined(with: .opacity).combined(with: .blur(radius: 14))
+            insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .blur(radius: 30)),
+            removal: .move(edge: .top).combined(with: .opacity).combined(with: .blur(radius: 30))
         )
     }
 

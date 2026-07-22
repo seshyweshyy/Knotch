@@ -5,8 +5,31 @@
 //  Created by Harsh Vardhan  Goswami  on 08/09/24.
 //
 
+import AppKit
 import Defaults
 import SwiftUI
+
+private extension Color {
+    // The opaque equivalent of this color at low alpha over a black backdrop
+    // — i.e. what the pill's own translucent background tint looks like —
+    // but as a solid color, so it stays visible drawn on top of a full-
+    // saturation circle of the same base hue instead of blending back into it.
+    func opaqueDarkTint(alpha: Double) -> Color {
+        let ns = NSColor(self).usingColorSpace(.deviceRGB) ?? NSColor(self)
+        return Color(red: ns.redComponent * alpha, green: ns.greenComponent * alpha, blue: ns.blueComponent * alpha)
+    }
+
+}
+
+// The exact same press-highlight tint EventRowButtonStyle draws behind a
+// pressed row — factored out so CompactAllDayPill's circle can reuse the
+// identical view instead of a separately reconstructed approximation of it.
+private func pillPressTint(_ color: Color) -> some View {
+    ZStack {
+        Color.white
+        color.opacity(0.8)
+    }
+}
 
 struct Config: Equatable {
     //    var count: Int = 10  // 3 days past + today + 7 days future
@@ -294,6 +317,9 @@ struct CompactCalendarView: View {
             if event.type.isReminder && !Defaults[.compactShowReminders] {
                 return false
             }
+            if event.isAllDay && !Defaults[.compactShowAllDayEvents] {
+                return false
+            }
             if case .reminder(let completed) = event.type, completed {
                 return false
             }
@@ -368,28 +394,46 @@ struct CompactCalendarView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                .font(.system(size: 12, weight: .bold, design: .default))
-                .foregroundColor(.red)
-                // Forces a fresh view (rather than an in-place text update)
-                // whenever the weekday changes, so the scale/opacity
-                // transition below actually has something to animate.
-                .id(selectedDate.formatted(.dateTime.weekday(.abbreviated)))
-                .transition(.opacity.combined(with: .scale(scale: 0.5)))
-                .animation(.spring(response: 0.35, dampingFraction: 0.6), value: selectedDate)
-            Text("\(Calendar.current.component(.day, from: selectedDate))")
-                .font(.system(size: 30, weight: .light, design: .default))
-                .foregroundColor(.white)
-                .contentTransition(.numericText(value: Double(Calendar.current.component(.day, from: selectedDate))))
-                .animation(.snappy(duration: 0.35), value: selectedDate)
+        Button {
+            let scheme: String
+            switch Defaults[.calendarApp] {
+            case .fantastical:  scheme = "x-fantastical3://"
+            case .busyCal:      scheme = "busycal://"
+            case .notionCal:    scheme = "notion://"
+            case .apple:        scheme = "ical://"
+            }
+            if let url = URL(string: scheme) {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                    .font(.system(size: 12, weight: .bold, design: .default))
+                    .foregroundColor(.red)
+                    // Forces a fresh view (rather than an in-place text update)
+                    // whenever the weekday changes, so the scale/opacity
+                    // transition below actually has something to animate.
+                    .id(selectedDate.formatted(.dateTime.weekday(.abbreviated)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.5)))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.6), value: selectedDate)
+                Text("\(Calendar.current.component(.day, from: selectedDate))")
+                    .font(.system(size: 30, weight: .light, design: .default))
+                    .foregroundColor(.white)
+                    .contentTransition(.numericText(value: Double(Calendar.current.component(.day, from: selectedDate))))
+                    .animation(.snappy(duration: 0.35), value: selectedDate)
+            }
         }
+        .buttonStyle(.plain)
     }
 
     // Capped at a fixed number of rows (1 all-day pill + 1 timed event +
     // 1 overflow summary) regardless of how many events exist, so this
     // view's height never depends on the day's event count.
     private let maxAllDayPills = 1
+    // Same fixed budget as above, expressed as a row count — when the day's
+    // events (all-day + timed) fit within it, every one of them gets its
+    // own row instead of collapsing straight to the 1-pill/summary forms.
+    private let maxRows = 3
 
     // All-day events are pinned above the timed list, rendered small as
     // pills rather than full event rows.
@@ -402,11 +446,35 @@ struct CompactCalendarView: View {
         if allDayEvents.isEmpty && timedEvents.isEmpty {
             emptyState
         } else {
-            let hiddenEvents = allDayEvents.dropFirst(maxAllDayPills) + timedEvents.dropFirst(1)
+            // Everything fits its own row without collapsing anything, so
+            // show every all-day event individually rather than jumping
+            // straight to the compressed 1-pill/summary-row forms below.
+            let fitsIndividually = allDayEvents.count + timedEvents.count <= maxRows
+            let allDayPillCount = fitsIndividually ? allDayEvents.count : maxAllDayPills
+            // With more than one all-day event and not enough room to list
+            // them individually, a single pill can only ever show one of
+            // them — swap to the icon-stack summary row instead so nothing
+            // is silently hidden, and none of the all-day events then need
+            // to fall through to the generic overflow row below.
+            let showAllDaySummary = !fitsIndividually && allDayEvents.count > 1
+            let hiddenEvents = fitsIndividually
+                ? []
+                : (showAllDaySummary ? [] : allDayEvents.dropFirst(allDayPillCount)) + timedEvents.dropFirst(1)
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(allDayEvents.prefix(maxAllDayPills)) { event in
-                    CompactAllDayPill(event: event)
+                if showAllDaySummary {
+                    CompactAllDaySummaryRow(events: allDayEvents)
+                        .id(selectedDate)
                         .transition(pillTransition)
+                } else {
+                    ForEach(allDayEvents.prefix(allDayPillCount)) { event in
+                        Button {
+                            if let url = event.calendarAppURL() { openURL(url) }
+                        } label: {
+                            CompactAllDayPill(event: event)
+                        }
+                        .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color), isCapsule: true))
+                        .transition(pillTransition)
+                    }
                 }
                 if let firstTimed = timedEvents.first {
                     Button {
@@ -456,17 +524,35 @@ struct CompactCalendarView: View {
 
 private struct CompactAllDayPill: View {
     let event: EventModel
+    @Environment(\.eventRowPressed) private var isPressed
 
+    private var calColor: Color { isPressed ? .black : Color(event.calendar.color) }
+    // Same dark tint as the pill's own background fill at rest, flips to
+    // black alongside the text/circle-adjacent content when pressed.
+    private var glyphColor: Color {
+        isPressed ? .black : Color(event.calendar.color).opaqueDarkTint(alpha: 0.12)
+    }
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: "calendar")
-                .font(.system(size: 9, weight: .semibold, design: .default))
-                .foregroundColor(Color(event.calendar.color))
+            Image(systemName: event.type.iconName)
+                .font(.system(size: 8, weight: .semibold, design: .default))
+                .foregroundColor(glyphColor)
+                .frame(width: 14, height: 14)
+                .background {
+                    // The exact same tint the pill itself shows when
+                    // pressed, instead of the plain solid calendar color.
+                    if isPressed {
+                        pillPressTint(Color(event.calendar.color))
+                    } else {
+                        Color(event.calendar.color)
+                    }
+                }
+                .clipShape(Circle())
             Text(event.title)
                 .font(.system(size: 10, weight: .medium, design: .default))
                 // Tinted with the calendar color, same as CalendarEventRow's
                 // title, instead of plain white.
-                .foregroundColor(Color(event.calendar.color))
+                .foregroundColor(calColor)
                 .lineLimit(1)
         }
         .padding(.horizontal, 6)
@@ -478,6 +564,35 @@ private struct CompactAllDayPill: View {
         // Bounds the title's width so an unusually long one truncates with
         // "…" instead of just growing the pill to fit.
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// Shown instead of CompactAllDayPill when there's more than one all-day
+// event — a single pill can only represent one of them, so this stacks each
+// event's own icon badge (same look as CompactAllDayPill's) instead of
+// picking a single event to show and silently dropping the rest.
+private struct CompactAllDaySummaryRow: View {
+    let events: [EventModel]
+    private let maxIcons = 3
+
+    var body: some View {
+        HStack(spacing: 5) {
+            HStack(spacing: -6) {
+                ForEach(Array(events.prefix(maxIcons).enumerated()), id: \.offset) { index, event in
+                    Image(systemName: event.type.iconName)
+                        .font(.system(size: 8, weight: .semibold, design: .default))
+                        .foregroundColor(Color(event.calendar.color).opaqueDarkTint(alpha: 0.12))
+                        .frame(width: 14, height: 14)
+                        .background(Color(event.calendar.color))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.black.opacity(0.5), lineWidth: 1.5))
+                        .zIndex(Double(maxIcons - index))
+                }
+            }
+            Text("\(events.count) all-day event\(events.count == 1 ? "" : "s")")
+                .font(.system(size: 11, weight: .regular, design: .default))
+                .foregroundColor(.secondary)
+        }
     }
 }
 
@@ -820,16 +935,21 @@ struct EventListView: View {
 
 private struct EventRowButtonStyle: ButtonStyle {
     let color: Color
+    // CompactAllDayPill is a capsule, not a rounded rect — matches its own
+    // clipShape so the press highlight doesn't peek out past the pill's edges.
+    var isCapsule: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.eventRowPressed, configuration.isPressed)
-            .background(
-                configuration.isPressed
-                    ? color.opacity(0.9)
-                    : Color.clear
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .background {
+                if configuration.isPressed {
+                    pillPressTint(color)
+                } else {
+                    Color.clear
+                }
+            }
+            .clipShape(isCapsule ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: 5)))
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }

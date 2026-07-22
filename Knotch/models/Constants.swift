@@ -128,6 +128,7 @@ extension Defaults.Keys {
     static let compactShowMusicView = Key<Bool>("compactShowMusicView", default: true)
     static let compactShowCalendarView = Key<Bool>("compactShowCalendarView", default: true)
     static let compactShowReminders = Key<Bool>("compactShowReminders", default: true)
+    static let compactShowAllDayEvents = Key<Bool>("compactShowAllDayEvents", default: true)
 
     // MARK: Behavior
     static let minimumHoverDuration = Key<TimeInterval>("minimumHoverDuration", default: 0.3)
@@ -190,7 +191,7 @@ extension Defaults.Keys {
     static let legacyEnableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
     static let hasMigratedSneakPeekSplit = Key<Bool>("hasMigratedSneakPeekSplit", default: false)
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
-    static let sneakPeekMusicDuration = Key<Double>("sneakPeekMusicDuration", default: 4.0)
+    static let sneakPeekMusicDuration = Key<Double>("sneakPeekMusicDuration", default: 3.0)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)

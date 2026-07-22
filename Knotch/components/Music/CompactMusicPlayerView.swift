@@ -90,22 +90,27 @@ struct CompactMusicPlayerView: View {
                 .frame(width: totalWidth)
                 .offset(y: -pullUp + (albumArtSize - spectrumHeight) / 2)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    MarqueeText(
-                        $musicManager.songTitle,
-                        font: .system(size: 13, weight: .semibold),
-                        nsFont: .subheadline,
-                        textColor: .white,
-                        frameWidth: max(0, textAreaWidth - textLeadingInset)
-                    )
-                    Text(musicManager.artistName)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundColor(
-                            Defaults[.playerColorTinting]
-                                ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                Button {
+                    musicManager.openMusicApp()
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        MarqueeText(
+                            $musicManager.songTitle,
+                            font: .system(size: 13, weight: .semibold),
+                            nsFont: .subheadline,
+                            textColor: .white,
+                            frameWidth: max(0, textAreaWidth - textLeadingInset)
                         )
-                        .lineLimit(1)
+                        Text(musicManager.artistName)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundColor(
+                                Defaults[.playerColorTinting]
+                                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                            )
+                            .lineLimit(1)
+                    }
                 }
+                .buttonStyle(.plain)
                 .padding(.leading, textLeadingInset)
                 .frame(width: textAreaWidth, alignment: .leading)
                 .edgeFade()

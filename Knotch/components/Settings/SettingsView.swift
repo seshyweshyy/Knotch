@@ -1258,6 +1258,11 @@ struct Compact: View {
                 }
                 .disabled(!enableCompactUI || !compactShowCalendarView)
                 .settingsHighlight(id: "Compact-Show reminders")
+                Defaults.Toggle(key: .compactShowAllDayEvents) {
+                    Text("Show all-day events")
+                }
+                .disabled(!enableCompactUI || !compactShowCalendarView)
+                .settingsHighlight(id: "Compact-Show all-day events")
             } header: {
                 Text("Calendar")
             }

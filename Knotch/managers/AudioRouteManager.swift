@@ -3,6 +3,7 @@
 //  Knotch
 //
 
+import AppKit
 import CoreAudio
 import Foundation
 
@@ -16,7 +17,10 @@ struct AudioOutputDevice: Identifiable, Equatable {
 
         // Headphones/earbuds (check before speaker brands)
         if n.contains("airpods") { return "airpodspro" }
-        if n.contains("macbook") { return "laptopcomputer" }
+        // Built-in speakers are always this Mac, so use the notch/no-notch
+        // silhouette that actually matches its chassis rather than the
+        // generic "laptopcomputer" glyph.
+        if n.contains("macbook") { return Self.builtInMacHasNotch ? "macbook" : "macbook.gen1" }
         if n.contains("headphone") || n.contains("headset") { return "headphones" }
         if n.contains("earbuds") || n.contains("earphones") { return "earbuds" }
         if n.contains("homepod") { return "homepod.fill" }
@@ -66,6 +70,19 @@ struct AudioOutputDevice: Identifiable, Equatable {
             return "speaker.wave.2"
         }
     }
+
+    // Whether this Mac's built-in display has a physical camera notch —
+    // true for MacBook Pro (2021+) and MacBook Air (2022+), false for every
+    // older MacBook. Looked up once since the chassis can't change at runtime.
+    private static let builtInMacHasNotch: Bool = {
+        for screen in NSScreen.screens {
+            guard let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+                  CGDisplayIsBuiltin(screenNumber) != 0
+            else { continue }
+            return screen.safeAreaInsets.top > 0
+        }
+        return false
+    }()
 }
 
 final class AudioRouteManager: ObservableObject {

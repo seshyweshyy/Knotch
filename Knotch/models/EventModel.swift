@@ -65,6 +65,17 @@ extension EventType {
     var isEvent: Bool { if case .event = self { return true } else { return false } }
     var isBirthday: Bool { self ~= .birthday }
     var isReminder: Bool { if case .reminder = self { return true } else { return false } }
+
+    // SF Symbol matching what Calendar itself shows for each kind of
+    // all-day entry — a gift for birthdays, a checklist for reminders,
+    // and the plain calendar glyph for everything else.
+    var iconName: String {
+        switch self {
+        case .birthday: return "gift.fill"
+        case .reminder: return "checklist"
+        case .event: return "calendar"
+        }
+    }
 }
 
 extension EventModel {
