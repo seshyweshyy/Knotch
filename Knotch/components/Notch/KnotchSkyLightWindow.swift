@@ -135,18 +135,21 @@ class KnotchSkyLightWindow: NSPanel {
     }
 
     // Momentarily takes key status to force NSGlassEffectView to resample
-    // its backdrop, then immediately hands key status back so we don't
-    // steal keyboard focus from another window in the app (e.g. Settings).
-    // Safe to call opportunistically; .nonactivatingPanel means becoming
-    // key here never activates the app or steals focus from other apps.
-    // Not gated on isSkyLightEnabled: this window only enables SkyLight
-    // while the screen is locked, but the glass needs the same refresh in
-    // ordinary (unlocked) use, where SkyLight is never engaged at all.
+    // its backdrop, then hands key status back so we don't steal keyboard
+    // focus from another window in the app (e.g. Settings). Safe to call
+    // opportunistically; .nonactivatingPanel means becoming key here never
+    // activates the app or steals focus from other apps. Not gated on
+    // isSkyLightEnabled: this window only enables SkyLight while the screen
+    // is locked, but the glass needs the same refresh in ordinary
+    // (unlocked) use, where SkyLight is never engaged at all.
     func refreshGlassBackdrop() {
         guard isVisible else { return }
         let previousKeyWindow = NSApp.keyWindow
         makeKey()
-        if let previousKeyWindow, previousKeyWindow !== self {
+        guard let previousKeyWindow, previousKeyWindow !== self else { return }
+        // Delayed rather than synchronous — becoming key only triggers the
+        // resample, it doesn't block until the window server finishes it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             previousKeyWindow.makeKey()
         }
     }

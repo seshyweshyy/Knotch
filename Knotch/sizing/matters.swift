@@ -26,10 +26,18 @@ let liquidPullClamp: CGFloat = 70
 // Bouncy release used everywhere the liquid pull snaps back to zero.
 let liquidReleaseSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
 
+// Drives the open transition, kept independent of liquidReleaseSpring
+// (which stays bouncier, for the gesture release feel) but matches its
+// dampingFraction for a consistent bounce strength.
+let notchOpenSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
+
 // Release used when the HUD edge overshoot (volume/brightness hitting 0%/100%)
 // snaps back to zero. Kept independent from liquidReleaseSpring so it can be
 // tuned without affecting the gesture-driven liquid pull.
 let hudLimitBounceSpring = Animation.spring(response: 0.8, dampingFraction: 0.95, blendDuration: 0)
+
+// No overshoot on close — critically damped regardless of the open spring.
+let notchCloseSpring = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
 
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 // Add a wider size specifically for the home view

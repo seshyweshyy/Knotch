@@ -744,27 +744,54 @@ struct ContentView: View {
                             let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
                             let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
-                            if #available(macOS 26, *), semiGlassActive || fullGlassActive {
+                            if #available(macOS 26, *) {
+                                // Kept mounted at all times — swapping it in/out
+                                // creates a new NSGlassEffectView that animates in
+                                // from its initial frame, causing the open drift/
+                                // ghosting. The black cover fades instead, so the
+                                // glass view's identity never changes.
                                 KnotchLiquidGlass(
                                     topCornerRadius: topCornerRadius,
                                     bottomCornerRadius: currentBottomCornerRadius
                                 )
+                                Color.black
+                                    .opacity(semiGlassActive || fullGlassActive ? 0 : 1)
+                                    // Snapped instantly — fading it briefly exposes
+                                    // the raw glass (and what's behind the notch).
+                                    .transaction { $0.disablesAnimations = true }
                             } else {
                                 Color.black
                             }
 
-                            if #available(macOS 26, *), semiGlassActive {
+                            if #available(macOS 26, *) {
+                                // Also kept unconditionally mounted (see above) —
+                                // gating this on semiGlassActive meant it didn't
+                                // exist while closed with no live activity, so
+                                // opening from that state had to insert all three
+                                // views mid-bounce, leaving the glass briefly
+                                // uncovered. Opacity now carries
+                                // semiGlassActive/fullGlassActive instead of
+                                // presence.
+                                // Snapped instantly, same as the cover above —
+                                // without this, these kept fading out over the
+                                // close spring's full duration instead of
+                                // matching the cover's own instant snap to
+                                // opaque, so they lingered on top of it and
+                                // read as the close "fading" right at the end.
                                 Color.black
-                                    .mask {
-                                        vm.notchState == .closed
-                                            ? closedLiquidGlassGradientMask
-                                            : semiLiquidGlassGradientMask
-                                    }
-                                Color.black.opacity(0.25)
-                            }
-
-                            if #available(macOS 26, *), fullGlassActive {
-                                Color.black.opacity(0.25)
+                                    .mask { closedLiquidGlassGradientMask }
+                                    .opacity(semiGlassActive && vm.notchState == .closed ? 1 : 0)
+                                    .transaction { $0.disablesAnimations = true }
+                                Color.black
+                                    .mask { semiLiquidGlassGradientMask }
+                                    .opacity(semiGlassActive && vm.notchState != .closed ? 1 : 0)
+                                    .transaction { $0.disablesAnimations = true }
+                                Color.black
+                                    .opacity(semiGlassActive ? 0.25 : 0)
+                                    .transaction { $0.disablesAnimations = true }
+                                Color.black
+                                    .opacity(fullGlassActive ? 0.25 : 0)
+                                    .transaction { $0.disablesAnimations = true }
                             }
                         }
                     }
@@ -797,15 +824,10 @@ struct ContentView: View {
                         alignment: .top
                     )
                     .offset(x: vm.liquidPullHorizontal * 0.25)
-                    .conditionalModifier(true) { view in
-                        // Same bouncy spring as the liquid pull's release snap-back,
-                        // so opening the notch has that same overshoot/bounce feel.
-                        let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-
-                        return view
-                            .animation(vm.notchState == .open ? liquidReleaseSpring : closeAnimation, value: vm.notchState)
-                            .animation(.smooth, value: gestureProgress)
-                    }
+                    // No ambient .animation(_:value:) for vm.notchState —
+                    // KnotchViewModel.open()/close() wrap their own state
+                    // changes in explicit withAnimation(...) now.
+                    .animation(.smooth, value: gestureProgress)
                     .contentShape(Rectangle())
                     .onHover { hovering in
                         handleHover(hovering)
@@ -1151,7 +1173,15 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
                 .onChange(of: coordinator.currentView) { _, newView in
                     if vm.notchState == .open {
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                        // Matches animationSpring — the spring that actually
+                        // drives coordinator.currentView's own change (see
+                        // handleDownGesture). This used a different,
+                        // slightly slower spring, so the background/mask's
+                        // width reached its target at a different rate than
+                        // the content's own switch, briefly exposing a gap
+                        // at the corners where home (wider) and shelf
+                        // (narrower) widths didn't line up.
+                        withAnimation(animationSpring) {
                             vm.notchSize = newView == .home ? vm.computedHomeSize : openNotchSize
                         }
                     }
@@ -1193,9 +1223,8 @@ struct ContentView: View {
 
     private func doOpen() {
         guard !vm.isScreenLocked else { return }
-        withAnimation(liquidReleaseSpring) {
-            vm.open()
-        }
+        // open() drives its own animation internally now.
+        vm.open()
     }
 
     // MARK: - Hover Management

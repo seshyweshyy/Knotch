@@ -408,12 +408,16 @@ class KnotchViewModel: NSObject, ObservableObject {
         // the notch opens) — recomputing it fresh here avoids opening to a stale
         // width and then visibly correcting to the right one a moment later.
         refreshOpenHomeWidth()
-        if TimerManager.shared.isCreatingTimer {
-            self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
-        } else {
-            self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
+        // Explicit withAnimation, driven from the state change itself,
+        // instead of an ambient .animation(_:value:) modifier in ContentView.
+        withAnimation(notchOpenSpring) {
+            if TimerManager.shared.isCreatingTimer {
+                self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
+            } else {
+                self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
+            }
+            self.notchState = .open
         }
-        self.notchState = .open
         // TEMP DIAGNOSTIC — remove once the drop-zone highlight bug is root-caused.
         //dragDiagnosticsLogger.debug("[KnotchViewModel] notchState -> open")
         isSettlingFromOpen = true
@@ -436,9 +440,12 @@ class KnotchViewModel: NSObject, ObservableObject {
         if SharingStateManager.shared.preventNotchClose {
             return
         }
-        self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
-        self.closedNotchSize = self.notchSize
-        self.notchState = .closed
+        // Matches open() above — explicit withAnimation, not an ambient modifier.
+        withAnimation(notchCloseSpring) {
+            self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
+            self.closedNotchSize = self.notchSize
+            self.notchState = .closed
+        }
         self.isBatteryPopoverActive = false
         self.isMediaOutputPopoverActive = false
         self.showingCompactCalendar = false
