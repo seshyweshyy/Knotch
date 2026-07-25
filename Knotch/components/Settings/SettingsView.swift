@@ -1929,11 +1929,24 @@ struct Appearance: View {
         AVCaptureDevice.default(for: .video) != nil
     }
 
+    private var isLiquidGlassAvailable: Bool {
+        if #available(macOS 26.0, *) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    private func isStyleAvailable(_ style: NotchAppearanceStyle) -> Bool {
+        style == .solidBlack || isLiquidGlassAvailable
+    }
+
     @ViewBuilder
     func NotchAppearance() -> some View {
         Section {
             HStack(spacing: 12) {
                 ForEach(NotchAppearanceStyle.allCases, id: \.self) { style in
+                    let available = isStyleAvailable(style)
                     Button {
                         notchAppearanceStyle = style
                     } label: {
@@ -1950,8 +1963,11 @@ struct Appearance: View {
                                 .fontWeight(.medium)
                                 .foregroundStyle(.primary)
                         }
+                        .opacity(available ? 1 : 0.4)
                     }
                     .buttonStyle(.plain)
+                    .disabled(!available)
+                    .help(available ? "" : "Requires macOS 26 or later")
                 }
                 Spacer()
             }
@@ -1972,7 +1988,11 @@ struct Appearance: View {
         } header: {
             Text("Notch appearance")
         } footer: {
-            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider to adjust to your liking.\nThe clarity of the clear glass can be adjusted in macOS system settings.")
+            Text(
+                isLiquidGlassAvailable
+                ? "Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider to adjust to your liking.\nThe clarity of the clear glass can be adjusted in macOS system settings."
+                : "Semi Liquid Glass and Full Liquid Glass require macOS 26 or later."
+            )
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

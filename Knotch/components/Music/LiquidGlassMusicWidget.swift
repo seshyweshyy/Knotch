@@ -47,7 +47,15 @@ struct LiquidGlassMusicWidget: View {
             innerContent
                 .background(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(.black.opacity(0.55))
+                        .fill(.thickMaterial)
+                        // Forced dark so the material stays a dark frosted look
+                        // regardless of system appearance, matching the lock
+                        // screen's always-dark iOS 18-style now-playing card.
+                        .environment(\.colorScheme, .dark)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(Color.black.opacity(0.25))
+                        )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
