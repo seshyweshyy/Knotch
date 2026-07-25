@@ -109,6 +109,128 @@ private struct SettingsSearchEntry: Identifiable {
     var id: String { "\(tabID)-\(title)" }
 }
 
+// MARK: - Liquid Glass Helpers
+//
+// macOS 26 introduces native Liquid Glass (Glass/.glassEffect/.buttonStyle(.glass)).
+// The app's deployment target is macOS 14/15, so every use here falls back to the
+// previous hand-drawn material/fill styling on older systems.
+
+private struct SettingsGlassCapsule: ViewModifier {
+    var cornerRadius: CGFloat
+    var interactive: Bool = true
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(
+                interactive ? Glass.regular.interactive() : .regular,
+                in: .rect(cornerRadius: cornerRadius, style: .continuous)
+            )
+        } else {
+            content.background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+                    .shadow(color: .black.opacity(0.08), radius: 1.5, x: 0, y: 1)
+            )
+        }
+    }
+}
+
+private struct SettingsGlassPanel: ViewModifier {
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.7)
+                )
+        }
+    }
+}
+
+/// Draws a glass background around the button's own label with no other opinions —
+/// unlike the system `.glass`/`.glassProminent` styles (PrimitiveButtonStyle, AppKit-bridged
+/// on macOS), it doesn't replace the button's gesture handling (which was losing to Form/
+/// Section row-click handling and swallowing taps) and doesn't force its own text tint
+/// (which was overriding the explicit `.foregroundStyle` colors set on our labels).
+@available(macOS 26.0, *)
+private struct SettingsGlassButtonStyle: ButtonStyle {
+    var glass: Glass
+    var cornerRadius: CGFloat
+    var horizontalPadding: CGFloat = 12
+    var verticalPadding: CGFloat = 8
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, verticalPadding)
+            .padding(.horizontal, horizontalPadding)
+            .contentShape(Rectangle())
+            .glassEffect(glass, in: .rect(cornerRadius: cornerRadius, style: .continuous))
+            .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+extension View {
+    fileprivate func settingsGlassCapsule(cornerRadius: CGFloat, interactive: Bool = true) -> some View {
+        modifier(SettingsGlassCapsule(cornerRadius: cornerRadius, interactive: interactive))
+    }
+
+    fileprivate func settingsGlassPanel(cornerRadius: CGFloat) -> some View {
+        modifier(SettingsGlassPanel(cornerRadius: cornerRadius))
+    }
+
+    /// Primary/prominent action buttons — accent-tinted glass on macOS 26+, .borderedProminent before.
+    @ViewBuilder
+    fileprivate func settingsProminentGlassButton() -> some View {
+        if #available(macOS 26.0, *) {
+            self
+                .foregroundStyle(.white)
+                .buttonStyle(SettingsGlassButtonStyle(
+                    // Fixed system blue — intentionally does not track the user's custom
+                    // accent color (unlike Quit's clear glass or other accent-aware UI).
+                    glass: Glass.regular.tint(Color(nsColor: .systemBlue)).interactive(),
+                    cornerRadius: 15,
+                    horizontalPadding: 16
+                ))
+        } else {
+            self.buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Subtle row-style buttons (Check for Updates, etc.) — dark grey glass on macOS 26+, custom subtle style before.
+    @ViewBuilder
+    fileprivate func settingsSubtleGlassButton() -> some View {
+        if #available(macOS 26.0, *) {
+            self
+                .buttonStyle(SettingsGlassButtonStyle(
+                    glass: Glass.regular.tint(Color(white: 0.28)).interactive(),
+                    cornerRadius: 15
+                ))
+                .padding(.vertical, 1)
+                .padding(.horizontal, 2)
+        } else {
+            self.buttonStyle(SubtleRowButtonStyle())
+        }
+    }
+
+    /// Clear, untinted glass — for actions like Quit that shouldn't carry a colored fill.
+    @ViewBuilder
+    fileprivate func settingsClearGlassButton() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(SettingsGlassButtonStyle(glass: Glass.clear.interactive(), cornerRadius: 15))
+        } else {
+            self.buttonStyle(.borderedProminent).tint(Color(nsColor: .black))
+        }
+    }
+}
+
 // MARK: - Sidebar Search Bar
 
 private struct SettingsSidebarSearchBar: View {
@@ -155,11 +277,7 @@ private struct SettingsSidebarSearchBar: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.4))
-                    .shadow(color: .black.opacity(0.08), radius: 1.5, x: 0, y: 1)
-            )
+            .settingsGlassCapsule(cornerRadius: 20)
             .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
 
             if showSuggestions {
@@ -219,14 +337,7 @@ private struct SettingsSidebarSearchBar: View {
                     }
                 }
                 .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.7)
-                )
+                .settingsGlassPanel(cornerRadius: 12)
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
@@ -532,11 +643,17 @@ struct SettingsView: View {
                                     .padding(.vertical, 6)
                                     .frame(maxWidth: .infinity)
                                     .contentShape(Rectangle())
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(selectedTab == tab.id ? Color.effectiveAccent : Color.clear)
-                                            .padding(.horizontal, 4)
-                                    )
+                                    .background {
+                                        if #available(macOS 26.0, *), selectedTab == tab.id {
+                                            Color.clear
+                                                .glassEffect(.regular.tint(Color.effectiveAccent).interactive(), in: .rect(cornerRadius: 10, style: .continuous))
+                                                .padding(.horizontal, 4)
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(selectedTab == tab.id ? Color.effectiveAccent : Color.clear)
+                                                .padding(.horizontal, 4)
+                                        }
+                                    }
                                 }
                                 .buttonStyle(.plain)
                                 .padding(.horizontal, 4)
@@ -560,13 +677,17 @@ struct SettingsView: View {
                             Button(role: .destructive) {
                                 NSApp.terminate(nil)
                             } label: {
-                                Label("Quit Knotch", systemImage: "power")
-                                    .font(.system(size: 12, weight: .medium))
+                                HStack(spacing: 5) {
+                                    Image(systemName: "power")
+                                        .foregroundStyle(.red)
+                                    Text("Quit Knotch")
+                                        .foregroundStyle(.white)
+                                }
+                                .font(.system(size: 12, weight: .medium))
                             }
-                            .buttonStyle(.borderedProminent)
+                            .settingsClearGlassButton()
                             .controlSize(.large)
                             .padding(.trailing, 20)
-                            .tint(Color(nsColor: .black))
                         }
                     }
                 }
@@ -941,8 +1062,16 @@ struct LiveActivitiesSettings: View {
                                 bluetoothHUDIconStyle = style
                             } label: {
                                 VStack(spacing: 8) {
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
+                                    Group {
+                                        if #available(macOS 26.0, *) {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(.clear)
+                                                .glassEffect(.regular, in: .rect(cornerRadius: 12, style: .continuous))
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
+                                        }
+                                    }
                                         .frame(width: 80, height: 80)
                                         .overlay {
                                             Group {
@@ -1067,7 +1196,7 @@ struct HUD: View {
                             Button("Request Accessibility") {
                                 XPCHelperClient.shared.requestAccessibilityAuthorization()
                             }
-                            .buttonStyle(.borderedProminent)
+                            .settingsProminentGlassButton()
                         }
                     }
                     .padding(.top, 6)
@@ -2396,7 +2525,7 @@ struct About: View {
                                 }
                         }
                     }
-                    .buttonStyle(SubtleRowButtonStyle())
+                    .settingsSubtleGlassButton()
                     .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
                     .settingsHighlight(id: "About-Check for Updates")
                     UpdaterSettingsView(updater: updaterController.updater)
