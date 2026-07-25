@@ -361,9 +361,9 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "General", title: "Close gesture", keywords: ["close", "gesture", "swipe"], highlightID: "General-Close gesture"),
             SettingsSearchEntry(tabID: "General", title: "Swipe to cycle views", keywords: ["swipe", "cycle", "views"], highlightID: "General-Swipe to cycle views"),
             SettingsSearchEntry(tabID: "General", title: "Gesture sensitivity", keywords: ["gesture", "sensitivity", "speed"], highlightID: "General-Gesture sensitivity"),
-            SettingsSearchEntry(tabID: "General", title: "Notch appearance", keywords: ["notch appearance", "solid black", "semi liquid glass", "full liquid glass", "style"], highlightID: "General-Notch appearance style"),
-            SettingsSearchEntry(tabID: "General", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
             // Appearance
+            SettingsSearchEntry(tabID: "Appearance", title: "Notch appearance", keywords: ["notch appearance", "solid black", "semi liquid glass", "full liquid glass", "style"], highlightID: "Appearance-Notch appearance style"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
@@ -642,8 +642,6 @@ struct GeneralSettings: View {
     @Default(.gestureSensitivity) var gestureSensitivity
     @Default(.minimumHoverDuration) var minimumHoverDuration
     @Default(.nonNotchHeight) var nonNotchHeight
-    @Default(.notchAppearanceStyle) var notchAppearanceStyle
-    @Default(.semiLiquidGlassTransition) var semiLiquidGlassTransition
     @Default(.nonNotchHeightMode) var nonNotchHeightMode
     @Default(.notchHeight) var notchHeight
     @Default(.notchHeightMode) var notchHeightMode
@@ -749,7 +747,6 @@ struct GeneralSettings: View {
                 Text("Notch sizing")
             }
 
-            NotchAppearance()
             NotchBehaviour()
             gestureControls()
         }
@@ -808,55 +805,6 @@ struct GeneralSettings: View {
         }
     }
     
-    @ViewBuilder
-    func NotchAppearance() -> some View {
-        Section {
-            HStack(spacing: 12) {
-                ForEach(NotchAppearanceStyle.allCases, id: \.self) { style in
-                    Button {
-                        notchAppearanceStyle = style
-                    } label: {
-                        VStack(spacing: 6) {
-                            NotchStylePreview(style: style)
-                                .frame(width: 100, height: 52)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(notchAppearanceStyle == style ? Color.accentColor : Color.clear, lineWidth: 2.5)
-                                )
-                            Text(style.rawValue)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(.vertical, 4)
-            .settingsHighlight(id: "General-Notch appearance style")
-
-            if notchAppearanceStyle == .semiLiquidGlass {
-                Slider(value: $semiLiquidGlassTransition, in: 0.05...0.8, step: 0.05) {
-                    HStack {
-                        Text("Semi Liquid Glass Amount")
-                        Spacer()
-                        Text("\(Int(semiLiquidGlassTransition * 100))%")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .settingsHighlight(id: "Appearance-Semi liquid glass amount")
-            }
-        } header: {
-            Text("Notch appearance")
-        } footer: {
-            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider to adjust to your liking.\nThe clarity of the clear glass can be adjusted in macOS system settings.")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-        }
-    }
-
     @ViewBuilder
     func NotchBehaviour() -> some View {
         Section {
@@ -1225,14 +1173,24 @@ struct Compact: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(key: .enableCompactUI) {
-                    Text("Enable Compact UI")
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Compact UI")
+                            .font(.headline)
+                        Text("Compact mode replaces the standard media player with a smaller, notch-hugging layout, and hides the shelf and header icons.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 40)
+                    Defaults.Toggle("", key: .enableCompactUI)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.large)
                 }
                 .settingsHighlight(id: "Compact-Enable Compact UI")
             } header: {
                 Text("UI Mode")
-            } footer: {
-                Text("Compact mode replaces the standard media player with a smaller, notch-hugging layout, and hides the shelf and header icons.")
             }
 
             Section {
@@ -1760,12 +1718,16 @@ struct Appearance: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.semiLiquidGlassTransition) var semiLiquidGlassTransition
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
 
     var body: some View {
         Form {
+            NotchAppearance()
+
             Section {
                 Toggle("Always show tab bar", isOn: $coordinator.alwaysShowTabs)
                     .settingsHighlight(id: "Appearance-Always show tab bar")
@@ -1836,6 +1798,55 @@ struct Appearance: View {
 
     func checkVideoInput() -> Bool {
         AVCaptureDevice.default(for: .video) != nil
+    }
+
+    @ViewBuilder
+    func NotchAppearance() -> some View {
+        Section {
+            HStack(spacing: 12) {
+                ForEach(NotchAppearanceStyle.allCases, id: \.self) { style in
+                    Button {
+                        notchAppearanceStyle = style
+                    } label: {
+                        VStack(spacing: 6) {
+                            NotchStylePreview(style: style)
+                                .frame(width: 100, height: 52)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(notchAppearanceStyle == style ? Color.accentColor : Color.clear, lineWidth: 2.5)
+                                )
+                            Text(style.rawValue)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 4)
+            .settingsHighlight(id: "Appearance-Notch appearance style")
+
+            if notchAppearanceStyle == .semiLiquidGlass {
+                Slider(value: $semiLiquidGlassTransition, in: 0.05...0.8, step: 0.05) {
+                    HStack {
+                        Text("Semi Liquid Glass Amount")
+                        Spacer()
+                        Text("\(Int(semiLiquidGlassTransition * 100))%")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .settingsHighlight(id: "Appearance-Semi liquid glass amount")
+            }
+        } header: {
+            Text("Notch appearance")
+        } footer: {
+            Text("Semi Liquid Glass shows part of the notch as frosted glass, with a visibility slider to adjust to your liking.\nThe clarity of the clear glass can be adjusted in macOS system settings.")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+        }
     }
 }
 

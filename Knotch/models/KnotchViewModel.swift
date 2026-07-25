@@ -55,10 +55,18 @@ class KnotchViewModel: NSObject, ObservableObject {
         min(abs(liquidPullHorizontal), liquidPullClamp) / liquidPullClamp
     }
 
-    var liquidStretchScale: (x: CGFloat, y: CGFloat) {
-        // Kept modest — content is still clipped by the notch's own bezel, so
-        // too large a stretch runs past those bounds and gets cut off.
-        (x: 1 + liquidHorizontalFactor * 0.015, y: 1 + liquidVerticalFactor * 0.05)
+    // Horizontal-only — vertical pull's deform is pullDownDeformScale below.
+    var liquidHorizontalStretchScale: CGFloat {
+        // Kept modest — content is clipped by the notch's own bezel.
+        1 + liquidHorizontalFactor * 0.015
+    }
+
+    // Content elongation for pull-down-to-open, cosmetic only (notchSize is
+    // untouched). Standard mode's factor is much smaller than Compact's —
+    // its layout has more content near the bottom edge and clips at Compact's amount.
+    var pullDownDeformScale: CGFloat {
+        let maxStretch: CGFloat = Defaults[.enableCompactUI] ? 0.16 : 0.02
+        return 1 + liquidVerticalFactor * maxStretch
     }
 
     // Edge opposite the horizontal pull direction, so content only grows
@@ -484,14 +492,11 @@ class KnotchViewModel: NSObject, ObservableObject {
 }
 
 extension View {
-    // Vertical-only stretch/blur, applied per-widget (header, album art, controls
-    // row, etc.) anchored to each widget's own top edge. A down-pull stacks
-    // widgets vertically with no overlap, so each one independently growing
-    // downward from where it already sits still reads as one cohesive group
-    // moving together — no shared anchor needed on this axis.
+    // Pull-down deform/blur, applied per-widget, anchored to each widget's
+    // own top edge so a down-pull elongates them together as one group.
     func liquidStretch(_ vm: KnotchViewModel) -> some View {
         self
-            .scaleEffect(x: 1, y: vm.liquidStretchScale.y, anchor: UnitPoint(x: 0.5, y: 0))
+            .scaleEffect(x: 1, y: vm.pullDownDeformScale, anchor: UnitPoint(x: 0.5, y: 0))
             .blur(radius: vm.liquidBlurRadius)
     }
 
@@ -500,6 +505,6 @@ extension View {
     // edge looks disjointed, whereas one shared anchor makes everything lean
     // toward the pull direction together, like the group is being dragged.
     func liquidHorizontalGroup(_ vm: KnotchViewModel) -> some View {
-        self.scaleEffect(x: vm.liquidStretchScale.x, y: 1, anchor: UnitPoint(x: vm.liquidHorizontalAnchorX, y: 0.5))
+        self.scaleEffect(x: vm.liquidHorizontalStretchScale, y: 1, anchor: UnitPoint(x: vm.liquidHorizontalAnchorX, y: 0.5))
     }
 }

@@ -541,15 +541,36 @@ struct ContentView: View {
     @State private var lockedView: NotchViews? = nil
 
     @State private var gestureProgress: CGFloat = .zero
+    // Base height to scale/restore from during a close-swipe. Safe to mutate
+    // vm.notchSize.height live (unlike width) — it's a fixed constant per UI
+    // mode, no reactive observer fighting over it.
+    @State private var closeSwipeBaseHeight: CGFloat = 0
+    // True only between a real .began/.ended pair for the up-swipe. PanGesture
+    // fires a phantom handleUpGesture(0, .ended) on every down-swipe too
+    // (see PanGesture.swift) — without this flag that stomped notchSize.height.
+    @State private var isCloseSwipeActive = false
 
-    // gestureProgress only goes negative while swiping up to close (handleUpGesture);
-    // it goes positive while swiping down to open from closed, when this content
-    // isn't even mounted yet. Mirrors the 20pt used by the open/close mount
-    // transition (see AnyTransition.blur) so the drag hands off into it smoothly
-    // once the swipe crosses the close threshold.
-    private var closeSwipeBlur: CGFloat {
-        max(0, min(-gestureProgress, 20))
+    // 0...1 fraction through the swipe-up close gesture. closeSwipeBlur and
+    // closeSwipeSquish both derive from this so tuning one doesn't rescale
+    // the other's timing.
+    private var closeSwipeProgress: CGFloat {
+        max(0, min(-gestureProgress, 20)) / 20
     }
+
+    // Lower than the 20pt mount-transition blur (AnyTransition.blur) —
+    // 20pt read as too heavy for the live drag.
+    private var closeSwipeBlur: CGFloat {
+        closeSwipeProgress * 8
+    }
+
+    // Flatten ratio for the close-swipe — real notchSize.height multiplier
+    // in handleUpGesture, plus a cosmetic scaleEffect on KnotchHeader (whose
+    // height doesn't come from notchSize). Eased so it shows early in the drag.
+    private var closeSwipeSquish: CGFloat {
+        let eased = (1.5 * closeSwipeProgress) / (0.5 + closeSwipeProgress)
+        return 1 - eased * 0.14
+    }
+
 
     @State private var haptics: Bool = false
     
@@ -752,11 +773,15 @@ struct ContentView: View {
 
     var body: some View {
         // Calculate scale based on gesture progress only
-        let gestureScale: CGFloat = {
+        let gestureScaleY: CGFloat = {
             guard gestureProgress != 0 else { return 1.0 }
             let scaleFactor = 1.0 + gestureProgress * 0.01
             return max(0.6, scaleFactor)
         }()
+        // x stays 1 while closing (gestureProgress < 0) — width shouldn't
+        // shrink alongside the real notchSize.height change in handleUpGesture.
+        // Pull-down-to-open bounce (positive progress) is untouched.
+        let gestureScaleX: CGFloat = gestureProgress < 0 ? 1.0 : gestureScaleY
         
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
@@ -992,8 +1017,8 @@ struct ContentView: View {
         .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .compositingGroup()
         .scaleEffect(
-            x: gestureScale,
-            y: gestureScale,
+            x: gestureScaleX,
+            y: gestureScaleY,
             anchor: .top
         )
         .animation(.smooth, value: gestureProgress)
@@ -1097,6 +1122,7 @@ struct ContentView: View {
                             KnotchHeader()
                                 .frame(height: max(24, vm.effectiveClosedNotchHeight))
                                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                                .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
                                 .blur(radius: closeSwipeBlur)
                                 .liquidStretch(vm)
                                 .transition(
@@ -1309,8 +1335,6 @@ struct ContentView: View {
     private func handleDownGesture(translation: CGFloat, phase: NSEvent.Phase) {
 
         if vm.notchState == .open {
-            guard !vm.isHoveringCalendar else { return }
-
             if phase == .began {
                 hasTriggeredSwipe = false
                 lockedView = nil
@@ -1318,6 +1342,9 @@ struct ContentView: View {
             }
 
             if phase == .ended {
+                // Not gated on isHoveringCalendar — that used to leave
+                // liquidPull stuck at its peak when the switch-view swipe
+                // landed the cursor over the calendar on release.
                 withAnimation(liquidReleaseSpring) { vm.liquidPull = .zero }
                 if hasTriggeredSwipe {
                     gestureProgress = .zero
@@ -1326,6 +1353,8 @@ struct ContentView: View {
                 }
                 return
             }
+
+            guard !vm.isHoveringCalendar else { return }
 
             // Liquid stretch follows the cursor 1:1 for the whole gesture, even after
             // the tab switch itself has already committed on the initial movement.
@@ -1416,24 +1445,42 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
+        guard vm.notchState == .open else { return }
 
-        withAnimation(animationSpring) {
-            gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
+        if phase == .began {
+            isCloseSwipeActive = true
+            closeSwipeBaseHeight = vm.notchSize.height
+        }
+
+        // Ignores phantom calls where this gesture never really started —
+        // see isCloseSwipeActive's declaration.
+        guard isCloseSwipeActive else { return }
+
+        // Not gated on isHoveringCalendar up top, so it can't swallow the
+        // .ended reset below.
+        if !vm.isHoveringCalendar {
+            withAnimation(animationSpring) {
+                gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
+                // Real height, not a cosmetic scaleEffect — the notch body itself flattens.
+                vm.notchSize.height = closeSwipeBaseHeight * closeSwipeSquish
+            }
         }
 
         if phase == .ended {
             withAnimation(animationSpring) {
                 gestureProgress = .zero
+                vm.notchSize.height = closeSwipeBaseHeight
             }
+            isCloseSwipeActive = false
         }
 
-        if translation > Defaults[.gestureSensitivity] {
+        if !vm.isHoveringCalendar && translation > Defaults[.gestureSensitivity] {
             withAnimation(animationSpring) {
                 isHovering = false
             }
-            if !SharingStateManager.shared.preventNotchClose { 
+            if !SharingStateManager.shared.preventNotchClose {
                 gestureProgress = .zero
+                isCloseSwipeActive = false
                 vm.close()
             }
 
@@ -1446,12 +1493,16 @@ struct ContentView: View {
     // Purely cosmetic — left/right swipes don't lead to anything, they just
     // let the notch stretch sideways like it's being pulled.
     private func handleHorizontalGesture(translation: CGFloat, phase: NSEvent.Phase, sign: CGFloat) {
-        guard vm.notchState == .open, !vm.isHoveringCalendar else { return }
+        guard vm.notchState == .open else { return }
 
         if phase == .ended {
+            // Not gated on isHoveringCalendar — same reasoning as the other
+            // two gesture handlers, this reset must always run on release.
             withAnimation(liquidReleaseSpring) { vm.liquidPullHorizontal = .zero }
             return
         }
+
+        guard !vm.isHoveringCalendar else { return }
 
         vm.liquidPullHorizontal = sign * min(translation, liquidPullClamp)
     }

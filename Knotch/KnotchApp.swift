@@ -14,7 +14,7 @@ import SwiftUI
 import AlbumArtBackgroundWindow
 
 @main
-struct DynamicNotchApp: App {
+struct KnotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
