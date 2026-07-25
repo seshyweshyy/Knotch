@@ -40,12 +40,16 @@ struct MarqueeText: View {
     // frameWidth renders as a single centered copy instead of the
     // (mostly invisible) scrolling pair.
     let centerWhenFits: Bool
+    // Reports back whether the text is actually scrolling this pass, so
+    // callers that mask on an edge fade (sized for scrolling/truncated text)
+    // can skip that fade when the text fits and is just centered instead.
+    var needsScrollingBinding: Binding<Bool>? = nil
 
     @State private var animate = false
     @State private var textSize: CGSize = .zero
     @State private var offset: CGFloat = 0
 
-    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, centerWhenFits: Bool = false) {
+    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, centerWhenFits: Bool = false, needsScrollingBinding: Binding<Bool>? = nil) {
         _text = text
         self.font = font
         self.nsFont = nsFont
@@ -59,6 +63,7 @@ struct MarqueeText: View {
         self.leadingIcon = leadingIcon
         self.leadingIconColor = leadingIconColor
         self.centerWhenFits = centerWhenFits
+        self.needsScrollingBinding = needsScrollingBinding
     }
 
     private var needsScrolling: Bool {
@@ -157,6 +162,7 @@ struct MarqueeText: View {
                         self.textSize = CGSize(width: size.width, height: NSFont.preferredFont(forTextStyle: nsFont).pointSize)
                         self.animate = false
                         self.offset = 0
+                        needsScrollingBinding?.wrappedValue = needsScrolling
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01){
                             if needsScrolling {
                                 self.animate = true

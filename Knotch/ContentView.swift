@@ -41,18 +41,6 @@ struct MusicLiveActivity: View {
         !musicManager.isPlaying && displayedArt !== noArtworkPlaceholderImage
     }
 
-    // Matches the paused dim applied to album art elsewhere (open notch home
-    // view / compact mode) — clipped to the same rounded shape as the art
-    // itself, with no blur, so it reads as a solid dim rather than a
-    // washed-out haze at this small a size.
-    private var pausedDarkOverlay: some View {
-        RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
-            .aspectRatio(1, contentMode: .fit)
-            .foregroundColor(Color.black)
-            .opacity(showsPausedLook ? 0.3 : 0)
-            .allowsHitTesting(false)
-    }
-
     private var artSize: CGFloat {
         max(0, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
             ? vm.effectiveClosedNotchHeight - 4   // slightly bigger during sneak peek
@@ -61,61 +49,61 @@ struct MusicLiveActivity: View {
 
     var body: some View {
         HStack {
-            ZStack(alignment: .bottomTrailing) {
-                Image(nsImage: displayedArt)
-                    .resizable()
-                    // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
-                    // ratio, not 1:1 — scale to fit so the whole thumbnail stays
-                    // visible (letterboxed) instead of being cropped or squashed.
-                    .scaledToFit()
-                    // Round the letterboxed thumbnail itself, not just the square
-                    // frame around it — otherwise non-square art keeps sharp
-                    // corners since it no longer touches the frame's edges.
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed / 2)
-                    )
-                    .frame(width: artSize, height: artSize)
-                    .clipped()
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
-                    )
-                    .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
-                    .rotation3DEffect(
-                        .degrees(rotationDegrees),
-                        axis: (x: 0, y: 1, z: 0),
-                        perspective: 0.4
-                    )
-                    .onChange(of: musicManager.artFlipSignal) { _, signal in
-                        let dir: Double = signal.direction == .forward ? 1 : -1
+            Image(nsImage: displayedArt)
+                .resizable()
+                // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
+                // ratio, not 1:1 — scale to fit so the whole thumbnail stays
+                // visible (letterboxed) instead of being cropped or squashed.
+                .scaledToFit()
+                // Round the letterboxed thumbnail itself, not just the square
+                // frame around it — otherwise non-square art keeps sharp
+                // corners since it no longer touches the frame's edges.
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed / 2)
+                )
+                // Overlay (rather than a same-size sibling shape) so the
+                // paused dim always matches the image's own resolved bounds
+                // — a plain square sibling stuck out past non-square (e.g.
+                // YouTube thumbnail) art as a visible box.
+                .overlay(
+                    RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed / 2)
+                        .foregroundColor(.black)
+                        .opacity(showsPausedLook ? 0.3 : 0)
+                        .allowsHitTesting(false)
+                )
+                .frame(width: artSize, height: artSize)
+                .clipped()
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
+                )
+                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
+                .rotation3DEffect(
+                    .degrees(rotationDegrees),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.4
+                )
+                .onChange(of: musicManager.artFlipSignal) { _, signal in
+                    let dir: Double = signal.direction == .forward ? 1 : -1
 
-                        withAnimation(.easeIn(duration: 0.15)) {
-                            rotationDegrees = dir * 90
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            displayedArt = signal.art
-                            rotationDegrees = dir * -90
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                rotationDegrees = 0
-                            }
+                    withAnimation(.easeIn(duration: 0.15)) {
+                        rotationDegrees = dir * 90
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        displayedArt = signal.art
+                        rotationDegrees = dir * -90
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            rotationDegrees = 0
                         }
                     }
-
-                pausedDarkOverlay
-            }
-            // Explicit — pausedDarkOverlay has no frame of its own (just
-            // aspectRatio(1, .fit)), so without this the ZStack sizes itself
-            // from the shape's ambiguous ideal size instead of the image's
-            // actual size, inflating the bounding box and shifting the
-            // .bottomTrailing-aligned art away from the top-left corner.
-            .frame(width: artSize, height: artSize)
-            // Explicit, so this always eases smoothly regardless of whatever
-            // (often much faster) animation duration wraps the isPlaying
-            // change at the call site, matching the open notch/compact art.
-            .scaleEffect(showsPausedLook ? 0.90 : 1)
-            .animation(.smooth(duration: 0.35), value: showsPausedLook)
+                }
+                // Explicit, so this always eases smoothly regardless of whatever
+                // (often much faster) animation duration wraps the isPlaying
+                // change at the call site, matching the open notch/compact art.
+                .scaleEffect(showsPausedLook ? 0.90 : 1)
+                .animation(.smooth(duration: 0.35), value: showsPausedLook)
 
             Rectangle()
                 .fill(glassActive ? Color.clear : Color.black)
@@ -539,6 +527,10 @@ struct ContentView: View {
 
     @State private var hasTriggeredSwipe = false
     @State private var lockedView: NotchViews? = nil
+    // Tracks whether the closed-notch sneak peek title is actually scrolling,
+    // so the edge fade (sized for scrolling/truncated text) only shows up
+    // when there's scrolling text to soften — not over a short, centered title.
+    @State private var sneakPeekTitleScrolling = false
 
     @State private var gestureProgress: CGFloat = .zero
     // Base height to scale/restore from during a close-swipe. Safe to mutate
@@ -1187,9 +1179,12 @@ struct ContentView: View {
                                                 scrollSpeed: 34,
                                                 leadingIcon: "music.note",
                                                 leadingIconColor: Color.gray.opacity(0.6),
-                                                centerWhenFits: true
+                                                centerWhenFits: true,
+                                                needsScrollingBinding: $sneakPeekTitleScrolling
                                             )
-                                            .edgeFade(leading: 6)
+                                            .conditionalModifier(sneakPeekTitleScrolling) { view in
+                                                view.edgeFade(leading: 6)
+                                            }
                                         }
                                     }
                                     // Leading kept tighter than trailing — this row's own

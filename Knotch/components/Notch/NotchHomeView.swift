@@ -57,7 +57,7 @@ struct AlbumArtView: View {
     @ObservedObject var vm: KnotchViewModel
     let albumArtNamespace: Namespace.ID
     var size: CGFloat = 132
-    // How dark albumArtDarkOverlay goes when paused.
+    // How dark the paused overlay on albumArtImage goes when paused.
     var pausedFadeOpacity: CGFloat = 0.3
     // Multiplies the corner radius so callers can round the art a bit less
     // (or more) than the standard home view without touching the shared
@@ -124,11 +124,6 @@ struct AlbumArtView: View {
         } label: {
             ZStack(alignment:.bottomTrailing) {
                 albumArtImage
-                // Inside the same ZStack (and frame) as albumArtImage, and
-                // under the same scaleEffect below, so it shrinks in lockstep
-                // with the art when paused instead of staying full-size and
-                // showing as a distinct box around the now-smaller art.
-                albumArtDarkOverlay
                 appIconOverlay
                     .allowsHitTesting(false)
             }
@@ -136,15 +131,6 @@ struct AlbumArtView: View {
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(showsPausedLook ? 0.90 : 1)
     }
-
-    private var albumArtDarkOverlay: some View {
-        RoundedRectangle(cornerRadius: activeCornerRadius)
-            .aspectRatio(1, contentMode: .fit)
-            .foregroundColor(Color.black)
-            .opacity(showsPausedLook ? pausedFadeOpacity : 0)
-            .allowsHitTesting(false)
-    }
-                
 
     private var albumArtImage: some View {
         Image(nsImage: displayedArt)
@@ -157,6 +143,17 @@ struct AlbumArtView: View {
             // frame around it — otherwise non-square art keeps sharp
             // corners since it no longer touches the frame's edges.
             .clipShape(RoundedRectangle(cornerRadius: activeCornerRadius / 2))
+            // Overlay (rather than a same-size sibling shape) so the paused
+            // dim always matches the image's own resolved bounds — a plain
+            // square sibling stuck out past non-square (e.g. YouTube
+            // thumbnail) art as a visible box once it no longer had the old
+            // blur to hide the mismatch.
+            .overlay(
+                RoundedRectangle(cornerRadius: activeCornerRadius / 2)
+                    .foregroundColor(.black)
+                    .opacity(showsPausedLook ? pausedFadeOpacity : 0)
+                    .allowsHitTesting(false)
+            )
             .frame(width: size, height: size)
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipped()
