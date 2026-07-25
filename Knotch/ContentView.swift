@@ -744,12 +744,18 @@ struct ContentView: View {
                             let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
                             let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
-                            if #available(macOS 26, *) {
-                                // Kept mounted at all times — swapping it in/out
-                                // creates a new NSGlassEffectView that animates in
-                                // from its initial frame, causing the open drift/
-                                // ghosting. The black cover fades instead, so the
-                                // glass view's identity never changes.
+                            if #available(macOS 26, *), Defaults[.notchAppearanceStyle] != .solidBlack {
+                                // Kept mounted at all times *for glass styles* —
+                                // swapping it in/out creates a new NSGlassEffectView
+                                // that animates in from its initial frame, causing
+                                // the open drift/ghosting. That only matters while
+                                // glassVisible/semiGlassActive can flip mid-bounce,
+                                // which never happens for Solid Black (both are
+                                // always false for it regardless of notchState) —
+                                // gating the mount on the style itself, which only
+                                // ever changes from Settings, lets Solid Black skip
+                                // creating the glass view at all instead of just
+                                // hiding it behind an opaque cover.
                                 KnotchLiquidGlass(
                                     topCornerRadius: topCornerRadius,
                                     bottomCornerRadius: currentBottomCornerRadius
@@ -1171,21 +1177,9 @@ struct ContentView: View {
                 // image would otherwise grow into the offered extra height and get
                 // clipped by the shape's rounded top corner.
                 .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
-                .onChange(of: coordinator.currentView) { _, newView in
-                    if vm.notchState == .open {
-                        // Matches animationSpring — the spring that actually
-                        // drives coordinator.currentView's own change (see
-                        // handleDownGesture). This used a different,
-                        // slightly slower spring, so the background/mask's
-                        // width reached its target at a different rate than
-                        // the content's own switch, briefly exposing a gap
-                        // at the corners where home (wider) and shelf
-                        // (narrower) widths didn't line up.
-                        withAnimation(animationSpring) {
-                            vm.notchSize = newView == .home ? vm.computedHomeSize : openNotchSize
-                        }
-                    }
-                }
+                // No more width transition between home and shelf — notchSize
+                // is the same (computedHomeSize) for both now, so there's
+                // nothing left for this to react to.
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)

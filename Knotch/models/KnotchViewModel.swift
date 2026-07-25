@@ -414,7 +414,10 @@ class KnotchViewModel: NSObject, ObservableObject {
             if TimerManager.shared.isCreatingTimer {
                 self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
             } else {
-                self.notchSize = coordinator.currentView == .home ? computedHomeSize : openNotchSize
+                // Same size for both home and shelf now (see the matching
+                // change in ContentView's onChange(of: coordinator.currentView))
+                // — no more width transition between them at all.
+                self.notchSize = computedHomeSize
             }
             self.notchState = .open
         }
