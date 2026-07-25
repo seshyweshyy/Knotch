@@ -163,6 +163,12 @@ struct AudioSpectrumView: View {
                 RoundedRectangle(cornerRadius: AudioSpectrum.barWidth / 2, style: .continuous)
                     .fill(Color.white)
                     .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: simulatedTime))
+                    // Bars are clamped to minHeight the instant isPlaying flips
+                    // (see barHeight's guard) with no animation of their own —
+                    // scoping this to `value: isPlaying` animates only that
+                    // transition, leaving the per-tick live/simulated motion
+                    // while playing exactly as snappy as before.
+                    .animation(.smooth(duration: 0.35), value: isPlaying)
             }
         }
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)

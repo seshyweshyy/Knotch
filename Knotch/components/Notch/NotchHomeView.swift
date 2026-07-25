@@ -67,6 +67,13 @@ struct AlbumArtView: View {
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
 
+    // The placeholder icon has no "playing"/"paused" state of its own to
+    // reflect — shrinking/dimming it in step with isPlaying would just read
+    // as the icon itself flickering for no reason.
+    private var showsPausedLook: Bool {
+        !musicManager.isPlaying && displayedArt !== noArtworkPlaceholderImage
+    }
+
     private var activeCornerRadius: CGFloat {
         (vm.notchState == .open
             ? MusicPlayerImageSizes.cornerRadiusInset.opened
@@ -85,6 +92,14 @@ struct AlbumArtView: View {
         // it previously filled whatever height it was given and clipped on the notch's
         // rounded corner during a hard pull.
         .frame(width: size, height: size)
+        // Explicit, so the art's shrink/fade always plays out at this pace
+        // regardless of whatever (often much faster) animation duration wraps
+        // the isPlaying change at the call site — e.g. the play/pause icon's
+        // own snappy transition — instead of snapping in lockstep with it.
+        // Keyed on showsPausedLook rather than isPlaying directly so it also
+        // animates the placeholder-art edge case (e.g. a paused track's real
+        // art arriving after the placeholder was showing).
+        .animation(.smooth(duration: 0.35), value: showsPausedLook)
     }
     
     @State private var blurredArt: NSImage = MusicManager.shared.albumArt
@@ -104,29 +119,29 @@ struct AlbumArtView: View {
     }
 
     private var albumArtButton: some View {
-        ZStack {
-            Button {
-                musicManager.openMusicApp()
-            } label: {
-                ZStack(alignment:.bottomTrailing) {
-                    albumArtImage
-                    appIconOverlay
-                        .allowsHitTesting(false)
-                }
+        Button {
+            musicManager.openMusicApp()
+        } label: {
+            ZStack(alignment:.bottomTrailing) {
+                albumArtImage
+                // Inside the same ZStack (and frame) as albumArtImage, and
+                // under the same scaleEffect below, so it shrinks in lockstep
+                // with the art when paused instead of staying full-size and
+                // showing as a distinct box around the now-smaller art.
+                albumArtDarkOverlay
+                appIconOverlay
+                    .allowsHitTesting(false)
             }
-            .buttonStyle(PlainButtonStyle())
-            .scaleEffect(musicManager.isPlaying ? 1 : 0.90)
-            
-            albumArtDarkOverlay
         }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(showsPausedLook ? 0.90 : 1)
     }
 
     private var albumArtDarkOverlay: some View {
-        Rectangle()
+        RoundedRectangle(cornerRadius: activeCornerRadius)
             .aspectRatio(1, contentMode: .fit)
             .foregroundColor(Color.black)
-            .opacity(musicManager.isPlaying ? 0 : pausedFadeOpacity)
-            .blur(radius: 50)
+            .opacity(showsPausedLook ? pausedFadeOpacity : 0)
             .allowsHitTesting(false)
     }
                 
@@ -170,7 +185,7 @@ struct AlbumArtView: View {
     @ViewBuilder
     private var appIconOverlay: some View {
         // Compact mode's smaller album art has no room for this overlay.
-        if vm.notchState == .open && !musicManager.usingAppIconForArtwork && rotationDegrees == 0 && !Defaults[.enableCompactUI] {
+        if vm.notchState == .open && rotationDegrees == 0 && !Defaults[.enableCompactUI] && Defaults[.showAppIconOnAlbumArt] {
             AppIcon(for: musicManager.bundleIdentifier ?? Defaults[.defaultPlayer].bundleIdentifier ?? "com.apple.Music")
                 .resizable()
                 .aspectRatio(contentMode: .fill)

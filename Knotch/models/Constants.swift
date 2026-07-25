@@ -170,6 +170,7 @@ extension Defaults.Keys {
         default: SliderColorEnum.white
     )
     static let playerColorTinting = Key<Bool>("playerColorTinting", default: true)
+    static let showAppIconOnAlbumArt = Key<Bool>("showAppIconOnAlbumArt", default: false)
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
     

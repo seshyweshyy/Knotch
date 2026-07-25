@@ -1796,6 +1796,10 @@ struct Appearance: View {
                     Text("Enable blur effect behind album art")
                 }
                 .settingsHighlight(id: "Appearance-Enable blur effect")
+                Defaults.Toggle(key: .showAppIconOnAlbumArt) {
+                    Text("Show app icon on album art")
+                }
+                .settingsHighlight(id: "Appearance-Show app icon on album art")
                 Picker("Slider color", selection: $sliderColor) {
                     ForEach(SliderColorEnum.allCases, id: \.self) { option in
                         Text(option.rawValue)

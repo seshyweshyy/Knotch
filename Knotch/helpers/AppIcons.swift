@@ -69,14 +69,52 @@ func AppIcon(for bundleID: String) -> Image {
 }
 
 
-func AppIconAsNSImage(for bundleID: String) -> NSImage? {
-    let workspace = NSWorkspace.shared
-    
-    if let appURL = workspace.urlForApplication(withBundleIdentifier: bundleID) {
-        let appIcon = workspace.icon(forFile: appURL.path)
-        appIcon.size = NSSize(width: 256, height: 256)
-        return appIcon
+// MARK: - No-artwork placeholder
+
+/// Drawn once and reused everywhere the album art has nothing real to show —
+/// no track loaded, or a track with no artwork of its own — instead of
+/// blowing up the source app's icon or a generic system symbol. A light grey
+/// music note on a translucent grey square, filling the same square frame
+/// every real album art image fills, so it picks up each view's own corner
+/// rounding for free instead of needing its own.
+private func makeNoArtworkPlaceholderImage(size: CGFloat = 512) -> NSImage {
+    let canvasSize = NSSize(width: size, height: size)
+    let backgroundColor = NSColor(white: 0.18, alpha: 0.5)
+
+    guard
+        let symbol = NSImage(systemSymbolName: "music.note", accessibilityDescription: "No Artwork"),
+        let configured = symbol.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(pointSize: size * 0.4, weight: .medium)
+        )
+    else {
+        let image = NSImage(size: canvasSize)
+        image.lockFocus()
+        backgroundColor.setFill()
+        NSRect(origin: .zero, size: canvasSize).fill()
+        image.unlockFocus()
+        return image
     }
-    return nil
+
+    // Template images aren't tinted by a plain draw(at:) call — paint the
+    // desired color into the symbol's own alpha mask first.
+    configured.isTemplate = true
+    let tintedSymbol = configured.copy() as! NSImage
+    tintedSymbol.lockFocus()
+    NSColor(white: 0.5, alpha: 1.0).set()
+    NSRect(origin: .zero, size: tintedSymbol.size).fill(using: .sourceAtop)
+    tintedSymbol.unlockFocus()
+
+    let image = NSImage(size: canvasSize)
+    image.lockFocus()
+    backgroundColor.setFill()
+    NSRect(origin: .zero, size: canvasSize).fill()
+    let symbolSize = tintedSymbol.size
+    let origin = NSPoint(x: (canvasSize.width - symbolSize.width) / 2, y: (canvasSize.height - symbolSize.height) / 2)
+    tintedSymbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
+    image.unlockFocus()
+
+    return image
 }
+
+let noArtworkPlaceholderImage: NSImage = makeNoArtworkPlaceholderImage()
 

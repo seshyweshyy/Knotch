@@ -9,11 +9,6 @@ import Combine
 import Defaults
 import SwiftUI
 
-let defaultImage: NSImage = .init(
-    systemSymbolName: "heart.fill",
-    accessibilityDescription: "Album Art"
-)!
-
 enum FlipDirection {
     case forward   // next track / auto-advance
     case backward  // previous track
@@ -43,12 +38,12 @@ class MusicManager: ObservableObject {
     
     // Music album art items
     private var appIconFallbackWorkItem: DispatchWorkItem?
-    @Published var artFlipSignal: ArtFlipSignal = ArtFlipSignal(art: defaultImage, direction: .forward)
+    @Published var artFlipSignal: ArtFlipSignal = ArtFlipSignal(art: noArtworkPlaceholderImage, direction: .forward)
 
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
     @Published var artistName: String = "Me"
-    @Published var albumArt: NSImage = defaultImage
+    @Published var albumArt: NSImage = noArtworkPlaceholderImage
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
@@ -64,7 +59,6 @@ class MusicManager: ObservableObject {
     @Published var volume: Double = 0.5
     @Published var volumeControlSupported: Bool = true
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
-    @Published var usingAppIconForArtwork: Bool = false
     @Published var currentLyrics: String = ""
     @Published var isFetchingLyrics: Bool = false
     @Published var syncedLyrics: [(time: Double, text: String)] = []
@@ -233,7 +227,7 @@ class MusicManager: ObservableObject {
 
         if !shouldIgnoreThisPlaybackFlip && state.isPlaying != self.isPlaying {
             NSLog("Playback state changed: \(state.isPlaying ? "Playing" : "Paused")")
-            withAnimation(.smooth) {
+            withAnimation(.smooth(duration: 0.08)) {
                 self.isPlaying = state.isPlaying
                 self.updateIdleState(state: state.isPlaying)
             }
@@ -262,13 +256,8 @@ class MusicManager: ObservableObject {
                 self.updateArtwork(artwork, direction: capturedDirection)
             } else if state.artwork == nil {
                 self.appIconFallbackWorkItem?.cancel()
-                let bundleID = state.bundleIdentifier
                 let fallback = DispatchWorkItem { [weak self] in
-                    guard let self = self else { return }
-                    if let appIconImage = AppIconAsNSImage(for: bundleID) {
-                        self.usingAppIconForArtwork = true
-                        self.updateAlbumArt(newAlbumArt: appIconImage, direction: capturedDirection)
-                    }
+                    self?.updateAlbumArt(newAlbumArt: noArtworkPlaceholderImage, direction: capturedDirection)
                 }
                 self.appIconFallbackWorkItem = fallback
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: fallback)
@@ -299,12 +288,22 @@ class MusicManager: ObservableObject {
         let repeatModeChanged = state.repeatMode != self.repeatMode
         let volumeChanged = state.volume != self.volume
         
-        if state.title != self.songTitle {
-            self.songTitle = state.title
+        // Nothing loaded anywhere — NowPlayingController's "nothing playing"
+        // sentinel is an empty bundleIdentifier (see its init), while the
+        // per-app AppleScript controllers report their fixed bundle ID
+        // regardless of state and instead signal idle via this title. Either
+        // way, show "Not Playing" on both lines rather than whatever raw
+        // per-controller idle values (e.g. artist "Unknown") leak through.
+        let hasNoActiveSource = state.bundleIdentifier.isEmpty || state.title == "Not Playing"
+        let displayTitle = hasNoActiveSource ? "Not Playing" : state.title
+        let displayArtist = hasNoActiveSource ? "Not Playing" : state.artist
+
+        if displayTitle != self.songTitle {
+            self.songTitle = displayTitle
         }
 
-        if state.artist != self.artistName {
-            self.artistName = state.artist
+        if displayArtist != self.artistName {
+            self.artistName = displayArtist
         }
 
         if state.album != self.album {
@@ -579,7 +578,6 @@ class MusicManager: ObservableObject {
             guard let self = self else { return }
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
                     self?.updateAlbumArt(newAlbumArt: artworkImage, direction: direction)
                 }
             }
@@ -710,7 +708,7 @@ class MusicManager: ObservableObject {
             await MainActor.run {
                 pendingOptimisticPlayState = targetState
                 optimisticPlayStateSetAt = Date()
-                withAnimation(.smooth(duration: 0.18)) {
+                withAnimation(.smooth(duration: 0.08)) {
                     self.isPlaying = targetState
                 }
                 self.updateIdleState(state: targetState)
