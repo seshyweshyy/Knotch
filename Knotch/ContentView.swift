@@ -1334,13 +1334,19 @@ struct ContentView: View {
             // Also toned down in Compact mode, whose smaller fixed panel doesn't
             // want the same amount of stretch as the standard layout.
             let pullClamp = TimerManager.shared.isCreatingTimer ? liquidPullClamp * 0.3
-                : Defaults[.enableCompactUI] ? liquidPullClamp * 0.4
+                : Defaults[.enableCompactUI] ? liquidPullClamp * 0.7
                 : liquidPullClamp
-            vm.liquidPull = min(translation, pullClamp)
 
             if hasTriggeredSwipe {
+                // Hold the stretch at its peak instead of continuing to track raw
+                // translation — a light/fast flick can trigger the swap on a tiny
+                // movement, and tracking translation here would immediately stomp
+                // the pop back down to that same tiny amount a frame later.
+                vm.liquidPull = pullClamp
                 return
             }
+
+            vm.liquidPull = min(translation, pullClamp)
 
             if Defaults[.enableCompactUI] && coordinator.currentView == .home {
                 // Only something to swipe between when both compact views are
@@ -1350,6 +1356,10 @@ struct ContentView: View {
                     if Defaults[.enableHaptics] { haptics.toggle() }
                     withAnimation(animationSpring) {
                         vm.showingCompactCalendar.toggle()
+                        // Snapped to full stretch in the same animation as the
+                        // toggle, so the shape's reactivity always lands in sync
+                        // with the switch regardless of how light the gesture was.
+                        vm.liquidPull = pullClamp
                     }
                 }
             } else if Defaults[.swipeToCycleViews] && !TimerManager.shared.isCreatingTimer && !Defaults[.enableCompactUI] {
@@ -1363,6 +1373,7 @@ struct ContentView: View {
                     if Defaults[.enableHaptics] { haptics.toggle() }
                     withAnimation(animationSpring) {
                         coordinator.currentView = destination
+                        vm.liquidPull = pullClamp
                     }
                 }
             }

@@ -810,6 +810,10 @@ struct NotchHomeView: View {
             }
         }
         .animation(.smooth(duration: 0.35), value: compactShowingCalendar)
+        // Same liquid stretch the standard widgets get, riding the drag before
+        // the swap commits — already comes out toned down here since compact
+        // mode clamps liquidPull itself to 0.4x during the gesture.
+        .liquidStretch(vm)
     }
 
     // Old content slides up and out while new content slides up into place —
