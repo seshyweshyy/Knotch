@@ -317,14 +317,6 @@ struct MusicControlsView: View {
             .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private var repeatIconColor: Color {
-        switch musicManager.repeatMode {
-        case .off:
-            return .primary
-        case .all, .one:
-            return Color(nsColor: musicManager.avgColor)
-        }
-    }
 }
 
 struct FavoriteControlButton: View {
@@ -689,7 +681,7 @@ struct MusicSlotToolbar: View {
         Group {
             switch slot {
             case .shuffle:
-                HoverButton(icon: "shuffle", iconColor: musicManager.isShuffled ? Color(nsColor: musicManager.avgColor) : .primary, scale: .medium) {
+                HoverButton(icon: "shuffle", scale: .medium, activeDot: musicManager.isShuffled) {
                     MusicManager.shared.toggleShuffle()
                 }
             case .previous:
@@ -713,7 +705,7 @@ struct MusicSlotToolbar: View {
                     MusicManager.shared.nextTrack()
                 }
             case .repeatMode:
-                HoverButton(icon: repeatIcon, iconColor: repeatIconColor, scale: .medium) {
+                HoverButton(icon: repeatIcon, scale: .medium, activeDot: musicManager.repeatMode != .off, activeDotXOffset: 0, liftsIconWhenDotActive: true, hapticStateKey: musicManager.repeatMode.rawValue) {
                     MusicManager.shared.toggleRepeat()
                 }
             case .volume:
@@ -761,11 +753,6 @@ struct MusicSlotToolbar: View {
         case .off, .all: return "repeat"
         case .one: return "repeat.1"
         }
-    }
-
-    private var repeatIconColor: Color {
-        musicManager.repeatMode == .off ?
-        .primary : Color(nsColor: musicManager.avgColor)
     }
 }
 // MARK: - Main View

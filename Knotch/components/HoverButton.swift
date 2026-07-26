@@ -5,6 +5,7 @@
 //  Created by Kraigo on 04.09.2024.
 //
 
+import Defaults
 import SwiftUI
 
 private enum SkipTriangleDirection {
@@ -105,6 +106,17 @@ struct HoverButton: View {
     var externalAnimationEvent: HoverButtonAnimationEvent? = nil
     /// 0...1 preview of an in-progress skip gesture — see `SkipDoubleTriangleGlyph.pushProgress`.
     var pushProgress: CGFloat = 0
+    /// When non-nil, renders a small dot under the icon reflecting a toggle state (e.g. shuffle),
+    /// instead of recoloring the icon itself. Animates in/out from behind the icon on change.
+    var activeDot: Bool? = nil
+    /// Horizontal nudge for the active dot, to line up with icons whose glyph isn't visually centered (e.g. shuffle).
+    var activeDotXOffset: CGFloat = -1.5
+    /// When true, the icon nudges up while `activeDot` is true, to clear space for the dot beneath it.
+    var liftsIconWhenDotActive: Bool = false
+    /// Finer-grained state to watch for the settle haptic, for toggles with sub-states that
+    /// don't change `activeDot` itself but still deserve a tap (e.g. repeat: all -> one, where
+    /// the dot stays visible throughout). Defaults to tracking `activeDot`'s own value.
+    var hapticStateKey: Int? = nil
     var action: () -> Void
     var contentTransition: ContentTransition = .symbolEffect
 
@@ -112,6 +124,7 @@ struct HoverButton: View {
     @State private var tapTrigger: Int = 0
     @State private var tapTransitionProgress: CGFloat = 0
     @State private var isTapTransitionActive = false
+    @State private var activeDotHaptic = false
 
     private var isSkipIcon: Bool { icon == "forward.fill" || icon == "backward.fill" }
 
@@ -122,6 +135,12 @@ struct HoverButton: View {
         let slideAnimation: Animation = .interpolatingSpring(stiffness: 235, damping: 20)
         let slideDuration: Double = 0.66
         let useSkipGlyph = animateOnTap && isSkipIcon
+        let activeDotDiameter: CGFloat = 3
+        let activeDotRestingOffset: CGFloat = iconPointSize / 2 + 1
+        let activeDotSpring: Animation = .spring(response: 0.35, dampingFraction: 0.75)
+        let activeDotSettleDuration: Double = 0.4
+        let iconLiftAmount: CGFloat = 2
+        let hapticWatchKey: Int = hapticStateKey ?? (activeDot == true ? 1 : 0)
 
         Button {
             if useSkipGlyph {
@@ -140,28 +159,43 @@ struct HoverButton: View {
                         .fill(isHovering ? Color.gray.opacity(0.2) : .clear)
                         .frame(width: size, height: size)
                         .overlay {
-                            Group {
-                                if useSkipGlyph {
-                                    SkipDoubleTriangleGlyph(
-                                        color: iconColor,
-                                        pointSize: iconPointSize,
-                                        direction: skipDirection,
-                                        progress: tapTransitionProgress,
-                                        isAnimating: isTapTransitionActive,
-                                        pushProgress: isTapTransitionActive ? 0 : pushProgress
-                                    )
-                                    .animation(.easeOut(duration: 0.15), value: pushProgress)
-                                } else {
-                                    Image(systemName: icon)
-                                        .foregroundColor(iconColor)
-                                        .contentTransition(contentTransition)
-                                        .font(scale == .large ? .largeTitle : scale == .small ? .title3 : .title2)
-                                        .symbolEffect(
-                                            .bounce.down.byLayer,
-                                            options: .nonRepeating,
-                                            value: enableBounce ? tapTrigger : 0
-                                        )
+                            ZStack {
+                                if let activeDot {
+                                    Circle()
+                                        .fill(Color.white)
+                                        .frame(width: activeDotDiameter, height: activeDotDiameter)
+                                        .offset(x: activeDotXOffset, y: activeDot ? activeDotRestingOffset : 0)
+                                        .opacity(activeDot ? 1 : 0)
+                                        .scaleEffect(activeDot ? 1 : 0.3)
+                                        .animation(activeDotSpring, value: activeDot)
+                                        .zIndex(0)
                                 }
+                                Group {
+                                    if useSkipGlyph {
+                                        SkipDoubleTriangleGlyph(
+                                            color: iconColor,
+                                            pointSize: iconPointSize,
+                                            direction: skipDirection,
+                                            progress: tapTransitionProgress,
+                                            isAnimating: isTapTransitionActive,
+                                            pushProgress: isTapTransitionActive ? 0 : pushProgress
+                                        )
+                                        .animation(.easeOut(duration: 0.15), value: pushProgress)
+                                    } else {
+                                        Image(systemName: icon)
+                                            .foregroundColor(iconColor)
+                                            .contentTransition(contentTransition)
+                                            .font(scale == .large ? .largeTitle : scale == .small ? .title3 : .title2)
+                                            .symbolEffect(
+                                                .bounce.down.byLayer,
+                                                options: .nonRepeating,
+                                                value: enableBounce ? tapTrigger : 0
+                                            )
+                                    }
+                                }
+                                .offset(y: (liftsIconWhenDotActive && activeDot == true) ? -iconLiftAmount : 0)
+                                .animation(activeDotSpring, value: activeDot)
+                                .zIndex(1)
                             }
                         }
                 }
@@ -175,6 +209,13 @@ struct HoverButton: View {
         .onReceive(animationEventPublisher) { _ in
             guard useSkipGlyph else { return }
             runSkipAnimation(slideAnimation: slideAnimation, slideDuration: slideDuration)
+        }
+        .sensoryFeedback(.alignment, trigger: activeDotHaptic)
+        .onChange(of: hapticWatchKey) { _, _ in
+            guard activeDot == true, Defaults[.enableHaptics] else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + activeDotSettleDuration) {
+                activeDotHaptic.toggle()
+            }
         }
     }
 

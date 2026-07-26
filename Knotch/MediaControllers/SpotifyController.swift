@@ -36,7 +36,7 @@ class SpotifyController: MediaControllerProtocol {
 
     private var lastArtworkURL: String?
     private var artworkFetchTask: Task<Void, Never>?
-    
+
     init() {
         setupPlaybackStateChangeObserver()
         Task {
@@ -81,6 +81,10 @@ class SpotifyController: MediaControllerProtocol {
     }
     
     func toggleRepeat() async {
+        // Spotify's AppleScript dictionary only exposes a boolean "repeating" — no
+        // repeat-one — and (confirmed by testing directly against a running Spotify)
+        // it silently ignores MRMediaRemoteSetRepeatMode entirely, so there's no
+        // supported way to reach or report a third state here.
         await executeAndRefresh("set repeating to not repeating")
     }
     
@@ -110,7 +114,7 @@ class SpotifyController: MediaControllerProtocol {
         let isRepeating = descriptor.atIndex(8)?.booleanValue ?? false
         let volumePercentage = descriptor.atIndex(9)?.int32Value ?? 50
         let artworkURL = descriptor.atIndex(10)?.stringValue ?? ""
-        
+
         var state = PlaybackState(
             bundleIdentifier: "com.spotify.client",
             isPlaying: isPlaying,

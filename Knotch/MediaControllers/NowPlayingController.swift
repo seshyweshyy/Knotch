@@ -13,6 +13,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     func updatePlaybackInfo() async {
         await fetchFavoriteStateIfSupported()
         await fetchShuffleStateIfSupported()
+        await fetchRepeatStateIfSupported()
     }
 
     // MARK: - Properties
@@ -182,10 +183,38 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
     
     func toggleRepeat() async {
-        // MRMediaRemoteSendCommandFunction(7, nil)
-        let newRepeatMode = (playbackState.repeatMode == .off) ? 3 : (playbackState.repeatMode.rawValue - 1)
-        playbackState.repeatMode = RepeatMode(rawValue: newRepeatMode) ?? .off
-        MRMediaRemoteSetRepeatModeFunction(newRepeatMode)
+        // MediaRemote's repeat command/state has the same reliability problem as shuffle
+        // for Apple Music and Spotify — confirmed by testing directly against a running
+        // Spotify, where MRMediaRemoteSetRepeatMode is silently ignored entirely — so
+        // toggle the real property directly via AppleScript and re-read it for those
+        // two apps. Spotify's AppleScript dictionary only exposes a boolean "repeating",
+        // no repeat-one, matching SpotifyController's own toggleRepeat().
+        switch playbackState.bundleIdentifier {
+        case "com.apple.Music":
+            try? await AppleScriptHelper.executeVoid("""
+                tell application "Music"
+                    if song repeat is off then
+                        set song repeat to all
+                    else if song repeat is all then
+                        set song repeat to one
+                    else
+                        set song repeat to off
+                    end if
+                end tell
+                """)
+            try? await Task.sleep(for: .milliseconds(150))
+            await fetchRepeatStateIfSupported()
+        case "com.spotify.client":
+            try? await AppleScriptHelper.executeVoid(
+                "tell application \"Spotify\" to set repeating to not repeating")
+            try? await Task.sleep(for: .milliseconds(150))
+            await fetchRepeatStateIfSupported()
+        default:
+            // MRMediaRemoteSendCommandFunction(7, nil)
+            let newRepeatMode = (playbackState.repeatMode == .off) ? 3 : (playbackState.repeatMode.rawValue - 1)
+            playbackState.repeatMode = RepeatMode(rawValue: newRepeatMode) ?? .off
+            MRMediaRemoteSetRepeatModeFunction(newRepeatMode)
+        }
     }
     
     func setVolume(_ level: Double) async {
@@ -245,9 +274,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     /// Apple Music and Spotify each broadcast a distributed notification whenever
-    /// their player state (including shuffle) changes. MediaRemote's own shuffle
-    /// field doesn't reliably reflect these apps, so listen directly and re-read
-    /// the real property via AppleScript, same as the dedicated controllers do.
+    /// their player state (including shuffle and repeat) changes. MediaRemote's own
+    /// shuffle/repeat fields don't reliably reflect these apps, so listen directly and
+    /// re-read the real properties via AppleScript, same as the dedicated controllers do.
     private func setupShuffleSyncObservers() {
         appleMusicShuffleObserverTask = Task { @Sendable [weak self] in
             let notifications = DistributedNotificationCenter.default().notifications(
@@ -255,6 +284,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             )
             for await _ in notifications {
                 await self?.fetchShuffleStateIfSupported()
+                await self?.fetchRepeatStateIfSupported()
             }
         }
 
@@ -264,6 +294,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             )
             for await _ in notifications {
                 await self?.fetchShuffleStateIfSupported()
+                await self?.fetchRepeatStateIfSupported()
             }
         }
     }
@@ -320,7 +351,11 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         } else {
             newPlaybackState.isShuffled = self.playbackState.isShuffled
         }
-        if let repeatModeValue = payload.repeatMode {
+        if resolvedBundleIdentifier == "com.apple.Music" || resolvedBundleIdentifier == "com.spotify.client" {
+            // Same unreliability as shuffle for these two apps — trust only the
+            // AppleScript-derived value, kept in sync via the observers/toggle/bundle-switch below.
+            newPlaybackState.repeatMode = self.playbackState.repeatMode
+        } else if let repeatModeValue = payload.repeatMode {
             newPlaybackState.repeatMode = RepeatMode(rawValue: repeatModeValue) ?? .off
         } else if !diff {
             newPlaybackState.repeatMode = .off
@@ -357,10 +392,12 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         // Fetch favorite state for supported apps asynchronously
         // await fetchFavoriteStateIfSupported()
 
-        // MediaRemote's shuffleMode field is absent or stale for Apple Music/Spotify
-        // most of the time, so re-read the real value whenever the source app changes.
+        // MediaRemote's shuffleMode/repeatMode fields are absent or stale for Apple
+        // Music/Spotify most of the time, so re-read the real values whenever the
+        // source app changes.
         if newPlaybackState.bundleIdentifier != previousBundleIdentifier {
             await fetchShuffleStateIfSupported()
+            await fetchRepeatStateIfSupported()
         }
     }
     
@@ -422,6 +459,57 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
          if let result = try? await AppleScriptHelper.execute(script) {
              var updated = self.playbackState
              updated.isShuffled = result.booleanValue
+             self.playbackState = updated
+         }
+     }
+
+     private func fetchRepeatStateIfSupported() async {
+         let bundleID = playbackState.bundleIdentifier
+         let script: String
+
+         switch bundleID {
+         case "com.apple.Music":
+             guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").isEmpty else { return }
+             script = """
+             tell application "Music"
+                 try
+                     set repeatState to song repeat
+                     if repeatState is off then
+                         return 1
+                     else if repeatState is one then
+                         return 2
+                     else
+                         return 3
+                     end if
+                 on error
+                     return 1
+                 end try
+             end tell
+             """
+         case "com.spotify.client":
+             // Spotify only exposes a boolean "repeating" — no repeat-one — so map
+             // it onto the same off/all values used elsewhere for this app.
+             guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").isEmpty else { return }
+             script = """
+             tell application "Spotify"
+                 try
+                     if repeating then
+                         return 3
+                     else
+                         return 1
+                     end if
+                 on error
+                     return 1
+                 end try
+             end tell
+             """
+         default:
+             return
+         }
+
+         if let result = try? await AppleScriptHelper.execute(script) {
+             var updated = self.playbackState
+             updated.repeatMode = RepeatMode(rawValue: Int(result.int32Value)) ?? .off
              self.playbackState = updated
          }
      }
