@@ -451,6 +451,17 @@ class KnotchViewModel: NSObject, ObservableObject {
         if SharingStateManager.shared.preventNotchClose {
             return
         }
+        // MusicLiveActivity's height is keyed to sneakPeek.show with its own bouncy
+        // spring, which fights notchCloseSpring if reset mid-close. Settle both
+        // flags in their own non-animated update first, before the spring starts.
+        var immediateTransaction = Transaction()
+        immediateTransaction.disablesAnimations = true
+        withTransaction(immediateTransaction) {
+            self.coordinator.sneakPeek.show = false
+            self.coordinator.expandingView.show = false
+        }
+        // See KnotchSkyLightWindow.knotchWillClose — refreshes the glass backdrop on close too.
+        NotificationCenter.default.post(name: .knotchWillClose, object: nil)
         // Matches open() above — explicit withAnimation, not an ambient modifier.
         withAnimation(notchCloseSpring) {
             self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
@@ -460,7 +471,6 @@ class KnotchViewModel: NSObject, ObservableObject {
         self.isBatteryPopoverActive = false
         self.isMediaOutputPopoverActive = false
         self.showingCompactCalendar = false
-        self.coordinator.sneakPeek.show = false
         self.edgeAutoOpenActive = false
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault

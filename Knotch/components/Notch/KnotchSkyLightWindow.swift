@@ -109,6 +109,14 @@ class KnotchSkyLightWindow: NSPanel {
                 self?.refreshGlassBackdrop()
             }
             .store(in: &observers)
+
+        // See knotchWillClose's declaration — same staleness, close's own resize.
+        NotificationCenter.default
+            .publisher(for: .knotchWillClose)
+            .sink { [weak self] _ in
+                self?.refreshGlassBackdrop()
+            }
+            .store(in: &observers)
     }
     
     private func updateSharingType() {
@@ -167,4 +175,6 @@ extension Notification.Name {
     // above) also applies to the panel's own resize, not just space/app
     // changes.
     static let knotchWillOpen = Notification.Name("com.Knotch.knotchWillOpen")
+    // Same resize-triggered staleness as knotchWillOpen, but for close().
+    static let knotchWillClose = Notification.Name("com.Knotch.knotchWillClose")
 }

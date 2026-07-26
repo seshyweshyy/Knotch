@@ -526,6 +526,12 @@ struct ContentView: View {
     @State private var anyDropDebounceTask: Task<Void, Never>?
 
     @State private var hasTriggeredSwipe = false
+    @State private var hasTriggeredHorizontalSwipe = false
+    // Real glass background size from the GeometryReader below — drives mask
+    // selection off actual geometry instead of a guessed close-spring delay.
+    @State private var measuredGlassSize: CGSize = .zero
+    // Blocks a momentum-scroll tail from re-arming a second skip after a real one fires.
+    @State private var horizontalSwipeCooldownUntil: Date = .distantPast
     @State private var lockedView: NotchViews? = nil
     // Tracks whether the closed-notch sneak peek title is actually scrolling,
     // so the edge fade (sized for scrolling/truncated text) only shows up
@@ -794,6 +800,16 @@ struct ContentView: View {
                             let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
                             let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
 
+                            // Tracks the glass background's real rendered size live, for the mask switch below.
+                            Color.clear
+                                .background(GeometryReader { geo in
+                                    Color.clear
+                                        .onAppear { measuredGlassSize = geo.size }
+                                        .onChange(of: geo.size) { _, newSize in
+                                            measuredGlassSize = newSize
+                                        }
+                                })
+
                             if #available(macOS 26, *), Defaults[.notchAppearanceStyle] != .solidBlack {
                                 // Kept mounted at all times *for glass styles* —
                                 // swapping it in/out creates a new NSGlassEffectView
@@ -834,13 +850,18 @@ struct ContentView: View {
                                 // matching the cover's own instant snap to
                                 // opaque, so they lingered on top of it and
                                 // read as the close "fading" right at the end.
+                                // Gated on measured size, not vm.notchState — notchState flips
+                                // instantly on close, well before the frame visually shrinks.
+                                let isFrameSmall = measuredGlassSize.height <= vm.effectiveClosedNotchHeight + 4
+                                let closedMaskActive = semiGlassActive && vm.notchState == .closed && isFrameSmall
+                                let semiMaskActive = semiGlassActive && !closedMaskActive
                                 Color.black
                                     .mask { closedLiquidGlassGradientMask }
-                                    .opacity(semiGlassActive && vm.notchState == .closed ? 1 : 0)
+                                    .opacity(closedMaskActive ? 1 : 0)
                                     .transaction { $0.disablesAnimations = true }
                                 Color.black
                                     .mask { semiLiquidGlassGradientMask }
-                                    .opacity(semiGlassActive && vm.notchState != .closed ? 1 : 0)
+                                    .opacity(semiMaskActive ? 1 : 0)
                                     .transaction { $0.disablesAnimations = true }
                                 Color.black
                                     .opacity(semiGlassActive ? 0.25 : 0)
@@ -903,7 +924,7 @@ struct ContentView: View {
                                 handleUpGesture(translation: translation, phase: phase)
                             }
                     }
-                    .conditionalModifier(Defaults[.enableGestures] && !Defaults[.enableCompactUI]) { view in
+                    .conditionalModifier(Defaults[.enableGestures]) { view in
                         view
                             .panGesture(direction: .left) { translation, phase in
                                 handleHorizontalGesture(translation: translation, phase: phase, sign: -1)
@@ -1485,21 +1506,57 @@ struct ContentView: View {
         }
     }
 
-    // Purely cosmetic — left/right swipes don't lead to anything, they just
-    // let the notch stretch sideways like it's being pulled.
+    // Sideways stretch is cosmetic and always plays; the media-change setting
+    // only gates whether crossing the threshold also skips a track.
     private func handleHorizontalGesture(translation: CGFloat, phase: NSEvent.Phase, sign: CGFloat) {
         guard vm.notchState == .open else { return }
+
+        if phase == .began && Date() >= horizontalSwipeCooldownUntil {
+            hasTriggeredHorizontalSwipe = false
+        }
 
         if phase == .ended {
             // Not gated on isHoveringCalendar — same reasoning as the other
             // two gesture handlers, this reset must always run on release.
-            withAnimation(liquidReleaseSpring) { vm.liquidPullHorizontal = .zero }
+            if !Defaults[.enableCompactUI] {
+                withAnimation(liquidReleaseSpring) { vm.liquidPullHorizontal = .zero }
+            }
+            MusicManager.shared.horizontalGestureSkipDirection = nil
+            MusicManager.shared.horizontalGestureProgress = 0
             return
         }
 
         guard !vm.isHoveringCalendar else { return }
 
-        vm.liquidPullHorizontal = sign * min(translation, liquidPullClamp)
+        if !Defaults[.enableCompactUI] {
+            vm.liquidPullHorizontal = sign * min(translation, liquidPullClamp)
+        }
+
+        // sign > 0 = right swipe. Natural movement (default) treats right as back,
+        // left as forward; off flips it, like macOS's natural-scrolling toggle.
+        let isRightSwipeBack = Defaults[.naturalMediaGestureDirection]
+        let goingBack = isRightSwipeBack ? sign > 0 : sign < 0
+
+        // Stop updating once committed, or momentum scroll events after a real
+        // skip flicker the button back into its pushed state.
+        if Defaults[.changeMediaWithHorizontalGestures] && !hasTriggeredHorizontalSwipe {
+            MusicManager.shared.horizontalGestureSkipDirection = goingBack ? .backward : .forward
+            MusicManager.shared.horizontalGestureProgress = min(translation / Defaults[.gestureSensitivity], 1)
+        }
+
+        guard Defaults[.changeMediaWithHorizontalGestures],
+              !hasTriggeredHorizontalSwipe,
+              translation > Defaults[.gestureSensitivity]
+        else { return }
+
+        hasTriggeredHorizontalSwipe = true
+        horizontalSwipeCooldownUntil = Date().addingTimeInterval(1.0)
+        if Defaults[.enableHaptics] { haptics.toggle() }
+        if goingBack {
+            MusicManager.shared.previousTrack()
+        } else {
+            MusicManager.shared.nextTrack()
+        }
     }
 }
 

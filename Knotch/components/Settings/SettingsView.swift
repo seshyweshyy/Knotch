@@ -760,7 +760,6 @@ struct GeneralSettings: View {
 
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
-    @Default(.gestureSensitivity) var gestureSensitivity
     @Default(.minimumHoverDuration) var minimumHoverDuration
     @Default(.nonNotchHeight) var nonNotchHeight
     @Default(.nonNotchHeightMode) var nonNotchHeightMode
@@ -769,6 +768,7 @@ struct GeneralSettings: View {
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
     @Default(.enableGestures) var enableGestures
+    @Default(.changeMediaWithHorizontalGestures) var changeMediaWithHorizontalGestures
     @Default(.openNotchOnHover) var openNotchOnHover
 
     var body: some View {
@@ -888,41 +888,38 @@ struct GeneralSettings: View {
             .disabled(!openNotchOnHover)
             .settingsHighlight(id: "General-Enable gestures")
             if enableGestures {
-                Toggle("Change media with horizontal gestures", isOn: .constant(false))
-                    .disabled(true)
+                Defaults.Toggle(key: .changeMediaWithHorizontalGestures) {
+                    Text("Change media with horizontal gestures")
+                }
+                .settingsHighlight(id: "General-Change media with horizontal gestures")
+                if changeMediaWithHorizontalGestures {
+                    Defaults.Toggle(key: .naturalMediaGestureDirection) {
+                        Text("Natural movement")
+                    }
+                    .settingsHighlight(id: "General-Natural movement")
+                }
                 Defaults.Toggle(key: .closeGestureEnabled) {
-                    Text("Close gesture")
+                    HStack(spacing: 6) {
+                        Text("Close gesture")
+                        Image(systemName: "pointer.arrow.motionlines")
+                            .modifier(HoverTooltip(text: "Two-finger swipe up"))
+                    }
                 }
                 .settingsHighlight(id: "General-Close gesture")
                 Defaults.Toggle(key: .swipeToCycleViews) {
-                    Text("Swipe to cycle views")
-                }
-                .settingsHighlight(id: "General-Swipe to cycle views")
-                Slider(value: $gestureSensitivity, in: 100...300, step: 100) {
-                    HStack {
-                        Text("Gesture sensitivity")
-                        Spacer()
-                        Text(
-                            Defaults[.gestureSensitivity] == 100 ? "High"
-                            : Defaults[.gestureSensitivity] == 200 ? "Medium" : "Low"
-                        )
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Text("Swipe to cycle views")
+                        Image(systemName: "pointer.arrow.motionlines")
+                            .modifier(HoverTooltip(text: "Two-finger swipe down"))
                     }
                 }
-                .settingsHighlight(id: "General-Gesture sensitivity")
+                .settingsHighlight(id: "General-Swipe to cycle views")
             }
         } header: {
             HStack {
                 Text("Gesture control")
                 customBadge(text: "Beta")
             }
-        } footer: {
-            Text(
-                "Two-finger swipe up on notch to close, two-finger swipe down on notch to open when 'Open notch on hover' option is disabled or to cycle through activities when notch is expanded"
-            )
-            .multilineTextAlignment(.trailing)
-            .foregroundStyle(.secondary)
-            .font(.caption)
         }
     }
     

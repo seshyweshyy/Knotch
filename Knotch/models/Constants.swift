@@ -178,6 +178,8 @@ extension Defaults.Keys {
     static let enableGestures = Key<Bool>("enableGestures", default: true)
     static let closeGestureEnabled = Key<Bool>("closeGestureEnabled", default: true)
     static let swipeToCycleViews = Key<Bool>("swipeToCycleViews", default: true)
+    static let changeMediaWithHorizontalGestures = Key<Bool>("changeMediaWithHorizontalGestures", default: false)
+    static let naturalMediaGestureDirection = Key<Bool>("naturalMediaGestureDirection", default: true)
     static let gestureSensitivity = Key<CGFloat>("gestureSensitivity", default: 200.0)
 
     // MARK: Notch Views

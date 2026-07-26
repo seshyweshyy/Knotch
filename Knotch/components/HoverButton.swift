@@ -29,6 +29,8 @@ private struct SkipDoubleTriangleGlyph: View {
     let direction: SkipTriangleDirection
     let progress: CGFloat
     let isAnimating: Bool
+    /// 0...1 pre-commit gesture preview — nudges the static pair together and forward.
+    var pushProgress: CGFloat = 0
 
     private var triangleW: CGFloat { pointSize * 0.58 }
     private var triangleH: CGFloat { pointSize * 0.94 }
@@ -39,6 +41,10 @@ private struct SkipDoubleTriangleGlyph: View {
         let firstX = -triangleW * 0.5
         let secondX = triangleW * 0.5
         let spawnOffset = triangleW * 1.4
+        let push = max(0, min(1, pushProgress))
+        // Matches the conveyor slide's travel direction above.
+        let pushShift = -triangleW * 0.32 * push
+        let pushSqueeze = triangleW * 0.16 * push
 
         // Leaving and arriving triangles scale in lockstep with their own opacity fade,
         // so they visibly shrink into / grow out of nothing rather than sliding at full size.
@@ -68,8 +74,8 @@ private struct SkipDoubleTriangleGlyph: View {
                 }
             } else {
                 ZStack {
-                    triangle(offsetX: firstX)
-                    triangle(offsetX: secondX)
+                    triangle(offsetX: firstX + pushSqueeze + pushShift)
+                    triangle(offsetX: secondX - pushSqueeze + pushShift)
                 }
             }
         }
@@ -97,6 +103,8 @@ struct HoverButton: View {
     var enableBounce: Bool = true
     var animateOnTap: Bool = false
     var externalAnimationEvent: HoverButtonAnimationEvent? = nil
+    /// 0...1 preview of an in-progress skip gesture — see `SkipDoubleTriangleGlyph.pushProgress`.
+    var pushProgress: CGFloat = 0
     var action: () -> Void
     var contentTransition: ContentTransition = .symbolEffect
 
@@ -139,8 +147,10 @@ struct HoverButton: View {
                                         pointSize: iconPointSize,
                                         direction: skipDirection,
                                         progress: tapTransitionProgress,
-                                        isAnimating: isTapTransitionActive
+                                        isAnimating: isTapTransitionActive,
+                                        pushProgress: isTapTransitionActive ? 0 : pushProgress
                                     )
+                                    .animation(.easeOut(duration: 0.15), value: pushProgress)
                                 } else {
                                     Image(systemName: icon)
                                         .foregroundColor(iconColor)

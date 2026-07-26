@@ -77,6 +77,10 @@ class MusicManager: ObservableObject {
     private var pendingFlipDirection: FlipDirection = .forward
     private var flipWorkItem: DispatchWorkItem?
 
+    // Live during a horizontal skip gesture, so the buttons can preview the direction.
+    @Published var horizontalGestureSkipDirection: FlipDirection? = nil
+    @Published var horizontalGestureProgress: CGFloat = 0
+
     @Published var isTransitioning: Bool = false
     private var transitionWorkItem: DispatchWorkItem?
 

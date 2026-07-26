@@ -686,48 +686,74 @@ struct MusicSlotToolbar: View {
 
     @ViewBuilder
     private func slotView(for slot: MusicControlButton) -> some View {
-        switch slot {
-        case .shuffle:
-            HoverButton(icon: "shuffle", iconColor: musicManager.isShuffled ? Color(nsColor: musicManager.avgColor) : .primary, scale: .medium) {
-                MusicManager.shared.toggleShuffle()
+        Group {
+            switch slot {
+            case .shuffle:
+                HoverButton(icon: "shuffle", iconColor: musicManager.isShuffled ? Color(nsColor: musicManager.avgColor) : .primary, scale: .medium) {
+                    MusicManager.shared.toggleShuffle()
+                }
+            case .previous:
+                HoverButton(
+                    icon: "backward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true,
+                    externalAnimationEvent: .previousTrackSkip,
+                    pushProgress: musicManager.horizontalGestureSkipDirection == .backward ? musicManager.horizontalGestureProgress : 0
+                ) {
+                    MusicManager.shared.previousTrack()
+                }
+            case .playPause:
+                HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large, enableBounce: false) {
+                    MusicManager.shared.togglePlay()
+                }
+            case .next:
+                HoverButton(
+                    icon: "forward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true,
+                    externalAnimationEvent: .nextTrackSkip,
+                    pushProgress: musicManager.horizontalGestureSkipDirection == .forward ? musicManager.horizontalGestureProgress : 0
+                ) {
+                    MusicManager.shared.nextTrack()
+                }
+            case .repeatMode:
+                HoverButton(icon: repeatIcon, iconColor: repeatIconColor, scale: .medium) {
+                    MusicManager.shared.toggleRepeat()
+                }
+            case .volume:
+                VolumeControlView()
+            case .favorite:
+                FavoriteControlButton()
+            case .goBackward:
+                HoverButton(icon: "gobackward.15", scale: .medium) {
+                    MusicManager.shared.skip(seconds: -15)
+                }
+            case .goForward:
+                HoverButton(icon: "goforward.15", scale: .medium) {
+                    MusicManager.shared.skip(seconds: 15)
+                }
+            case .audioOutput:
+                if isLockScreenContext {
+                    LockScreenAudioOutputIndicator()
+                } else {
+                    AudioOutputButton()
+                }
+            case .none:
+                Color.clear.frame(width: 40, height: 1)
             }
-        case .previous:
-            HoverButton(icon: "backward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true, externalAnimationEvent: .previousTrackSkip) {
-                MusicManager.shared.previousTrack()
-            }
-        case .playPause:
-            HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large, enableBounce: false) {
-                MusicManager.shared.togglePlay()
-            }
-        case .next:
-            HoverButton(icon: "forward.fill", scale: .medium, iconScale: 0.9, animateOnTap: true, externalAnimationEvent: .nextTrackSkip) {
-                MusicManager.shared.nextTrack()
-            }
-        case .repeatMode:
-            HoverButton(icon: repeatIcon, iconColor: repeatIconColor, scale: .medium) {
-                MusicManager.shared.toggleRepeat()
-            }
-        case .volume:
-            VolumeControlView()
-        case .favorite:
-            FavoriteControlButton()
-        case .goBackward:
-            HoverButton(icon: "gobackward.15", scale: .medium) {
-                MusicManager.shared.skip(seconds: -15)
-            }
-        case .goForward:
-            HoverButton(icon: "goforward.15", scale: .medium) {
-                MusicManager.shared.skip(seconds: 15)
-            }
-        case .audioOutput:
-            if isLockScreenContext {
-                LockScreenAudioOutputIndicator()
-            } else {
-                AudioOutputButton()
-            }
-        case .none:
-            Color.clear.frame(width: 40, height: 1)
         }
+        // While a horizontal skip-media gesture is live, dim every button except
+        // the one about to fire, so only that skip direction reads as the focus.
+        .opacity(isActiveSkipSlot(slot) ? 1 : dimmedSlotOpacity)
+        .animation(.easeOut(duration: 0.2), value: musicManager.horizontalGestureProgress)
+    }
+
+    private func isActiveSkipSlot(_ slot: MusicControlButton) -> Bool {
+        switch (slot, musicManager.horizontalGestureSkipDirection) {
+        case (.previous, .backward), (.next, .forward): return true
+        default: return false
+        }
+    }
+
+    private var dimmedSlotOpacity: Double {
+        guard musicManager.horizontalGestureSkipDirection != nil else { return 1 }
+        return 1 - (0.55 * musicManager.horizontalGestureProgress)
     }
 
     private var repeatIcon: String {
