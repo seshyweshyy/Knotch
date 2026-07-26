@@ -122,6 +122,9 @@ struct InlineHUD: View {
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .multilineTextAlignment(.trailing)
+                                .monospacedDigit()
+                                .contentTransition(.numericText(value: Double(value)))
+                                .animation(.smooth(duration: 0.25), value: Int(value * 100))
                         }
                     }
                 }

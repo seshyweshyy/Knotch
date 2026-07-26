@@ -47,6 +47,21 @@ struct MusicLiveActivity: View {
             : vm.effectiveClosedNotchHeight - 12)
     }
 
+    // Matches ContentView's own `defaultHUDShowing` — the "Default" HUD style's
+    // volume/brightness card also bumps the shared top corner radius to the
+    // same concave 12pt the music sneak peek uses, so this row (which can be
+    // showing behind/alongside it, e.g. while music plays and a volume key is
+    // pressed) needs the same edge padding to avoid the same crowding.
+    private var defaultHUDShowing: Bool {
+        coordinator.sneakPeek.show
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .battery
+            && coordinator.sneakPeek.type != .bluetoothAudio
+            && coordinator.sneakPeek.type != .airdropReceive
+            && !Defaults[.inlineHUD]
+            && vm.notchState == .closed
+    }
+
     var body: some View {
         HStack {
             Image(nsImage: displayedArt)
@@ -168,11 +183,11 @@ struct MusicLiveActivity: View {
             )
             .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -3 : -1.5)
         }
-        // Only during the sneak peek does the top corner curve inward (12pt)
-        // instead of the flat default (6pt) — the album art/waveform sat
-        // flush against the edges with no padding, which only became visibly
-        // crowded once that curve was added.
-        .padding(.horizontal, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? 6 : 0)
+        // Only when the top corner curves inward to the concave 12pt (music
+        // sneak peek, or the Default HUD style's volume/brightness card) does
+        // the album art/waveform need edge padding — they sat flush against
+        // the edges fine against the flat default (6pt) radius.
+        .padding(.horizontal, ((coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) || defaultHUDShowing) ? 6 : 0)
         .frame(
             height: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? vm.effectiveClosedNotchHeight + 8
@@ -609,6 +624,12 @@ struct ContentView: View {
             if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && vm.notchState == .closed {
                 return 12
             }
+            // The "Default" HUD style's card is the same kind of full-width,
+            // full-height content as the music sneak peek — give it the same
+            // concave top instead of the plain closed-notch/live-activity radius.
+            if defaultHUDShowing {
+                return 12
+            }
             return vm.notchState == .open ? activeCornerRadiusInsets.opened.top : activeCornerRadiusInsets.closed.top
         }
 
@@ -677,9 +698,28 @@ struct ContentView: View {
                                 ? airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
                             : isExpandedBatteryBanner
                                 ? 28
-                                : inlineHUDShowing && isHovering
-                                    ? activeCornerRadiusInsets.closed.bottom + 6
-                                    : activeCornerRadiusInsets.closed.bottom
+                                // Same treatment as the music bar — this is the "Default"
+                                // (non-inline) style's slider card, a similarly full-width,
+                                // full-height piece of content, not the thin closed pill.
+                                : defaultHUDShowing
+                                    ? 22
+                                    : inlineHUDShowing && isHovering
+                                        ? activeCornerRadiusInsets.closed.bottom + 6
+                                        : activeCornerRadiusInsets.closed.bottom
+    }
+
+    // Matches the condition that shows SystemEventIndicatorModifier below —
+    // the "Default" HUD style's volume/brightness/mic/focus card, shown when
+    // inline style is off and the type isn't one of the ones with their own
+    // bespoke pill.
+    private var defaultHUDShowing: Bool {
+        coordinator.sneakPeek.show
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .battery
+            && coordinator.sneakPeek.type != .bluetoothAudio
+            && coordinator.sneakPeek.type != .airdropReceive
+            && !Defaults[.inlineHUD]
+            && vm.notchState == .closed
     }
 
     // Matches the condition that shows InlineHUD below (coordinator.sneakPeek
@@ -1169,8 +1209,12 @@ struct ContentView: View {
                                     }
                                 )
                                 .padding(.bottom, 10)
-                                .padding(.leading, 4)
-                                .padding(.trailing, 8)
+                                // Matches the music row's own leading/trailing split just
+                                // below — same bottom corner radius (22, see defaultHUDShowing
+                                // in currentBottomCornerRadius), so the same padding clears it
+                                // without the icon/slider visibly running into the curve.
+                                .padding(.leading, 5)
+                                .padding(.trailing, 12)
                             }
                             // Old sneak peek music
                             else if coordinator.sneakPeek.type == .music {

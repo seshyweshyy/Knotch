@@ -67,6 +67,8 @@ struct OpenNotchHUD: View {
                     .foregroundStyle(.gray)
                     .monospacedDigit()
                     .frame(width: 35, alignment: .trailing)
+                    .contentTransition(.numericText(value: Double(value)))
+                    .animation(.smooth(duration: 0.25), value: Int(value * 100))
             }
         }
         .padding(.horizontal, 10)

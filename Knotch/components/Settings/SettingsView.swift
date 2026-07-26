@@ -438,6 +438,30 @@ extension View {
     }
 }
 
+// MARK: - Disabled Row Modifier
+//
+// Plain `.disabled()` only drops opacity a little, which barely reads on a
+// row whose toggle is already off (grey-on-grey). Dimming further and
+// desaturating makes "this doesn't apply right now" unambiguous regardless
+// of the control's own on/off state.
+
+private struct SettingsDisabledModifier: ViewModifier {
+    let isDisabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(isDisabled)
+            .opacity(isDisabled ? 0.4 : 1)
+            .saturation(isDisabled ? 0.3 : 1)
+    }
+}
+
+extension View {
+    func settingsDisabled(_ condition: Bool) -> some View {
+        modifier(SettingsDisabledModifier(isDisabled: condition))
+    }
+}
+
 // MARK: - SettingsView
 
 struct SettingsView: View {
@@ -770,6 +794,7 @@ struct GeneralSettings: View {
     @Default(.enableGestures) var enableGestures
     @Default(.changeMediaWithHorizontalGestures) var changeMediaWithHorizontalGestures
     @Default(.openNotchOnHover) var openNotchOnHover
+    @Default(.enableCompactUI) var enableCompactUI
 
     var body: some View {
         Form {
@@ -913,6 +938,7 @@ struct GeneralSettings: View {
                             .modifier(HoverTooltip(text: "Two-finger swipe down"))
                     }
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "General-Swipe to cycle views")
             }
         } header: {
@@ -935,6 +961,7 @@ struct GeneralSettings: View {
             }
             .settingsHighlight(id: "General-Enable haptic feedback")
             Toggle("Remember last tab", isOn: $coordinator.openLastTabByDefault)
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "General-Remember last tab")
             if openNotchOnHover {
                 Slider(value: $minimumHoverDuration, in: 0...1, step: 0.1) {
@@ -959,12 +986,15 @@ struct GeneralSettings: View {
 // MARK: - Charge
 
 struct Charge: View {
+    @Default(.enableCompactUI) var enableCompactUI
+
     var body: some View {
         Form {
             Section {
                 Defaults.Toggle(key: .showBatteryIndicator) {
                     Text("Show battery indicator")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Battery-Show battery indicator")
                 Defaults.Toggle(key: .showPowerStatusNotifications) {
                     Text("Show power status notifications")
@@ -972,20 +1002,28 @@ struct Charge: View {
                 .settingsHighlight(id: "Battery-Show power status notifications")
             } header: {
                 Text("General")
+            } footer: {
+                if enableCompactUI {
+                    Text("\"Show battery indicator\" only applies to the header row, which Compact Mode hides.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
             }
             Section {
                 Defaults.Toggle(key: .showBatteryPercentage) {
                     Text("Show battery percentage")
                 }
                 .settingsHighlight(id: "Battery-Show battery percentage")
-                .disabled(Defaults[.showBatteryPercentageAsIcon])
+                .settingsDisabled(Defaults[.showBatteryPercentageAsIcon] || enableCompactUI)
                 Defaults.Toggle(key: .showPowerStatusIcons) {
                     Text("Show power status icons")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Battery-Show power status icons")
                 Defaults.Toggle(key: .showBatteryPercentageAsIcon) {
                     Text("Show battery percentage as icon")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Battery-Show battery percentage as icon")
             } header: {
                 Text("Battery Information")
@@ -1098,6 +1136,11 @@ struct LiveActivitiesSettings: View {
                                         .fontWeight(.medium)
                                         .foregroundStyle(.primary)
                                 }
+                                // Without this, the button only responds where its content
+                                // happens to be visually opaque (the icon glyph, the text, the
+                                // stroke) — the glass/fill square in between doesn't count as
+                                // "drawn content" to SwiftUI's default hit-testing.
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .disabled(!showBluetoothDeviceConnections)
@@ -1128,11 +1171,21 @@ struct LiveActivitiesSettings: View {
     }
 }
 
+// Plain NSView still wins AppKit's hitTest for any point inside its bounds
+// by default, which swallows clicks meant for the SwiftUI Button underneath
+// even with `.allowsHitTesting(false)` applied on the SwiftUI side — that
+// modifier only affects SwiftUI's own gesture layer, not the real NSView's
+// hitTest AppKit uses to route mouse events. Returning nil here makes the
+// click pass through to whatever's behind it instead.
+private final class ClickThroughView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 struct LoopingVideoView: NSViewRepresentable {
     let url: URL
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = ClickThroughView()
         view.wantsLayer = true
         let player = AVPlayer(url: url)
         player.isMuted = true
@@ -1161,6 +1214,7 @@ struct HUD: View {
     @Default(.enableGradient) var enableGradient
     @Default(.optionKeyAction) var optionKeyAction
     @Default(.hudReplacement) var hudReplacement
+    @Default(.enableCompactUI) var enableCompactUI
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @State private var accessibilityAuthorized = false
 
@@ -1231,18 +1285,24 @@ struct HUD: View {
                 Defaults.Toggle(key: .showOpenNotchHUD) {
                     Text("Show HUD in open notch")
                 }
+                .settingsDisabled(!hudReplacement || enableCompactUI)
                 .settingsHighlight(id: "HUD-Show HUD in open notch")
                 Defaults.Toggle(key: .showOpenNotchHUDPercentage) {
                     Text("Show percentage")
                 }
-                .disabled(!Defaults[.showOpenNotchHUD])
+                .settingsDisabled(!hudReplacement || !Defaults[.showOpenNotchHUD] || enableCompactUI)
             } header: {
                 HStack {
                     Text("Open Notch")
                     customBadge(text: "Beta")
                 }
+            } footer: {
+                if enableCompactUI {
+                    Text("Unavailable while Compact Mode is enabled — its header row isn't shown.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
             }
-            .disabled(!hudReplacement)
 
             Section {
                 Picker("HUD style", selection: $inlineHUD) {
@@ -1368,6 +1428,7 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.sneakPeekMusicDuration) var sneakPeekMusicDuration
     @Default(.enableLyrics) var enableLyrics
+    @Default(.enableCompactUI) var enableCompactUI
 
     var body: some View {
         Form {
@@ -1489,6 +1550,7 @@ struct Media: View {
                         customBadge(text: "Beta")
                     }
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Media-Show lyrics")
             } header: {
                 Text("Media controls")
@@ -1729,29 +1791,40 @@ struct CalendarSettings: View {
     @Default(.hideAllDayEvents) var hideAllDayEvents
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
     @Default(.calendarApp) var calendarApp
+    @Default(.enableCompactUI) var enableCompactUI
 
     var body: some View {
         Form {
             Defaults.Toggle(key: .showCalendar) {
                 Text("Show calendar")
             }
+            .settingsDisabled(enableCompactUI)
             .settingsHighlight(id: "Calendar-Show calendar in notch")
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")
             }
+            .settingsDisabled(enableCompactUI)
             .settingsHighlight(id: "Calendar-Hide completed reminders")
             Defaults.Toggle(key: .hideAllDayEvents) {
                 Text("Hide all-day events")
             }
+            .settingsDisabled(enableCompactUI)
             .settingsHighlight(id: "Calendar-Hide all-day events")
             Defaults.Toggle(key: .autoScrollToNextEvent) {
                 Text("Auto-scroll to next event")
             }
+            .settingsDisabled(enableCompactUI)
             .settingsHighlight(id: "Calendar-Calendar event count")
             Defaults.Toggle(key: .showFullEventTitles) {
                 Text("Always show full event titles")
             }
+            .settingsDisabled(enableCompactUI)
             .settingsHighlight(id: "Calendar-Always show full event titles")
+            if enableCompactUI {
+                Text("These only apply to the standard notch layout. Compact Mode's calendar view has its own settings in the Compact Mode tab, and always hides completed reminders and full titles.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             IconMenuPicker(
                 title: "Open events in",
                 items: CalendarApp.allCases.filter { $0.isInstalled },
@@ -1846,6 +1919,7 @@ struct Appearance: View {
     @Default(.sliderColor) var sliderColor
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
     @Default(.semiLiquidGlassTransition) var semiLiquidGlassTransition
+    @Default(.enableCompactUI) var enableCompactUI
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
@@ -1856,10 +1930,12 @@ struct Appearance: View {
 
             Section {
                 Toggle("Always show tab bar", isOn: $coordinator.alwaysShowTabs)
+                    .settingsDisabled(enableCompactUI)
                     .settingsHighlight(id: "Appearance-Always show tab bar")
                 Defaults.Toggle(key: .settingsIconInNotch) {
                     Text("Show settings icon in notch")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Appearance-Show settings icon in notch")
             } header: {
                 Text("General")
@@ -1869,6 +1945,7 @@ struct Appearance: View {
                 Defaults.Toggle(key: .homeViewVisualizer) {
                     Text("Show waveform in home view")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Media-Home view waveform")
                 Defaults.Toggle(key: .liveWaveform) {
                     HStack(spacing: 6) {
@@ -1883,10 +1960,12 @@ struct Appearance: View {
                 Defaults.Toggle(key: .lightingEffect) {
                     Text("Enable blur effect behind album art")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Appearance-Enable blur effect")
                 Defaults.Toggle(key: .showAppIconOnAlbumArt) {
                     Text("Show app icon on album art")
                 }
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Appearance-Show app icon on album art")
                 Picker("Slider color", selection: $sliderColor) {
                     ForEach(SliderColorEnum.allCases, id: \.self) { option in
@@ -1907,16 +1986,23 @@ struct Appearance: View {
                 Defaults.Toggle(key: .showMirror) {
                     Text("Enable mirror")
                 }
-                .disabled(!checkVideoInput())
+                .settingsDisabled(!checkVideoInput() || enableCompactUI)
                 .settingsHighlight(id: "Advanced-Enable Dynamic mirror")
                 Picker("Mirror shape", selection: $mirrorShape) {
                     Text("Circle").tag(MirrorShapeEnum.circle)
                     Text("Square").tag(MirrorShapeEnum.rectangle)
                 }
                 .tint(Color(nsColor: .labelColor))
+                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Advanced-Mirror shape")
             } header: {
                 HStack { Text("Additional features") }
+            } footer: {
+                if enableCompactUI {
+                    Text("The mirror isn't available in Compact Mode.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
             }
         }
         .accentColor(.effectiveAccent)
@@ -2134,6 +2220,7 @@ struct Widgets: View {
     @Default(.showHomeView) var showHomeView
     @Default(.showShelfView) var showShelfView
     @Default(.swipeToCycleViews) var swipeToCycleViews
+    @Default(.enableCompactUI) var enableCompactUI
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
 
     // Swipe-to-cycle only makes sense when both views are enabled
@@ -2143,6 +2230,13 @@ struct Widgets: View {
 
     var body: some View {
         Form {
+            if enableCompactUI {
+                Section {
+                    Text("These settings only apply to the standard notch layout — Compact Mode replaces the home view and hides the shelf entirely.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Section {
                 Defaults.Toggle(key: .showHomeView) {
                     Text("Home view")
@@ -2175,6 +2269,7 @@ struct Widgets: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            .settingsDisabled(enableCompactUI)
 
             Section {
                 Toggle("Music player", isOn: $coordinator.musicLiveActivityEnabled.animation())
@@ -2202,6 +2297,7 @@ struct Widgets: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            .settingsDisabled(enableCompactUI)
         }
         .accentColor(.effectiveAccent)
     }
@@ -2429,6 +2525,7 @@ struct Shelf: View {
     @Default(.shelfTapToOpen) var shelfTapToOpen: Bool
     @Default(.quickShareProvider) var quickShareProvider
     @Default(.expandedDragDetection) var expandedDragDetection: Bool
+    @Default(.enableCompactUI) var enableCompactUI
     @StateObject private var quickShareService = QuickShareService.shared
 
     private var selectedProvider: QuickShareProvider? {
@@ -2441,6 +2538,13 @@ struct Shelf: View {
 
     var body: some View {
         Form {
+            if enableCompactUI {
+                Section {
+                    Text("The shelf is unreachable while Compact Mode is enabled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Section {
                 Defaults.Toggle(key: .knotchShelf) {
                     Text("Enable shelf")
@@ -2468,6 +2572,7 @@ struct Shelf: View {
             } header: {
                 HStack { Text("General") }
             }
+            .settingsDisabled(enableCompactUI)
 
             Section {
                 IconMenuPicker(
@@ -2506,6 +2611,7 @@ struct Shelf: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            .settingsDisabled(enableCompactUI)
         }
         .accentColor(.effectiveAccent)
     }

@@ -112,7 +112,12 @@ class KnotchViewModel: NSObject, ObservableObject {
     private var isSettlingFromOpen: Bool = false
 
     func triggerHUDLimitBounce(rightEdge: Bool) {
-        guard Defaults[.hudOvershootEnabled] else { return }
+        // The scale effect this drives wraps the whole notch shape, closed
+        // pill or open panel alike — bouncing it while open visibly warps
+        // the expanded music player/home view, not just a small HUD pill.
+        // A closed-state live activity (music bar, timer pill) still counts
+        // as closed, so this only excludes the actual open panel.
+        guard Defaults[.hudOvershootEnabled], notchState == .closed else { return }
         hudEdgeOvershoot = rightEdge ? 1 : -1
         withAnimation(hudLimitBounceSpring) {
             hudEdgeOvershoot = .zero

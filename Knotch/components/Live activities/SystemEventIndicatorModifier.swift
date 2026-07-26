@@ -74,6 +74,8 @@ struct SystemEventIndicatorModifier: View {
                         .foregroundStyle(.white)
                         .monospacedDigit()
                         .frame(width: 35, alignment: .trailing)
+                        .contentTransition(.numericText(value: Double(value)))
+                        .animation(.smooth(duration: 0.25), value: Int(value * 100))
                 }
             } else if eventType == .mic {
                 Text("Mic \(value > 0 ? "unmuted" : "muted")")
