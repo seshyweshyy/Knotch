@@ -25,8 +25,12 @@ struct BluetoothHUDView: View {
     @Default(.notchAppearanceStyle) private var notchAppearanceStyle
     @EnvironmentObject var vm: KnotchViewModel
 
-    // Expanded width of the notch pill for this HUD
-    private let expandedWidth: CGFloat = 320
+    // Expanded width of the notch pill for this HUD — trimmed down from 320
+    // now that the card's own horizontal padding (below) is just breathing
+    // room, not also compensating for corner clipping: at the old width that
+    // freed-up padding just left more empty space between the icon/text and
+    // the battery ring, reading as an overly wide pill.
+    private let expandedWidth: CGFloat = 280
     private let compactWidth: CGFloat = 120
 
     // Matches BatteryNotchBanner/AirDropReceiveHUD's treatment: when glass is
@@ -94,9 +98,10 @@ struct BluetoothHUDView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.7)))
                     }
                 }
-                // Wide enough to clear the panel's rounded corners (26/28pt radii),
-                // plus a bit extra beyond that purely for visual breathing room.
-                .padding(.horizontal, 30)
+                // Just visual breathing room — clearing the panel's rounded corners
+                // (26/28pt radii) is handled once, systemically, by mainLayout's own
+                // outer padding scaling with the current top corner radius.
+                .padding(.horizontal, 10)
                 .frame(width: expandedWidth, height: 44)
                 .padding(.top, vm.effectiveClosedNotchHeight)
                 .padding(.bottom, 10)
@@ -105,7 +110,15 @@ struct BluetoothHUDView: View {
         }
         .animation(.spring(response: 0.45, dampingFraction: 0.78), value: phase)
         .onChange(of: phase) { _, newPhase in
-            isExpanded = newPhase == .expanded
+            // .onChange handlers don't inherit the animation of the value
+            // that triggered them — without this, isExpanded (which drives
+            // ContentView's shared clip shape corner radius, 17/26/28pt)
+            // snapped instantly while this view's own frame/width animated
+            // smoothly over the spring above, so the clip shape briefly
+            // didn't match the actual (still resizing) frame.
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+                isExpanded = newPhase == .expanded
+            }
         }
         .onAppear {
             startPhaseSequence()
@@ -165,8 +178,14 @@ struct BluetoothHUDView: View {
         phaseTask = Task { @MainActor [self] in
             do {
                 try await Task.sleep(for: .seconds(0.8))
+                // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
+                // works around — this phase change resizes the panel just as much
+                // as an open/close does, so it needs the same refresh nudge (see
+                // KnotchSkyLightWindow.knotchWillOpen for the handler).
+                NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
                 withAnimation { phase = .expanded }
                 try await Task.sleep(for: .seconds(2.7))
+                NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
                 withAnimation { phase = .collapsing }
             } catch {
                 // Task was cancelled (view dismissed) — do nothing

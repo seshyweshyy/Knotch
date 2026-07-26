@@ -242,7 +242,15 @@ private struct BatteryNotchBanner: View {
             }
         }
         .onAppear(perform: prepareAnimations)
-        .onChange(of: kind) { _, _ in prepareAnimations() }
+        .onChange(of: kind) { _, _ in
+            // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
+            // works around — genericBanner and standardBanner are very
+            // different widths, so switching between them resizes the panel
+            // just as much as an open/close does (see
+            // KnotchSkyLightWindow.knotchWillOpen for the handler).
+            NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+            prepareAnimations()
+        }
     }
 
     // Original slim pill — still used for the Low Power Mode toggle message
@@ -831,7 +839,17 @@ struct ContentView: View {
                         .horizontal,
                         vm.notchState == .open
                         ? cornerRadiusInsets.opened.top
-                        : cornerRadiusInsets.closed.bottom
+                        // NotchShape's straight side walls sit inset by exactly
+                        // `topCornerRadius` from this padded box's own edge (see
+                        // NotchShape.path — the vertical edges are at minX+top /
+                        // maxX-top for the shape's whole height). The old fixed
+                        // 14pt was really "6pt corner radius + 8pt of slack" for
+                        // the plain closed state; scaling with the current
+                        // (dynamic) topCornerRadius keeps that same slack once
+                        // sneak-peek/HUD states raise it (12, 26, ...) instead of
+                        // the gap shrinking — and the content behind it clipping
+                        // tighter — every time the concave radius grows.
+                        : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background {
@@ -892,7 +910,14 @@ struct ContentView: View {
                                 // read as the close "fading" right at the end.
                                 // Gated on measured size, not vm.notchState — notchState flips
                                 // instantly on close, well before the frame visually shrinks.
-                                let isFrameSmall = measuredGlassSize.height <= vm.effectiveClosedNotchHeight + 4
+                                // Checked against the true open height rather than the tiny
+                                // pill's own height: the original tiny-pill-only threshold only
+                                // classified the smallest pill as "closed-style" — Bluetooth/
+                                // AirDrop's expanded HUD cards (~86-134pt, well short of the
+                                // ~190pt open panel but much taller than the pill) fell through
+                                // to the open-tuned mask and read as mostly glass instead of the
+                                // opaque pill look every other closed-state card gets.
+                                let isFrameSmall = measuredGlassSize.height < openNotchHomeSize.height * 0.8
                                 let closedMaskActive = semiGlassActive && vm.notchState == .closed && isFrameSmall
                                 let semiMaskActive = semiGlassActive && !closedMaskActive
                                 Color.black

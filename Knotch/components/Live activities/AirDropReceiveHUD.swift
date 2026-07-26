@@ -74,10 +74,23 @@ struct AirDropReceiveHUD: View {
         }
         .animation(.spring(response: 0.45, dampingFraction: 0.78), value: phase)
         .onChange(of: phase) { _, newPhase in
-            isExpanded = newPhase == .expanded
+            // .onChange handlers don't inherit the animation of the value
+            // that triggered them — without this, isExpanded (which drives
+            // ContentView's shared clip shape corner radius, 17/26/28pt)
+            // snapped instantly while this view's own frame/width animated
+            // smoothly over the spring above, so the clip shape briefly
+            // didn't match the actual (still resizing) frame.
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+                isExpanded = newPhase == .expanded
+            }
         }
         .onChange(of: progress) { _, newValue in
             if newValue >= 0.999 && phase == .compact {
+                // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
+                // works around — this phase change resizes the panel just as much
+                // as an open/close does, so it needs the same refresh nudge (see
+                // KnotchSkyLightWindow.knotchWillOpen for the handler).
+                NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
                 withAnimation { phase = .expanded }
                 scheduleCollapse()
             }
@@ -129,6 +142,7 @@ struct AirDropReceiveHUD: View {
         collapseTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
+            NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
             withAnimation { phase = .collapsing }
         }
     }
@@ -229,9 +243,10 @@ struct AirDropReceiveHUD: View {
                 .transition(.opacity)
             }
         }
-        // Wide enough to clear the panel's rounded corners (26/28pt radii),
-        // plus a bit extra beyond that purely for visual breathing room.
-        .padding(.horizontal, 30)
+        // Just visual breathing room — clearing the panel's rounded corners
+        // (26/28pt radii) is handled once, systemically, by mainLayout's own
+        // outer padding scaling with the current top corner radius.
+        .padding(.horizontal, 16)
         .frame(width: expandedWidth, height: expandedContentHeight)
         .padding(.top, vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)
