@@ -26,6 +26,8 @@ struct MusicLiveActivity: View {
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+    @State private var flipBlur: CGFloat = 0
+    @State private var flipBrightness: Double = 0
 
     // When glass is active, the middle strip should let the shared notch
     // background (glass + gradient mask) show through instead of covering
@@ -91,17 +93,23 @@ struct MusicLiveActivity: View {
                     axis: (x: 0, y: 1, z: 0),
                     perspective: 0.4
                 )
+                .blur(radius: flipBlur)
+                .brightness(flipBrightness)
                 .onChange(of: musicManager.artFlipSignal) { _, signal in
                     let dir: Double = signal.direction == .forward ? 1 : -1
 
-                    withAnimation(.easeIn(duration: 0.15)) {
+                    withAnimation(.easeIn(duration: 0.22)) {
                         rotationDegrees = dir * 90
+                        flipBlur = 4
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                         displayedArt = signal.art
                         rotationDegrees = dir * -90
-                        withAnimation(.easeOut(duration: 0.15)) {
+                        flipBrightness = 0.6
+                        withAnimation(.easeOut(duration: 0.22)) {
                             rotationDegrees = 0
+                            flipBlur = 0
+                            flipBrightness = 0
                         }
                     }
                 }

@@ -30,6 +30,8 @@ struct LiquidGlassMusicWidget: View {
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+    @State private var flipBlur: CGFloat = 0
+    @State private var flipBrightness: Double = 0
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
@@ -143,11 +145,19 @@ struct LiquidGlassMusicWidget: View {
 
     private func flipArt(_ signal: ArtFlipSignal) {
         let dir: Double = signal.direction == .forward ? 1 : -1
-        withAnimation(.easeIn(duration: 0.15)) { rotationDegrees = dir * 90 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        withAnimation(.easeIn(duration: 0.22)) {
+            rotationDegrees = dir * 90
+            flipBlur = 4
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
             displayedArt = signal.art
             rotationDegrees = dir * -90
-            withAnimation(.easeOut(duration: 0.15)) { rotationDegrees = 0 }
+            flipBrightness = 0.6
+            withAnimation(.easeOut(duration: 0.22)) {
+                rotationDegrees = 0
+                flipBlur = 0
+                flipBrightness = 0
+            }
         }
     }
 
@@ -198,6 +208,8 @@ struct LiquidGlassMusicWidget: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .matchedGeometryEffect(id: "albumArt", in: artNamespace)
             .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+            .blur(radius: flipBlur)
+            .brightness(flipBrightness)
             .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
             .opacity(isExpanded ? 0 : 1)
             .allowsHitTesting(false)
