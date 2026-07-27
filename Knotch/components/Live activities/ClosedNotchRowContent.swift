@@ -306,8 +306,22 @@ struct ClosedNotchRowContent: View {
             // Old-style sneak peek: a title/artist marquee reveal layered
             // below the persistent music bar, distinct from the .hud family
             // swap above (sneakPeek.type == .music is excluded from .hud).
+            //
+            // Gated on morph being (almost) fully settled, not just the raw
+            // sneakPeek state — when music starts from nothing, sneakPeek.show
+            // usually flips true in the very same instant .music becomes the
+            // desired family, and this VStack's height is reserved for BOTH
+            // rows the moment the marquee is included, regardless of the
+            // family-swap's own opacity/blur/scale animation. Without this,
+            // the whole row's height jumped to its final (both-rows) size
+            // immediately — reading as "opens down" first, into a mostly
+            // empty box, THEN the content fades/extends in. Waiting for morph
+            // to settle first means only MusicLiveActivity's own row claims
+            // height while the width-extend animation plays, and the marquee
+            // only drops in afterward, once that's visibly settled.
             if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
                 && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard
+                && morph > 0.9
             {
                 HStack(alignment: .center) {
                     Image(systemName: "music.note")
@@ -350,7 +364,12 @@ struct ClosedNotchRowContent: View {
                 .frame(width: restingWidth, alignment: .leading)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 10)
+                // Own reveal now that it pops in on its own timing rather
+                // than alongside the rest of the family swap — a small
+                // drop-down-and-fade instead of a hard cut.
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(rowMorphSpring, value: coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && morph > 0.9)
     }
 }
