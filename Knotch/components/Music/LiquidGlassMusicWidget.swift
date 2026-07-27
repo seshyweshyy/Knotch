@@ -119,7 +119,8 @@ struct LiquidGlassMusicWidget: View {
                     playbackRate: musicManager.playbackRate,
                     isPlaying: musicManager.isPlaying,
                     showRemainingTime: true,
-                    inlineTimestamps: true
+                    inlineTimestamps: true,
+                    isLive: musicManager.isLiveBrowserStream
                 ) { newValue in
                     MusicManager.shared.seek(to: newValue)
                 }

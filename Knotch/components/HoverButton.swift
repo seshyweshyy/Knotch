@@ -96,12 +96,21 @@ private struct SkipDoubleTriangleGlyph: View {
     }
 }
 
+/// Scales the whole button (icon + hover highlight) down the instant the mouse goes down,
+/// and springs back on release, so the press reacts live rather than only after the click completes.
+private struct PressScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.55), value: configuration.isPressed)
+    }
+}
+
 struct HoverButton: View {
     var icon: String
     var iconColor: Color = .primary
     var scale: Image.Scale = .medium
     var iconScale: CGFloat = 1.0
-    var enableBounce: Bool = true
     var animateOnTap: Bool = false
     var externalAnimationEvent: HoverButtonAnimationEvent? = nil
     /// 0...1 preview of an in-progress skip gesture — see `SkipDoubleTriangleGlyph.pushProgress`.
@@ -121,7 +130,6 @@ struct HoverButton: View {
     var contentTransition: ContentTransition = .symbolEffect
 
     @State private var isHovering = false
-    @State private var tapTrigger: Int = 0
     @State private var tapTransitionProgress: CGFloat = 0
     @State private var isTapTransitionActive = false
     @State private var activeDotHaptic = false
@@ -145,8 +153,6 @@ struct HoverButton: View {
         Button {
             if useSkipGlyph {
                 runSkipAnimation(slideAnimation: slideAnimation, slideDuration: slideDuration)
-            } else {
-                tapTrigger += 1
             }
             action()
         } label: {
@@ -186,11 +192,6 @@ struct HoverButton: View {
                                             .foregroundColor(iconColor)
                                             .contentTransition(contentTransition)
                                             .font(scale == .large ? .largeTitle : scale == .small ? .title3 : .title2)
-                                            .symbolEffect(
-                                                .bounce.down.byLayer,
-                                                options: .nonRepeating,
-                                                value: enableBounce ? tapTrigger : 0
-                                            )
                                     }
                                 }
                                 .offset(y: (liftsIconWhenDotActive && activeDot == true) ? -iconLiftAmount : 0)
@@ -200,7 +201,7 @@ struct HoverButton: View {
                         }
                 }
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PressScaleButtonStyle())
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.3)) {
                 isHovering = hovering

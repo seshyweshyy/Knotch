@@ -304,6 +304,7 @@ struct MusicControlsView: View {
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
                 isPlaying: musicManager.isPlaying,
+                isLive: musicManager.isLiveBrowserStream
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }
@@ -693,7 +694,7 @@ struct MusicSlotToolbar: View {
                     MusicManager.shared.previousTrack()
                 }
             case .playPause:
-                HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large, enableBounce: false) {
+                HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large) {
                     MusicManager.shared.togglePlay()
                 }
             case .next:
@@ -941,10 +942,15 @@ struct MusicSliderView: View {
     let isPlaying: Bool
     var showRemainingTime: Bool = false
     var inlineTimestamps: Bool = false
+    /// True for a browser tab with no known duration — nothing to scrub, so show a
+    /// static "LIVE" bar instead of a progress track stuck at 0%.
+    var isLive: Bool = false
     var onValueChange: (Double) -> Void
 
     var body: some View {
-        if inlineTimestamps {
+        if isLive {
+            liveIndicatorBar
+        } else if inlineTimestamps {
             HStack(alignment: .center, spacing: 6) {
                 Text(timeString(from: sliderValue))
                     .fontWeight(.medium)
@@ -1027,6 +1033,21 @@ struct MusicSliderView: View {
                 sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
             }
         }
+    }
+
+    private var liveIndicatorBar: some View {
+        ZStack {
+            Capsule()
+                .fill(.gray.opacity(0.3))
+                .frame(height: 5)
+            Text("LIVE")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .tracking(1.5)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 10)
     }
 
     func timeString(from seconds: Double) -> String {

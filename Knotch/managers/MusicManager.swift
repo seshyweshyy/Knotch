@@ -25,6 +25,58 @@ struct ArtFlipSignal: Equatable {
 class MusicManager: ObservableObject {
     // MARK: - Properties
     static let shared = MusicManager()
+
+    // Browsers surface tab playback (e.g. a Disney+/Netflix live stream) through the same
+    // Now Playing API as native apps, but for these sites there's no real track duration or
+    // artwork to report — MediaRemote fills that gap with a generic/blank image rather than
+    // omitting it outright. Bundle IDs of browsers whose "now playing" info can carry this.
+    private static let browserBundleIdentifiers: Set<String> = [
+        "com.apple.Safari",
+        "com.apple.SafariTechnologyPreview",
+        "com.google.Chrome",
+        "com.google.Chrome.beta",
+        "com.google.Chrome.dev",
+        "com.google.Chrome.canary",
+        "com.microsoft.edgemac",
+        "com.brave.Browser",
+        "org.mozilla.firefox",
+        "com.operasoftware.Opera",
+        "com.vivaldi.Vivaldi",
+        "company.thebrowser.Browser",
+    ]
+
+    // MediaRemote gives us no page URL, only title/artist/album text — so a browser tab is
+    // only treated as a live stream when one of those fields names a known streaming service.
+    // Deliberately excludes plain "YouTube": most YouTube playback is an on-demand video with
+    // a real duration and thumbnail, so it should keep using them rather than the placeholder.
+    private static let liveStreamingServiceNames: [String] = [
+        "disney+", "netflix", "hulu", "hbo max", "max", "paramount+", "peacock",
+        "prime video", "apple tv+", "espn+", "discovery+", "fubotv", "sling tv",
+        "youtube tv", "twitch", "crunchyroll",
+    ]
+
+    private static func isLiveStreamingService(title: String, artist: String, album: String) -> Bool {
+        let haystack = [title, artist, album].joined(separator: " ").lowercased()
+        return liveStreamingServiceNames.contains { haystack.contains($0) }
+    }
+
+    private static func isLiveBrowserStream(bundleIdentifier: String, duration: Double, title: String, artist: String, album: String) -> Bool {
+        guard duration <= 0, browserBundleIdentifiers.contains(bundleIdentifier) else { return false }
+        return isLiveStreamingService(title: title, artist: artist, album: album)
+    }
+
+    /// True when the current source is a browser tab for a known streaming service with no
+    /// known duration — the case where the progress bar has nothing real to show and should
+    /// read as a live stream instead.
+    var isLiveBrowserStream: Bool {
+        Self.isLiveBrowserStream(
+            bundleIdentifier: bundleIdentifier ?? "",
+            duration: songDuration,
+            title: songTitle,
+            artist: artistName,
+            album: album
+        )
+    }
     private var cancellables = Set<AnyCancellable>()
     private var controllerCancellables = Set<AnyCancellable>()
     private var debounceIdleTask: Task<Void, Never>?
@@ -254,11 +306,18 @@ class MusicManager: ObservableObject {
         // Handle artwork and visual transitions for changed content
         if hasContentChange {
             let capturedDirection = self.pendingFlipDirection
+            let isLiveBrowserStream = Self.isLiveBrowserStream(
+                bundleIdentifier: state.bundleIdentifier,
+                duration: state.duration,
+                title: state.title,
+                artist: state.artist,
+                album: state.album
+            )
 
-            if artworkChanged, let artwork = state.artwork {
+            if artworkChanged, let artwork = state.artwork, !isLiveBrowserStream {
                 self.appIconFallbackWorkItem?.cancel()
                 self.updateArtwork(artwork, direction: capturedDirection)
-            } else if state.artwork == nil {
+            } else if state.artwork == nil || isLiveBrowserStream {
                 self.appIconFallbackWorkItem?.cancel()
                 let fallback = DispatchWorkItem { [weak self] in
                     self?.updateAlbumArt(newAlbumArt: noArtworkPlaceholderImage, direction: capturedDirection)
@@ -268,7 +327,7 @@ class MusicManager: ObservableObject {
             }
             self.artworkData = state.artwork
 
-            if artworkChanged || state.artwork == nil {
+            if artworkChanged || state.artwork == nil || isLiveBrowserStream {
                 // Update last artwork change values
                 self.lastArtworkTitle = state.title
                 self.lastArtworkArtist = state.artist
