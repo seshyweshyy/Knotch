@@ -47,20 +47,6 @@ struct MusicLiveActivity: View {
             : vm.effectiveClosedNotchHeight - 12)
     }
 
-    // Matches ContentView's own `defaultHUDShowing` — the "Default" HUD style's
-    // volume/brightness card also bumps the shared top corner radius to the
-    // same concave 12pt the music sneak peek uses, so this row (which can be
-    // showing behind/alongside it, e.g. while music plays and a volume key is
-    // pressed) needs the same edge padding to avoid the same crowding.
-    private var defaultHUDShowing: Bool {
-        coordinator.sneakPeek.show
-            && coordinator.sneakPeek.type != .music
-            && coordinator.sneakPeek.type != .battery
-            && coordinator.sneakPeek.type != .bluetoothAudio
-            && coordinator.sneakPeek.type != .airdropReceive
-            && !Defaults[.inlineHUD]
-            && vm.notchState == .closed
-    }
 
     var body: some View {
         HStack {
@@ -93,6 +79,11 @@ struct MusicLiveActivity: View {
                     RoundedRectangle(
                         cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
                 )
+                // Sat flush against the pill's leading edge with zero inset
+                // outside the sneak-peek-active state (whose own conditional
+                // padding above only applies during that state) — nudged in
+                // a little so it doesn't anchor right at the corner.
+                .padding(.leading, 5)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
                 .rotation3DEffect(
@@ -181,13 +172,14 @@ struct MusicLiveActivity: View {
                 height: max(0, vm.effectiveClosedNotchHeight - 12),
                 alignment: .center
             )
-            .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -3 : -1.5)
+            .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -9 : -5)
         }
         // Only when the top corner curves inward to the concave 12pt (music
-        // sneak peek, or the Default HUD style's volume/brightness card) does
-        // the album art/waveform need edge padding — they sat flush against
-        // the edges fine against the flat default (6pt) radius.
-        .padding(.horizontal, ((coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) || defaultHUDShowing) ? 6 : 0)
+        // sneak peek) does the album art/waveform need edge padding — it sits
+        // flush against the edges fine against the flat default (6pt) radius.
+        // A HUD can no longer be showing concurrently with this view at all
+        // (see ClosedRowFamily) — they're mutually exclusive row content now.
+        .padding(.horizontal, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? 6 : 0)
         .frame(
             height: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? vm.effectiveClosedNotchHeight + 8
@@ -198,7 +190,7 @@ struct MusicLiveActivity: View {
     }
 }
 
-private struct BatteryNotchBanner: View {
+struct BatteryNotchBanner: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @EnvironmentObject var vm: KnotchViewModel
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
@@ -601,6 +593,18 @@ struct ContentView: View {
     @State private var bluetoothHUDExpanded: Bool = false
     @State private var airdropHUDExpanded: Bool = false
 
+    // Alcove-style collapse/expand between the closed-notch HUD and the
+    // persistent live activities (music/timer) — see desiredRowFamily below.
+    // displayedRowFamily lags desiredRowFamily on purpose: it only jumps to
+    // match once rowMorph has collapsed all the way to 0, so the swap itself
+    // happens while the row is scaled/blurred down to invisible.
+    @State private var displayedRowFamily: ClosedRowFamily = .none
+    @State private var rowMorph: CGFloat = 1
+    // Bumped on every desiredRowFamily change; a pending collapse->swap->expand
+    // Task checks this before acting, so a rapid retrigger (e.g. holding the
+    // volume key) cancels the older, now-stale swap instead of both firing.
+    @State private var rowTransitionGeneration = 0
+
     @Namespace var albumArtNamespace
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
@@ -615,31 +619,52 @@ struct ContentView: View {
         Defaults[.enableCompactUI] ? compactCornerRadiusInsets : cornerRadiusInsets
     }
 
+    // Continuously blends between the bare closed pill's radius and whichever
+    // family is currently displayed's own resting radius, by rowMorph — at
+    // rowMorph == 1 (steady state, no transition in flight) this reduces to
+    // exactly the value each family always used, so nothing changes at rest;
+    // during a family swap it interpolates smoothly through the bare-notch
+    // radius at the collapsed midpoint instead of snapping, in lockstep with
+    // ClosedNotchRowContent's own scale/blur (both driven by the same rowMorph).
     private var topCornerRadius: CGFloat {
+        guard vm.notchState == .closed else {
+            return activeCornerRadiusInsets.opened.top
+        }
+        let bareTop = activeCornerRadiusInsets.closed.top
+        return bareTop + (restingTopCornerRadius - bareTop) * rowMorph
+    }
+
+    // The radius displayedRowFamily's content rests at once fully expanded —
+    // same special-case values topCornerRadius always used, centralized here.
+    private var restingTopCornerRadius: CGFloat {
+        switch displayedRowFamily {
+        case .hud:
             // A milder version of Compact mode's big notch-hugging top radius
-            // (35) — applied here regardless of whether Compact mode itself
-            // is on, so the expanded AirDrop card always gets it.
-            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive && airdropHUDExpanded {
-                return 26
+            // (35) — applied regardless of whether Compact mode itself is on,
+            // so the expanded AirDrop/Bluetooth card always gets it.
+            if coordinator.sneakPeek.type == .airdropReceive {
+                return airdropHUDExpanded ? 26 : activeCornerRadiusInsets.closed.top
             }
-            // Same concave treatment as the AirDrop expanded card, mirrored
-            // for Bluetooth's expanded HUD.
-            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio && bluetoothHUDExpanded {
-                return 26
-            }
-            // Same concave treatment, scaled down further for this much
-            // smaller pill.
-            if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && vm.notchState == .closed {
-                return 12
+            if coordinator.sneakPeek.type == .bluetoothAudio {
+                return bluetoothHUDExpanded ? 26 : activeCornerRadiusInsets.closed.top
             }
             // The "Default" HUD style's card is the same kind of full-width,
             // full-height content as the music sneak peek — give it the same
             // concave top instead of the plain closed-notch/live-activity radius.
-            if defaultHUDShowing {
-                return 12
-            }
-            return vm.notchState == .open ? activeCornerRadiusInsets.opened.top : activeCornerRadiusInsets.closed.top
+            return Defaults[.inlineHUD] ? activeCornerRadiusInsets.closed.top : 12
+        case .music:
+            // Only the active title/artist marquee reveal gets the concave
+            // treatment (same as the Default HUD card, scaled down for this
+            // much smaller pill) — the plain persistent bar, showing most of
+            // the time with no reveal active, keeps the ordinary closed
+            // radius. Matches topCornerRadius's original condition exactly
+            // (it required sneakPeek.show, not just "music is the family").
+            return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
+                ? 12 : activeCornerRadiusInsets.closed.top
+        case .timer, .none, .lock, .battery:
+            return activeCornerRadiusInsets.closed.top
         }
+    }
 
     // Matches the condition that shows MusicLiveActivity below — the
     // persistent closed-state music bar isn't part of vm.notchState == .open
@@ -676,103 +701,120 @@ struct ContentView: View {
     // by vm.isScreenLocked/isUnlockAnimating, not coordinator.sneakPeek, so
     // it isn't covered by glassVisible's sneakPeek.show check either.
     private var lockActivityShowing: Bool {
-        let hudIsActive = coordinator.sneakPeek.show
-            && coordinator.sneakPeek.type != .music
-            && coordinator.sneakPeek.type != .bluetoothAudio
-            && coordinator.sneakPeek.type != .airdropReceive
-            && vm.notchState == .closed
-        return Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive
+        Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating)
     }
 
+    // Which family (HUD vs. lock vs. battery banner vs. music vs. timer live
+    // activity) currently wants the closed-notch row slot. displayedRowFamily
+    // (in body) tracks this with a lag, only jumping to match once rowMorph
+    // has collapsed fully — see the .onChange(of: desiredRowFamily) handler
+    // below.
+    //
+    // Priority: an active HUD always wins, even while locked — whatever was
+    // showing collapses in and the HUD expands out in its place, then
+    // collapses back to let it expand back out once the HUD ends. Otherwise,
+    // being locked wins over the battery banner and any live activity — all
+    // of them stay hidden while locked, matching how the lock icon used to
+    // take over exclusively. The battery banner in turn outranks music/timer
+    // (matching its original priority, checked right after lock/before
+    // everything else) — same collapse-in/expand-out treatment applies to
+    // every one of these transitions now, not just the ones already wired up.
+    private var desiredRowFamily: ClosedRowFamily {
+        guard vm.notchState == .closed, !coordinator.helloAnimationRunning
+        else { return .none }
+        if coordinator.sneakPeek.show && coordinator.sneakPeek.type != .music && coordinator.sneakPeek.type != .battery {
+            return .hud
+        }
+        if lockActivityShowing { return .lock }
+        if batteryBannerShowing { return .battery }
+        if musicLiveActivityShowing { return .music }
+        if timerLiveActivityShowing { return .timer }
+        return .none
+    }
+
+    // Same blend-by-rowMorph treatment as topCornerRadius above — hello/open
+    // keep their own unconditional values (untouched by any row family swap),
+    // everything else (including the battery banner now) continuously
+    // interpolates toward/away from displayedRowFamily's resting radius.
     private var currentBottomCornerRadius: CGFloat {
-        let batteryModel = BatteryStatusViewModel.shared
-        let isExpandedBatteryBanner = coordinator.expandingView.type == .battery
-            && coordinator.expandingView.show
-            && Defaults[.showPowerStatusNotifications]
-            && ((batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
-                || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn)))
+        if coordinator.helloAnimationRunning { return 28 }
+        if vm.notchState == .open {
+            // Kept small — the album art hugs this corner with minimal padding,
+            // so a larger boost here clips straight into it during a hard pull.
+            return activeCornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
+        }
 
-        return coordinator.helloAnimationRunning
-            ? 28
-            : vm.notchState == .open
-                // Kept small — the album art hugs this corner with minimal padding,
-                // so a larger boost here clips straight into it during a hard pull.
-                ? activeCornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
-                : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music
-                    ? 22
-                    : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-                        ? bluetoothHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 3
-                            : coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
-                                ? airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
-                            : isExpandedBatteryBanner
-                                ? 28
-                                // Same treatment as the music bar — this is the "Default"
-                                // (non-inline) style's slider card, a similarly full-width,
-                                // full-height piece of content, not the thin closed pill.
-                                : defaultHUDShowing
-                                    ? 22
-                                    : inlineHUDShowing && isHovering
-                                        ? activeCornerRadiusInsets.closed.bottom + 6
-                                        : activeCornerRadiusInsets.closed.bottom
+        let bareBottom = activeCornerRadiusInsets.closed.bottom
+        return bareBottom + (restingBottomCornerRadius - bareBottom) * rowMorph
     }
 
-    // Matches the condition that shows SystemEventIndicatorModifier below —
-    // the "Default" HUD style's volume/brightness/mic/focus card, shown when
-    // inline style is off and the type isn't one of the ones with their own
-    // bespoke pill.
-    private var defaultHUDShowing: Bool {
-        coordinator.sneakPeek.show
-            && coordinator.sneakPeek.type != .music
-            && coordinator.sneakPeek.type != .battery
-            && coordinator.sneakPeek.type != .bluetoothAudio
-            && coordinator.sneakPeek.type != .airdropReceive
-            && !Defaults[.inlineHUD]
-            && vm.notchState == .closed
-    }
-
-    // Matches the condition that shows InlineHUD below (coordinator.sneakPeek
-    // driven, Defaults[.inlineHUD] style, excluding the types with their own
-    // bespoke pills) so the hover corner-radius bump only applies there —
-    // not to the plain menu-bar-height closed notch.
-    private var inlineHUDShowing: Bool {
-        coordinator.sneakPeek.show
-            && Defaults[.inlineHUD]
-            && coordinator.sneakPeek.type != .music
-            && coordinator.sneakPeek.type != .battery
-            && coordinator.sneakPeek.type != .bluetoothAudio
-            && coordinator.sneakPeek.type != .airdropReceive
-            && vm.notchState == .closed
+    // The radius displayedRowFamily's content rests at once fully expanded —
+    // same special-case values currentBottomCornerRadius always used.
+    private var restingBottomCornerRadius: CGFloat {
+        switch displayedRowFamily {
+        case .hud:
+            if coordinator.sneakPeek.type == .bluetoothAudio {
+                return bluetoothHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 3
+            }
+            if coordinator.sneakPeek.type == .airdropReceive {
+                return airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
+            }
+            // Same treatment as the music bar — this is the "Default"
+            // (non-inline) style's slider card, a similarly full-width,
+            // full-height piece of content, not the thin closed pill.
+            if !Defaults[.inlineHUD] { return 22 }
+            return isHovering ? activeCornerRadiusInsets.closed.bottom + 6 : activeCornerRadiusInsets.closed.bottom
+        case .music:
+            // Same sneakPeek.show gating as restingTopCornerRadius above —
+            // this bug (persistent music bar's bottom corners over-rounded
+            // to 22pt at all times) was from unconditionally returning 22
+            // for the whole .music family instead of just the active reveal.
+            return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
+                ? 22 : activeCornerRadiusInsets.closed.bottom
+        case .battery:
+            // Matches the original isExpandedBatteryBanner check — only the
+            // low/full-battery takeover card (not the low-power-mode toggle
+            // message) gets the deeper concave radius.
+            let batteryModel = BatteryStatusViewModel.shared
+            let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
+                || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
+            return isStandardBanner ? 28 : activeCornerRadiusInsets.closed.bottom
+        case .timer, .none, .lock:
+            return activeCornerRadiusInsets.closed.bottom
+        }
     }
 
     private var currentNotchShape: NotchShape {
         NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: currentBottomCornerRadius)
     }
 
+    // The closed-notch row's own current width — continuously interpolated
+    // between the bare notch width and displayedRowFamily's resting width by
+    // rowMorph (this now covers the locked/lock-icon state too, via
+    // ClosedRowFamily.lock). Shared with computedChinWidth (the invisible
+    // hit-rect) — both need the exact same value ClosedNotchRowContent's own
+    // `rowWidth` computes internally, so the two can't drift apart.
+    private var rowContentWidth: CGFloat {
+        // The floor (matches ClosedNotchRowContent's own bareWidth) vs. the
+        // raw width fed into restingRowWidth's formulas (matches its own
+        // restingWidth) are deliberately different values now — see the
+        // comments on both.
+        let bare = vm.closedNotchSize.width - 20
+        let resting = restingRowWidth(
+            for: displayedRowFamily,
+            sneakPeekType: coordinator.sneakPeek.type,
+            closedNotchWidth: vm.closedNotchSize.width,
+            effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
+            bluetoothHUDExpanded: bluetoothHUDExpanded,
+            airdropHUDExpanded: airdropHUDExpanded,
+            inlineHUD: Defaults[.inlineHUD]
+        )
+        return bare + (resting - bare) * rowMorph
+    }
+
     private var computedChinWidth: CGFloat {
-        var chinWidth: CGFloat = vm.closedNotchSize.width
-
-        if coordinator.expandingView.type == .battery && coordinator.expandingView.show
-            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-        {
-            chinWidth = 640
-        } else if vm.notchState == .closed && Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) {
-            chinWidth += 60
-        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio
-            && vm.notchState == .closed
-        {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) - 10)
-        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive
-            && vm.notchState == .closed
-        {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) - 10)
-        } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
-            && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
-            && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
-        {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
-        }
-
-        return chinWidth
+        guard vm.notchState == .closed else { return vm.closedNotchSize.width }
+        return rowContentWidth
     }
     
     private var semiLiquidGlassTransition: Double {
@@ -1055,6 +1097,19 @@ struct ContentView: View {
                     .onChange(of: coordinator.hudLimitBounceEvent) { _, newEvent in
                         vm.triggerHUDLimitBounce(rightEdge: newEvent.rightEdge)
                     }
+                    .onChange(of: desiredRowFamily) { _, newFamily in
+                        handleRowFamilyChange(to: newFamily)
+                    }
+                    .onAppear {
+                        // Skip the morph choreography on first mount — nothing
+                        // was showing a moment ago to collapse away from.
+                        var noAnim = Transaction()
+                        noAnim.disablesAnimations = true
+                        withTransaction(noAnim) {
+                            displayedRowFamily = desiredRowFamily
+                            rowMorph = 1
+                        }
+                    }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
                         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
@@ -1148,147 +1203,42 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 30)
                     Spacer()
+                } else if vm.notchState == .open && !Defaults[.enableCompactUI] {
+                    KnotchHeader()
+                        .frame(height: max(24, vm.effectiveClosedNotchHeight))
+                        .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                        .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
+                        .blur(radius: closeSwipeBlur)
+                        .liquidStretch(vm)
+                        .transition(
+                            .opacity
+                            .combined(with: .blur(radius: 20))
+                            .animation(.smooth(duration: 0.35))
+                        )
+                } else if vm.notchState == .closed {
+                    // Bluetooth/AirDrop HUDs, InlineHUD/SystemEventIndicatorModifier
+                    // (the "Default" HUD style), MusicLiveActivity,
+                    // TimerCompactPill, the lock icon, and BatteryNotchBanner —
+                    // exactly as before, just relocated into one family-
+                    // switching, collapse/expand-aware view, so locking/
+                    // unlocking or a battery banner triggering while something
+                    // else is showing collapses it away and expands the new
+                    // thing out (and back) instead of hard-cutting between
+                    // separate branches. See ClosedNotchRowContent +
+                    // desiredRowFamily/rowMorph above for the choreography.
+                    ClosedNotchRowContent(
+                        family: displayedRowFamily,
+                        morph: rowMorph,
+                        isUnlockAnimating: $isUnlockAnimating,
+                        bluetoothHUDExpanded: $bluetoothHUDExpanded,
+                        airdropHUDExpanded: $airdropHUDExpanded,
+                        sneakPeekTitleScrolling: $sneakPeekTitleScrolling,
+                        albumArtNamespace: albumArtNamespace,
+                        isHovering: $isHovering,
+                        gestureProgress: $gestureProgress
+                    )
                 } else {
-                    // Locked state — show lock icon first, before any other content
-                    let hudIsActive = coordinator.sneakPeek.show
-                        && coordinator.sneakPeek.type != .music
-                        && coordinator.sneakPeek.type != .bluetoothAudio
-                        && coordinator.sneakPeek.type != .airdropReceive
-                        && vm.notchState == .closed
-
-                    if Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating) && !hudIsActive {
-                        HStack(spacing: 0) {
-                            LockNotchOverlay(isLocked: vm.isScreenLocked, isUnlockAnimating: $isUnlockAnimating, host: lockAnimationHost)
-                                .allowsHitTesting(false)
-                                .padding(.leading, cornerRadiusInsets.closed.bottom - 10)
-                            Spacer()
-                        }
-                        .frame(width: vm.closedNotchSize.width + 50, height: vm.effectiveClosedNotchHeight)
-                    } else {
-                        if coordinator.expandingView.type == .battery && coordinator.expandingView.show
-                            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-                        {
-                            BatteryNotchBanner()
-                        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .bluetoothAudio && vm.notchState == .closed {
-                            BluetoothHUDView(
-                                icon: coordinator.sneakPeek.icon,
-                                deviceName: coordinator.sneakPeek.deviceName,
-                                batteryFraction: coordinator.sneakPeek.value,
-                                isExpanded: $bluetoothHUDExpanded
-                            )
-                            .environmentObject(vm)
-                            .transition(.opacity)
-                        } else if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .airdropReceive && vm.notchState == .closed {
-                            AirDropReceiveHUD(
-                                progress: coordinator.sneakPeek.value,
-                                filePath: coordinator.sneakPeek.deviceName,
-                                isExpanded: $airdropHUDExpanded
-                            )
-                            .environmentObject(vm)
-                            .transition(.opacity)
-                        } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && (coordinator.sneakPeek.type != .airdropReceive) && vm.notchState == .closed {
-                            InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress, label: coordinator.sneakPeek.deviceName, tintColor: coordinator.sneakPeek.accentColor)
-                                .transition(.opacity)
-                        } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
-                            MusicLiveActivity(albumArtNamespace: albumArtNamespace)
-                                .frame(alignment: .center)
-                        } else if vm.notchState == .closed && !TimerManager.shared.allTimers.isEmpty && !TimerManager.shared.isPausedIdle && !vm.hideOnClosed {
-                            TimerCompactPill()
-                                .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
-                                .transition(.opacity)
-                        } else if vm.notchState == .open && !Defaults[.enableCompactUI] {
-                            KnotchHeader()
-                                .frame(height: max(24, vm.effectiveClosedNotchHeight))
-                                .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
-                                .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
-                                .blur(radius: closeSwipeBlur)
-                                .liquidStretch(vm)
-                                .transition(
-                                    .opacity
-                                    .combined(with: .blur(radius: 20))
-                                    .animation(.smooth(duration: 0.35))
-                                )
-                        } else {
-                            Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
-                        }
-                        
-                        if coordinator.sneakPeek.show {
-                            if coordinator.sneakPeek.type == .bluetoothAudio && vm.notchState == .closed {
-                            } else if coordinator.sneakPeek.type == .airdropReceive && vm.notchState == .closed {
-                            } else if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .bluetoothAudio) && (coordinator.sneakPeek.type != .airdropReceive) && !Defaults[.inlineHUD] && vm.notchState == .closed {
-                                SystemEventIndicatorModifier(
-                                    eventType: $coordinator.sneakPeek.type,
-                                    value: $coordinator.sneakPeek.value,
-                                    icon: $coordinator.sneakPeek.icon,
-                                    label: coordinator.sneakPeek.deviceName,
-                                    tintColor: coordinator.sneakPeek.accentColor,
-                                    sendEventBack: { newVal in
-                                        switch coordinator.sneakPeek.type {
-                                        case .volume:
-                                            VolumeManager.shared.setAbsolute(Float32(newVal))
-                                        case .brightness:
-                                            BrightnessManager.shared.setAbsolute(value: Float32(newVal))
-                                        default:
-                                            break
-                                        }
-                                    }
-                                )
-                                .padding(.bottom, 10)
-                                // Matches the music row's own leading/trailing split just
-                                // below — same bottom corner radius (22, see defaultHUDShowing
-                                // in currentBottomCornerRadius), so the same padding clears it
-                                // without the icon/slider visibly running into the curve.
-                                .padding(.leading, 5)
-                                .padding(.trailing, 12)
-                            }
-                            // Old sneak peek music
-                            else if coordinator.sneakPeek.type == .music {
-                                if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard {
-                                    HStack(alignment: .center) {
-                                        // Zero-width, hidden — reserves exactly the same
-                                        // intrinsic height the visible music.note icon used
-                                        // to contribute as a real sibling here, so the
-                                        // .fixedSize() below still computes the original
-                                        // (compact) ideal height for this row instead of
-                                        // falling back to GeometryReader's own ambiguous
-                                        // ideal size, which drifted taller. Takes no
-                                        // horizontal space, so it doesn't push the visible
-                                        // (now inline) icon+text away from the leading edge.
-                                        Image(systemName: "music.note")
-                                            .hidden()
-                                            .frame(width: 0)
-                                        GeometryReader { geo in
-                                            MarqueeText(
-                                                .constant(musicManager.songTitle + " • " + musicManager.artistName),
-                                                font: .body.weight(.semibold),
-                                                textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray,
-                                                minDuration: 1,
-                                                frameWidth: geo.size.width,
-                                                dimmedSubstring: "•",
-                                                dimmedColor: Color.gray.opacity(0.6),
-                                                scrollSpeed: 34,
-                                                leadingIcon: "music.note",
-                                                leadingIconColor: Color.gray.opacity(0.6),
-                                                centerWhenFits: true,
-                                                needsScrollingBinding: $sneakPeekTitleScrolling
-                                            )
-                                            .conditionalModifier(sneakPeekTitleScrolling) { view in
-                                                view.edgeFade(leading: 6)
-                                            }
-                                        }
-                                    }
-                                    // Leading kept tighter than trailing — this row's own
-                                    // bottom-left corner doesn't curve in as sharply as the
-                                    // notch's top corner does, so it can sit closer to the
-                                    // edge and give the marquee more room before it needs to
-                                    // scroll at all.
-                                    .padding(.leading, 5)
-                                    .padding(.trailing, 12)
-                                    .padding(.bottom, 10)
-                                }
-                            }
-                        }
-                    }
+                    Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                 }
             }
               .conditionalModifier((coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
@@ -1363,6 +1313,45 @@ struct ContentView: View {
         guard !vm.isScreenLocked else { return }
         // open() drives its own animation internally now.
         vm.open()
+    }
+
+    // MARK: - Closed-notch row family transitions (HUD <-> live activity)
+
+    // Drives the Alcove-style collapse/expand whenever the closed-notch row's
+    // desired family (HUD vs. music vs. timer) changes. displayedRowFamily
+    // only jumps to the new value once rowMorph has fully collapsed — see
+    // ClosedNotchRowContent, whose scale/blur/opacity are all driven by the
+    // same rowMorph this animates.
+    private func handleRowFamilyChange(to newFamily: ClosedRowFamily) {
+        rowTransitionGeneration += 1
+        let myGeneration = rowTransitionGeneration
+
+        if newFamily == displayedRowFamily {
+            // Flipped back before a pending swap fired (e.g. a rapid
+            // retrigger) — just make sure we're settled back at full scale;
+            // there's no new content to swap to.
+            withAnimation(rowMorphSpring) { rowMorph = 1 }
+            return
+        }
+
+        // Always run the same collapse -> swap -> expand choreography, even
+        // when one side is .none (nothing showing) — a HUD ending with no
+        // live activity to fall back to should still collapse into the
+        // notch, not just crossfade/fade out in place the old way.
+        withAnimation(rowMorphSpring) { rowMorph = 0 }
+        // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
+        // works around — this collapse resizes the panel same as an
+        // open/close does (see KnotchSkyLightWindow.knotchWillOpen).
+        NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(rowMorphSwapDelay))
+            guard myGeneration == rowTransitionGeneration else { return }
+            var noAnim = Transaction()
+            noAnim.disablesAnimations = true
+            withTransaction(noAnim) { displayedRowFamily = newFamily }
+            NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+            withAnimation(rowMorphSpring) { rowMorph = 1 }
+        }
     }
 
     // MARK: - Hover Management

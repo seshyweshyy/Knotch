@@ -39,6 +39,19 @@ let hudLimitBounceSpring = Animation.spring(response: 0.8, dampingFraction: 0.95
 // No overshoot on close — critically damped regardless of the open spring.
 let notchCloseSpring = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
 
+// Drives the closed-notch row's collapse-to-notch/expand-back-out choreography
+// (ClosedNotchRowContent's rowMorph) whenever a HUD and a live activity (music/
+// timer) swap places in the same slot. Slowed down from an initial 0.28/0.18
+// pairing that read as too quick/snappy.
+let rowMorphSpring = Animation.spring(response: 0.42, dampingFraction: 0.82, blendDuration: 0)
+
+// How long to wait after starting the collapse (rowMorph -> 0) before actually
+// swapping displayedRowFamily's content — timed to land once the collapsing
+// content is already scaled/blurred down to effectively invisible, so the
+// swap itself is imperceptible. Shorter than rowMorphSpring's full response
+// since the content is unreadable well before the spring fully settles.
+let rowMorphSwapDelay: TimeInterval = 0.28
+
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 // Add a wider size specifically for the home view
 let openNotchHomeSize: CGSize = .init(width: 680, height: 190)
