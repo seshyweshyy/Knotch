@@ -44,8 +44,7 @@ func restingRowWidth(
     closedNotchWidth: CGFloat,
     effectiveClosedNotchHeight: CGFloat,
     bluetoothHUDExpanded: Bool,
-    airdropHUDExpanded: Bool,
-    inlineHUD: Bool
+    airdropHUDExpanded: Bool
 ) -> CGFloat {
     switch family {
     case .none:
@@ -59,6 +58,11 @@ func restingRowWidth(
         // Matches the original fixed lock-only pill width.
         return closedNotchWidth + 50
     case .hud:
+        // Only Bluetooth/AirDrop or an Inline-style HUD ever reach this
+        // family — Default-style HUDs compose as an independent second row
+        // instead (see ContentView's defaultStyleHUDShowing and the
+        // SystemEventIndicatorModifier row in NotchLayout()), so this only
+        // ever needs the Inline-style widths now.
         switch sneakPeekType {
         case .bluetoothAudio:
             // BluetoothHUDView.expandedWidth, else its own compact HStack:
@@ -71,17 +75,17 @@ func restingRowWidth(
             return airdropHUDExpanded ? 300 : closedNotchWidth + effectiveClosedNotchHeight + 16
         case .mic:
             // Just an icon + short "muted"/"unmuted" label — no slider.
-            return inlineHUD ? closedNotchWidth + 44 : closedNotchWidth + 140
+            return closedNotchWidth + 44
         case .focusMode:
             // No slider either, but the focus mode's own name (label) can run
             // longer than "muted"/"unmuted" ("Do Not Disturb", etc.), so this
             // wants more trailing room than mic gets.
-            return inlineHUD ? closedNotchWidth + 58 : closedNotchWidth + 155
+            return closedNotchWidth + 58
         default:
             // Volume/brightness/backlight all carry a DraggableProgressBar
             // plus a percentage label — want real breathing room on the
             // trailing end so the slider/label don't crowd the pill's edge.
-            return inlineHUD ? closedNotchWidth + 170 : closedNotchWidth + 235
+            return closedNotchWidth + 170
         }
     case .music:
         // Matches MusicLiveActivity's own three-part HStack (album art +
@@ -155,8 +159,7 @@ struct ClosedNotchRowContent: View {
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
-            airdropHUDExpanded: airdropHUDExpanded,
-            inlineHUD: Defaults[.inlineHUD]
+            airdropHUDExpanded: airdropHUDExpanded
         )
     }
 
@@ -261,7 +264,10 @@ struct ClosedNotchRowContent: View {
             )
             .environmentObject(vm)
             .transition(.opacity)
-        } else if Defaults[.inlineHUD] {
+        } else {
+            // The only remaining possibility once ContentView's
+            // desiredRowFamily routes here — Default-style HUDs never enter
+            // this family anymore (see restingRowWidth's .hud case comment).
             InlineHUD(
                 type: $coordinator.sneakPeek.type,
                 value: $coordinator.sneakPeek.value,
@@ -271,28 +277,6 @@ struct ClosedNotchRowContent: View {
                 label: coordinator.sneakPeek.deviceName,
                 tintColor: coordinator.sneakPeek.accentColor
             )
-            .transition(.opacity)
-        } else {
-            SystemEventIndicatorModifier(
-                eventType: $coordinator.sneakPeek.type,
-                value: $coordinator.sneakPeek.value,
-                icon: $coordinator.sneakPeek.icon,
-                label: coordinator.sneakPeek.deviceName,
-                tintColor: coordinator.sneakPeek.accentColor,
-                sendEventBack: { newVal in
-                    switch coordinator.sneakPeek.type {
-                    case .volume:
-                        VolumeManager.shared.setAbsolute(Float32(newVal))
-                    case .brightness:
-                        BrightnessManager.shared.setAbsolute(value: Float32(newVal))
-                    default:
-                        break
-                    }
-                }
-            )
-            .padding(.bottom, 10)
-            .padding(.leading, 5)
-            .padding(.trailing, 12)
             .transition(.opacity)
         }
     }

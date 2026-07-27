@@ -639,7 +639,13 @@ struct ContentView: View {
             return activeCornerRadiusInsets.opened.top
         }
         let bareTop = activeCornerRadiusInsets.closed.top
-        return bareTop + (restingTopCornerRadius - bareTop) * rowMorph
+        let blended = bareTop + (restingTopCornerRadius - bareTop) * rowMorph
+        // The Default-style HUD's own independent second row (see
+        // defaultStyleHUDShowing) sits outside the row-family system, but
+        // still needs the same concave top the music sneak peek/Default-style
+        // .hud family used to give it, regardless of what row 1 is currently
+        // showing above it.
+        return defaultStyleHUDShowing ? max(blended, 12) : blended
     }
 
     // The radius displayedRowFamily's content rests at once fully expanded —
@@ -656,10 +662,11 @@ struct ContentView: View {
             if coordinator.sneakPeek.type == .bluetoothAudio {
                 return bluetoothHUDExpanded ? 26 : activeCornerRadiusInsets.closed.top
             }
-            // The "Default" HUD style's card is the same kind of full-width,
-            // full-height content as the music sneak peek — give it the same
-            // concave top instead of the plain closed-notch/live-activity radius.
-            return Defaults[.inlineHUD] ? activeCornerRadiusInsets.closed.top : 12
+            // Default-style HUDs no longer reach this family at all (they're
+            // an independent second row now — see defaultStyleHUDShowing's
+            // own contribution to topCornerRadius below), so this is always
+            // an Inline-style HUD here, which keeps the plain closed radius.
+            return activeCornerRadiusInsets.closed.top
         case .music:
             // Only the active title/artist marquee reveal gets the concave
             // treatment (same as the Default HUD card, scaled down for this
@@ -712,25 +719,48 @@ struct ContentView: View {
         Defaults[.showOnLockScreen] && (vm.isScreenLocked || isUnlockAnimating)
     }
 
+    // Default-style (non-inline) volume/brightness/mic/backlight/focus HUDs
+    // don't take over the row-1 slot at all — they compose as their own
+    // independent second row instead, underneath whatever row 1 (a live
+    // activity, the lock icon, nothing) is already showing, matching how
+    // this always used to look before HUD/live-activity collapse-and-expand
+    // existed. Bluetooth/AirDrop and Inline-style HUDs are excluded here —
+    // they still take the row-1 slot exclusively (see desiredRowFamily),
+    // since their own layout structurally can't coexist with row 1's.
+    private var defaultStyleHUDShowing: Bool {
+        coordinator.sneakPeek.show
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .battery
+            && coordinator.sneakPeek.type != .bluetoothAudio
+            && coordinator.sneakPeek.type != .airdropReceive
+            && !Defaults[.inlineHUD]
+            && vm.notchState == .closed
+    }
+
     // Which family (HUD vs. lock vs. battery banner vs. music vs. timer live
     // activity) currently wants the closed-notch row slot. displayedRowFamily
     // (in body) tracks this with a lag, only jumping to match once rowMorph
     // has collapsed fully — see the .onChange(of: desiredRowFamily) handler
     // below.
     //
-    // Priority: an active HUD always wins, even while locked — whatever was
-    // showing collapses in and the HUD expands out in its place, then
-    // collapses back to let it expand back out once the HUD ends. Otherwise,
-    // being locked wins over the battery banner and any live activity — all
-    // of them stay hidden while locked, matching how the lock icon used to
-    // take over exclusively. The battery banner in turn outranks music/timer
-    // (matching its original priority, checked right after lock/before
-    // everything else) — same collapse-in/expand-out treatment applies to
-    // every one of these transitions now, not just the ones already wired up.
+    // Priority: an active Bluetooth/AirDrop/Inline-style HUD always wins,
+    // even while locked — whatever was showing collapses in and the HUD
+    // expands out in its place, then collapses back to let it expand back
+    // out once the HUD ends. A Default-style HUD never reaches this at all —
+    // see defaultStyleHUDShowing above — so row 1 keeps showing whatever it
+    // already would underneath it. Otherwise, being locked wins over the
+    // battery banner and any live activity — all of them stay hidden while
+    // locked, matching how the lock icon used to take over exclusively. The
+    // battery banner in turn outranks music/timer (matching its original
+    // priority, checked right after lock/before everything else) — same
+    // collapse-in/expand-out treatment applies to every one of these
+    // transitions now, not just the ones already wired up.
     private var desiredRowFamily: ClosedRowFamily {
         guard vm.notchState == .closed, !coordinator.helloAnimationRunning
         else { return .none }
-        if coordinator.sneakPeek.show && coordinator.sneakPeek.type != .music && coordinator.sneakPeek.type != .battery {
+        if coordinator.sneakPeek.show && coordinator.sneakPeek.type != .music && coordinator.sneakPeek.type != .battery
+            && !defaultStyleHUDShowing
+        {
             return .hud
         }
         if lockActivityShowing { return .lock }
@@ -753,7 +783,9 @@ struct ContentView: View {
         }
 
         let bareBottom = activeCornerRadiusInsets.closed.bottom
-        return bareBottom + (restingBottomCornerRadius - bareBottom) * rowMorph
+        let blended = bareBottom + (restingBottomCornerRadius - bareBottom) * rowMorph
+        // Same independent contribution as topCornerRadius above.
+        return defaultStyleHUDShowing ? max(blended, 22) : blended
     }
 
     // The radius displayedRowFamily's content rests at once fully expanded —
@@ -767,10 +799,8 @@ struct ContentView: View {
             if coordinator.sneakPeek.type == .airdropReceive {
                 return airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
             }
-            // Same treatment as the music bar — this is the "Default"
-            // (non-inline) style's slider card, a similarly full-width,
-            // full-height piece of content, not the thin closed pill.
-            if !Defaults[.inlineHUD] { return 22 }
+            // Always an Inline-style HUD here now — see restingTopCornerRadius's
+            // matching comment.
             return isHovering ? activeCornerRadiusInsets.closed.bottom + 6 : activeCornerRadiusInsets.closed.bottom
         case .music:
             // Same sneakPeek.show gating as restingTopCornerRadius above —
@@ -814,8 +844,7 @@ struct ContentView: View {
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
-            airdropHUDExpanded: airdropHUDExpanded,
-            inlineHUD: Defaults[.inlineHUD]
+            airdropHUDExpanded: airdropHUDExpanded
         )
         return bare + (resting - bare) * rowMorph
     }
@@ -1224,8 +1253,9 @@ struct ContentView: View {
                             .animation(.smooth(duration: 0.35))
                         )
                 } else if vm.notchState == .closed {
-                    // Bluetooth/AirDrop HUDs, InlineHUD/SystemEventIndicatorModifier
-                    // (the "Default" HUD style), MusicLiveActivity,
+                    // Bluetooth/AirDrop HUDs, InlineHUD (the "Default" HUD
+                    // style's SystemEventIndicatorModifier is a separate
+                    // second row below, not part of this), MusicLiveActivity,
                     // TimerCompactPill, the lock icon, and BatteryNotchBanner —
                     // exactly as before, just relocated into one family-
                     // switching, collapse/expand-aware view, so locking/
@@ -1247,6 +1277,43 @@ struct ContentView: View {
                     )
                 } else {
                     Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
+                }
+
+                // The "Default" HUD style's own independent second row —
+                // composes underneath whatever row 1 is already showing
+                // (a live activity, the lock icon, nothing) instead of
+                // replacing it, matching how this always used to look before
+                // HUD/live-activity collapse-and-expand existed. See
+                // defaultStyleHUDShowing's own note on why this isn't part of
+                // ClosedRowFamily.
+                if defaultStyleHUDShowing {
+                    SystemEventIndicatorModifier(
+                        eventType: $coordinator.sneakPeek.type,
+                        value: $coordinator.sneakPeek.value,
+                        icon: $coordinator.sneakPeek.icon,
+                        label: coordinator.sneakPeek.deviceName,
+                        tintColor: coordinator.sneakPeek.accentColor,
+                        sendEventBack: { newVal in
+                            switch coordinator.sneakPeek.type {
+                            case .volume:
+                                VolumeManager.shared.setAbsolute(Float32(newVal))
+                            case .brightness:
+                                BrightnessManager.shared.setAbsolute(value: Float32(newVal))
+                            default:
+                                break
+                            }
+                        }
+                    )
+                    // Tracks row 1's own current width (whatever's showing
+                    // above it — music, timer, lock, the bare notch, even
+                    // mid-transition) instead of a separately-tuned number of
+                    // its own, just pulled in a little narrower than an exact
+                    // match.
+                    .frame(width: rowContentWidth * 0.92)
+                    .padding(.bottom, 10)
+                    .padding(.leading, 5)
+                    .padding(.trailing, 12)
+                    .transition(.opacity)
                 }
             }
               .conditionalModifier((coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
