@@ -799,14 +799,42 @@ struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
-                Toggle(isOn: Binding(
-                    get: { Defaults[.menubarIcon] },
-                    set: { Defaults[.menubarIcon] = $0 }
-                )) {
-                    Text("Show menu bar icon")
+                if #available(macOS 26.0, *) {
+                    HStack {
+                        Button {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension?Menu_Bar") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        } label: {
+                            Text("Show menu bar icon…")
+                        }
+                        .foregroundStyle(.white)
+                        .settingsSubtleGlassButton()
+                        Spacer()
+                        ListItemPopover {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Menu bar icon toggle moved to System Settings")
+                                    .font(.headline)
+                                // macOS 26 moved menu bar item visibility out of app control and into Menu Bar settings
+                                Text("macOS 26+ controls this from System Settings' Menu Bar page. Find Knotch under the 'Allow in the Menu Bar' list and enable it there.\n\nTo remove the icon, hold ⌘ and drag it out of the menu bar, or disable it in the same settings page.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(width: 260)
+                        }
+                    }
+                    .settingsHighlight(id: "General-Show menu bar icon")
+                } else {
+                    Toggle(isOn: Binding(
+                        get: { Defaults[.menubarIcon] },
+                        set: { Defaults[.menubarIcon] = $0 }
+                    )) {
+                        Text("Show menu bar icon")
+                    }
+                    .tint(.effectiveAccent)
+                    .settingsHighlight(id: "General-Show menu bar icon")
                 }
-                .tint(.effectiveAccent)
-                .settingsHighlight(id: "General-Show menu bar icon")
                 LaunchAtLogin.Toggle("Launch at login")
                     .settingsHighlight(id: "General-Launch at login")
                 Defaults.Toggle(key: .showOnAllDisplays) {
