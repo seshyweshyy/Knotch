@@ -3,9 +3,13 @@ import SwiftUI
 
 
 struct KnotchLiquidGlass: NSViewRepresentable {
+    enum GlassShape {
+        case notch(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat)
+        case capsule
+    }
+
     var variant: Int = 9
-    var topCornerRadius: CGFloat
-    var bottomCornerRadius: CGFloat
+    var shape: GlassShape
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -58,8 +62,7 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         // matching the mask's per-frame animation.
         glass.postsFrameChangedNotifications = true
         context.coordinator.glassView = glass
-        context.coordinator.topCornerRadius = topCornerRadius
-        context.coordinator.bottomCornerRadius = bottomCornerRadius
+        context.coordinator.shape = shape
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.handleFrameChange),
@@ -72,8 +75,7 @@ struct KnotchLiquidGlass: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         applyProperties(to: nsView)
-        context.coordinator.topCornerRadius = topCornerRadius
-        context.coordinator.bottomCornerRadius = bottomCornerRadius
+        context.coordinator.shape = shape
         context.coordinator.applyPath()
     }
 
@@ -98,17 +100,18 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         view.setValue(0, forKey: "_scrimState")
         view.setValue(false, forKey: "_subduedState")
         view.setValue(true, forKey: "_contentLensing")
-        // Public NSGlassEffectViewStyle: .regular (0, the default we were
-        // never overriding) is the "Standard glass effect style" — more
-        // opaque/tinted by design. .clear (1) is the fully transparent one.
+        // Public NSGlassEffectViewStyle: .regular (0, what SwiftUI's own
+        // `.glassEffect()` modifier defaults to) is the "Standard glass
+        // effect style" — more opaque/tinted by design, which is why views
+        // using the public modifier read as frosted rather than truly
+        // glassy. .clear (1) is the fully transparent one used here.
         view.setValue(1, forKey: "style")
         view.setValue(variant, forKey: "_variant")
     }
 
     final class Coordinator: NSObject {
         weak var glassView: NSView?
-        var topCornerRadius: CGFloat = 0
-        var bottomCornerRadius: CGFloat = 0
+        var shape: GlassShape = .capsule
 
         @objc func handleFrameChange(_ notification: Notification) {
             applyPath()
@@ -117,13 +120,20 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         // NSGlassEffectView's edge lensing/refraction is tied to its own
         // path, not to any external SwiftUI .clipShape() applied afterward —
         // a plain cornerRadius rounded rect only lenses at its own corners,
-        // so once reclipped to the notch's flat-top shape, the straight
-        // side edges get no refraction. Feeding the real NotchShape geometry
-        // into the private _path property makes the lensing follow every edge.
+        // so once reclipped to a different shape, the straight edges get no
+        // refraction. Feeding the real geometry into the private _path
+        // property makes the lensing follow every edge, whichever shape
+        // this instance is standing in for (notch or capsule alike).
         func applyPath() {
             guard let view = glassView, view.bounds.width > 0, view.bounds.height > 0 else { return }
-            let shape = NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
-            let path = shape.path(in: view.bounds).cgPath
+            let path: CGPath
+            switch shape {
+            case .notch(let topCornerRadius, let bottomCornerRadius):
+                path = NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
+                    .path(in: view.bounds).cgPath
+            case .capsule:
+                path = Capsule(style: .continuous).path(in: view.bounds).cgPath
+            }
 
             // SwiftUI Path uses a top-left origin; NSGlassEffectView
             // (isFlipped == false) uses AppKit's bottom-left origin, so

@@ -344,6 +344,7 @@ class KnotchViewCoordinator: ObservableObject {
         }
     }
 
+
     private var sneakPeekDuration: TimeInterval = 2
     private var sneakPeekTask: Task<Void, Never>?
     private var sneakPeekHideDeadline: Date?

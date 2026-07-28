@@ -1,4 +1,5 @@
 import Foundation
+import IOKit
 import IOKit.ps
 
 /// Manages and monitors battery status changes on the device
@@ -13,6 +14,7 @@ class BatteryActivityManager {
     var onPowerSourceChange: ((Bool) -> Void)?
     var onChargingChange: ((Bool) -> Void)?
     var onTimeToFullChargeChange: ((Int) -> Void)?
+    var onTimeToEmptyChange: ((Int) -> Void)?
 
     private var batterySource: CFRunLoopSource?
     private var observers: [(BatteryEvent) -> Void] = []
@@ -26,6 +28,7 @@ class BatteryActivityManager {
         case lowPowerModeChanged(isEnabled: Bool)
         case isChargingChanged(isCharging: Bool)
         case timeToFullChargeChanged(time: Int)
+        case timeToEmptyChanged(time: Int)
         case maxCapacityChanged(capacity: Float)
         case error(description: String)
     }
@@ -42,7 +45,8 @@ class BatteryActivityManager {
         currentCapacity: 0,
         maxCapacity: 0,
         isInLowPowerMode: false,
-        timeToFullCharge: 0
+        timeToFullCharge: 0,
+        timeToEmpty: 0
     )
 
     private init() {
@@ -134,7 +138,13 @@ class BatteryActivityManager {
                 current: batteryInfo.timeToFullCharge,
                 eventGenerator: { .timeToFullChargeChanged(time: $0) }
             )
-            
+
+            checkAndNotify(
+                previous: previousInfo.timeToEmpty,
+                current: batteryInfo.timeToEmpty,
+                eventGenerator: { .timeToEmptyChanged(time: $0) }
+            )
+
             checkAndNotify(
                 previous: previousInfo.maxCapacity,
                 current: batteryInfo.maxCapacity,
@@ -147,6 +157,7 @@ class BatteryActivityManager {
             enqueueNotification(.isChargingChanged(isCharging: batteryInfo.isCharging))
             enqueueNotification(.lowPowerModeChanged(isEnabled: batteryInfo.isInLowPowerMode))
             enqueueNotification(.timeToFullChargeChanged(time: batteryInfo.timeToFullCharge))
+            enqueueNotification(.timeToEmptyChanged(time: batteryInfo.timeToEmpty))
             enqueueNotification(.maxCapacityChanged(capacity: batteryInfo.maxCapacity))
         }
 
@@ -161,6 +172,7 @@ class BatteryActivityManager {
             self.onChargingChange?(batteryInfo.isCharging)
             self.onPowerModeChange?(batteryInfo.isInLowPowerMode)
             self.onTimeToFullChargeChange?(batteryInfo.timeToFullCharge)
+            self.onTimeToEmptyChange?(batteryInfo.timeToEmpty)
             self.onMaxCapacityChange?(batteryInfo.maxCapacity)
         }
     }
@@ -203,7 +215,8 @@ class BatteryActivityManager {
                 currentCapacity: 0,
                 maxCapacity: 0,
                 isInLowPowerMode: false,
-                timeToFullCharge: 0
+                timeToFullCharge: 0,
+                timeToEmpty: 0
             )
         }
         return batteryInfo
@@ -253,14 +266,24 @@ class BatteryActivityManager {
                 currentCapacity: currentCapacity,
                 maxCapacity: maxCapacity,
                 isInLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-                timeToFullCharge: 0
+                timeToFullCharge: 0,
+                timeToEmpty: 0
             )
-            
-            // Optional parameters
-            if let timeToFullCharge = description[kIOPSTimeToFullChargeKey] as? Int {
-                batteryInfo.timeToFullCharge = timeToFullCharge
-            }
-            
+
+            // Optional parameters. The public IOKit.ps layer (this
+            // dictionary, and IOPSGetTimeRemainingEstimate()) reports "Time
+            // to Empty"/"Time to Full Charge" as permanently unknown (-1) on
+            // this Mac — confirmed the battery controller itself still has a
+            // real figure (ioreg -rn AppleSmartBattery showed "TimeRemaining"
+            // = 368 while this dictionary's "Time to Empty" read -1 at the
+            // same instant) — so both are read straight from the
+            // AppleSmartBattery IORegistry service below instead.
+            let estimates = Self.readAppleSmartBatteryTimeEstimates()
+            batteryInfo.timeToFullCharge = estimates.timeToFullCharge
+                ?? (description[kIOPSTimeToFullChargeKey] as? Int) ?? 0
+            batteryInfo.timeToEmpty = estimates.timeToEmpty
+                ?? (description[kIOPSTimeToEmptyKey] as? Int).flatMap { $0 > 0 ? $0 : nil } ?? 0
+
             return batteryInfo
             
         } catch BatteryError.powerSourceUnavailable {
@@ -277,7 +300,34 @@ class BatteryActivityManager {
             return defaultBatteryInfo
         }
     }
-    
+
+    /// Reads "TimeRemaining"/"AvgTimeToFull" straight from the
+    /// AppleSmartBattery IORegistry service, bypassing the public IOKit.ps
+    /// power-source API entirely — that layer (and `pmset -g batt`) reports
+    /// these as permanently unknown on some Macs even though the battery
+    /// controller itself has a real figure. 65535 is the controller's own
+    /// "not applicable" sentinel (e.g. time-to-full while not charging).
+    private static func readAppleSmartBatteryTimeEstimates() -> (timeToEmpty: Int?, timeToFullCharge: Int?) {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        guard service != 0 else { return (nil, nil) }
+        defer { IOObjectRelease(service) }
+
+        var propsUnmanaged: Unmanaged<CFMutableDictionary>?
+        guard IORegistryEntryCreateCFProperties(service, &propsUnmanaged, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+              let props = propsUnmanaged?.takeRetainedValue() as? [String: Any] else {
+            return (nil, nil)
+        }
+
+        func validMinutes(_ key: String) -> Int? {
+            guard let value = props[key] as? Int, value > 0, value != 65535 else { return nil }
+            return value
+        }
+
+        let timeToEmpty = validMinutes("TimeRemaining") ?? validMinutes("AvgTimeToEmpty")
+        let timeToFullCharge = validMinutes("AvgTimeToFull")
+        return (timeToEmpty, timeToFullCharge)
+    }
+
     /// Adds an observer to listen to battery changes
     /// - Parameter observer: The observer closure to be called on battery events
     /// - Returns: The ID of the observer for later removal
@@ -319,4 +369,7 @@ struct BatteryInfo {
     var maxCapacity: Float
     var isInLowPowerMode: Bool
     var timeToFullCharge: Int
+    /// Minutes remaining until empty while discharging. 0 (or absent from
+    /// IOKit) when plugged in / charging / not yet estimated.
+    var timeToEmpty: Int
 }

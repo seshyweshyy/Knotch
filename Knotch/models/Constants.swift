@@ -210,7 +210,26 @@ extension Defaults.Keys {
     static let lockScreenExpandedAlbumArt = Key<Bool>("lockScreenExpandedAlbumArt", default: true)
     static let keepAwakeOnExpandedArt = Key<Bool>("keepAwakeOnExpandedArt", default: true)
     static let lockScreenTimerWidget = Key<Bool>("lockScreenTimerWidget", default: true)
-    
+
+    // MARK: Lock Screen Mini-Widgets
+    static let lockScreenMiniWidgetAppearance = Key<MiniWidgetAppearanceStyle>(
+        "lockScreenMiniWidgetAppearance",
+        default: .glassCapsules
+    )
+    static let lockScreenBatteryMiniWidget = Key<Bool>("lockScreenBatteryMiniWidget", default: true)
+    static let lockScreenMiniWidgetBatteryMetric = Key<MiniWidgetBatteryMetric>(
+        "lockScreenMiniWidgetBatteryMetric",
+        default: .timeRemaining
+    )
+    static let lockScreenConnectivityMiniWidget = Key<Bool>("lockScreenConnectivityMiniWidget", default: true)
+    static let lockScreenFocusMiniWidget = Key<Bool>("lockScreenFocusMiniWidget", default: true)
+    static let lockScreenCalendarMiniWidget = Key<Bool>("lockScreenCalendarMiniWidget", default: false)
+    static let lockScreenWeatherMiniWidget = Key<Bool>("lockScreenWeatherMiniWidget", default: true)
+    static let lockScreenMiniWidgetWeatherMetric = Key<MiniWidgetWeatherMetric>(
+        "lockScreenMiniWidgetWeatherMetric",
+        default: .conditions
+    )
+
     // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)
     static let showBatteryIndicator = Key<Bool>("showBatteryIndicator", default: true)

@@ -58,15 +58,13 @@ struct LockNotchOverlay: View {
         }
         .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isLocked)
         .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isUnlockAnimating)
-        .onChange(of: isLocked) { _, locked in
-            host.play(forward: !locked) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
-                        isUnlockAnimating = false
-                    }
-                }
-            }
-        }
+        // Playing/resetting used to happen here, but this view is only
+        // mounted while the closed-notch row is actually showing the lock
+        // icon (ClosedRowFamily == .lock) — a HUD taking over the row at
+        // the wrong moment could unmount it before a lock/unlock transition
+        // finished, dropping the reset. KnotchApp.onScreenLocked and
+        // ContentView's own (always-mounted) onChange(of: vm.isScreenLocked)
+        // now drive host.play(...) directly instead — see there.
     }
 }
 

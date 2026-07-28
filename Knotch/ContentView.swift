@@ -960,8 +960,10 @@ struct ContentView: View {
                                 // creating the glass view at all instead of just
                                 // hiding it behind an opaque cover.
                                 KnotchLiquidGlass(
-                                    topCornerRadius: topCornerRadius,
-                                    bottomCornerRadius: currentBottomCornerRadius
+                                    shape: .notch(
+                                        topCornerRadius: topCornerRadius,
+                                        bottomCornerRadius: currentBottomCornerRadius
+                                    )
                                 )
                                 Color.black
                                     .opacity(semiGlassActive || fullGlassActive ? 0 : 1)
@@ -1129,6 +1131,28 @@ struct ContentView: View {
                     .onChange(of: vm.isScreenLocked) { _, newLocked in
                         if !newLocked && Defaults[.showOnLockScreen] {
                             isUnlockAnimating = true
+                            // Was previously reset from inside
+                            // LockNotchOverlay's own onChange, but that view
+                            // is only mounted while ClosedRowFamily == .lock —
+                            // if a HUD is occupying the row at the exact
+                            // moment of unlock (e.g. it was still showing
+                            // while locked and hasn't auto-dismissed yet),
+                            // LockNotchOverlay isn't mounted, its onChange
+                            // never fires, and isUnlockAnimating gets stuck
+                            // true forever. That kept lockActivityShowing
+                            // (and therefore the lock icon) alive after the
+                            // HUD closed even though the screen was already
+                            // unlocked. This handler is always mounted
+                            // regardless of row family, so it's the reliable
+                            // place to both trigger the animation and reset
+                            // the flag once it finishes.
+                            lockAnimationHost.play(forward: true) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+                                        isUnlockAnimating = false
+                                    }
+                                }
+                            }
                         }
                     }
                     .onChange(of: coordinator.hudLimitBounceEvent) { _, newEvent in

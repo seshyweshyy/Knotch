@@ -23,8 +23,16 @@ import SwiftUI
 ///   not a TCC-protected resource, so tailing it via `/usr/bin/log stream`
 ///   gives the same icon/colour data Full Disk Access would otherwise be
 ///   needed for (`~/Library/DoNotDisturb/DB/ModeConfigurations.json`).
-final class FocusModeManager {
+final class FocusModeManager: ObservableObject {
     static let shared = FocusModeManager()
+
+    /// Persistent current-state mirror of the toast-oriented logic below,
+    /// for consumers (e.g. the lock-screen mini-widget row) that need to
+    /// read "is Focus on right now" instead of reacting to one-off transitions.
+    @Published private(set) var isActive: Bool = false
+    @Published private(set) var activeName: String?
+    @Published private(set) var activeSymbolName: String?
+    @Published private(set) var activeTintColor: Color?
 
     private let notificationCenter = DistributedNotificationCenter.default()
     private let logQueue = DispatchQueue(label: "com.knotch.focus.logstream", qos: .utility)
@@ -160,6 +168,10 @@ final class FocusModeManager {
             self.currentName = nil
             self.currentSymbolName = nil
             self.currentTintColor = nil
+            self.activeName = nil
+            self.activeSymbolName = nil
+            self.activeTintColor = nil
+            self.isActive = false
         }
     }
 
@@ -190,6 +202,10 @@ final class FocusModeManager {
         currentName = mode.name
         currentSymbolName = mode.symbolName
         currentTintColor = mode.tintColor
+        activeName = mode.name
+        activeSymbolName = mode.symbolName
+        activeTintColor = mode.tintColor
+        isActive = true
         fallbackPresentTask?.cancel()
         presentTransition(active: true)
     }
@@ -204,6 +220,10 @@ final class FocusModeManager {
         currentName = nil
         currentSymbolName = nil
         currentTintColor = nil
+        activeName = nil
+        activeSymbolName = nil
+        activeTintColor = nil
+        isActive = false
     }
 
     /// Main-thread only. Silently seeds state from the one-shot lookback
@@ -215,6 +235,10 @@ final class FocusModeManager {
         currentName = mode.name
         currentSymbolName = mode.symbolName
         currentTintColor = mode.tintColor
+        activeName = mode.name
+        activeSymbolName = mode.symbolName
+        activeTintColor = mode.tintColor
+        isActive = true
         lastPresentedActiveState = true
     }
 

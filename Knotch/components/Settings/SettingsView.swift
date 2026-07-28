@@ -1777,6 +1777,8 @@ struct LockScreen: View {
             } footer: {
                 Text("Keeping the screen awake while album art is expanded may increase battery usage.")
             }
+
+            LockScreenMiniWidgetsSection()
         }
         .accentColor(.effectiveAccent)
     }

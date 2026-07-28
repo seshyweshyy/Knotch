@@ -141,6 +141,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showLiquidGlassWidgetIfNeeded()
         let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         LiquidGlassTimerWidgetWindowController.shared.screenDidLock(on: screen)
+        LockScreenMiniWidgetRowWindowController.shared.screenDidLock(on: screen)
         lockAnimationHost.play(forward: false)
     }
     @MainActor
@@ -150,6 +151,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         disableSkyLightOnAllWindows()
         LiquidGlassWidgetWindowController.shared.hide()
         LiquidGlassTimerWidgetWindowController.shared.screenDidUnlock()
+        LockScreenMiniWidgetRowWindowController.shared.screenDidUnlock()
     }
     
     private func broadcastLockState(_ locked: Bool) {
@@ -453,6 +455,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = BluetoothAudioManager.shared
         _ = FocusModeManager.shared
         _ = AirDropReceiveManager.shared
+
+        // Requested at normal launch (while unlocked) rather than only on
+        // lock — the location permission prompt can't be interacted with
+        // once the screen is actually locked, so waiting until lock would
+        // mean the weather mini-widget never gets authorized.
+        WeatherManager.shared.refreshIfNeeded()
+
+        // CalendarManager.events otherwise only populates once the notch's
+        // own calendar view or Settings' Calendar tab has appeared — prime
+        // it here too so the lock-screen Calendar mini-widget has data even
+        // if neither of those has been opened yet this session.
+        if Defaults[.lockScreenCalendarMiniWidget] {
+            CalendarManager.shared.scheduleUpdate(for: Date())
+        }
 
         KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
             guard let self = self else { return }

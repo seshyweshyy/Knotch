@@ -4,6 +4,13 @@ import Foundation
 import IOKit.ps
 import SwiftUI
 
+/// Which metric the battery mini-widget shows.
+enum MiniWidgetBatteryMetric: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case percentage = "Percentage"
+    case timeRemaining = "Time Remaining"
+    var id: String { rawValue }
+}
+
 /// A view model that manages and monitors the battery status of the device
 class BatteryStatusViewModel: ObservableObject {
 
@@ -20,6 +27,7 @@ class BatteryStatusViewModel: ObservableObject {
     @Published private(set) var isInLowPowerMode: Bool = false
     @Published private(set) var isInitial: Bool = false
     @Published private(set) var timeToFullCharge: Int = 0
+    @Published private(set) var timeToEmpty: Int = 0
     @Published private(set) var statusText: String = ""
 
     private let managerBattery = BatteryActivityManager.shared
@@ -93,6 +101,11 @@ class BatteryStatusViewModel: ObservableObject {
                 self.timeToFullCharge = time
             }
 
+        case .timeToEmptyChanged(let time):
+            withAnimation {
+                self.timeToEmpty = time
+            }
+
         case .maxCapacityChanged(let capacity):
             print("🔋 Max capacity: \(capacity)")
             withAnimation {
@@ -113,6 +126,7 @@ class BatteryStatusViewModel: ObservableObject {
             self.isCharging = batteryInfo.isCharging
             self.isInLowPowerMode = batteryInfo.isInLowPowerMode
             self.timeToFullCharge = batteryInfo.timeToFullCharge
+            self.timeToEmpty = batteryInfo.timeToEmpty
             self.maxCapacity = batteryInfo.maxCapacity
             self.statusText = batteryInfo.isPluggedIn ? "Plugged In" : "Unplugged"
         }

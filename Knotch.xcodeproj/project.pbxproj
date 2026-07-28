@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		23DE785AC1C649C684F9C892 /* WeatherManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F033F9AC62494E578B2143F2 /* WeatherManager.swift */; };
+		4DB0A3E8BAEE4F68AECEA6A4 /* LockScreenMiniWidgetRowWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */; };
+		4F1793338DBF4A32A4E269A7 /* LockScreenMiniWidgetsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DB67F8AA294F03B01DAADB /* LockScreenMiniWidgetsSection.swift */; };
 		0F6910BCE3F41A97AEF28C87 /* CompactMusicPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB876E9270BAD7096DB7FE87 /* CompactMusicPlayerView.swift */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
@@ -230,6 +233,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F033F9AC62494E578B2143F2 /* WeatherManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherManager.swift; sourceTree = "<group>"; };
+		E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMiniWidgetRowWindow.swift; sourceTree = "<group>"; };
+		B3DB67F8AA294F03B01DAADB /* LockScreenMiniWidgetsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMiniWidgetsSection.swift; sourceTree = "<group>"; };
 		0B0CC491A0E83D8760E7CA95 /* BlurTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTransition.swift; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
 		110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStorageService.swift; sourceTree = "<group>"; };
@@ -601,6 +607,7 @@
 				B186542F2C6F455E000B926A /* Notch */,
 				9A0887332C7AFF7E00C160EA /* Tabs */,
 				B186542E2C6F453B000B926A /* Music */,
+				A1B2C3D4E5F647890ABCDEF0 /* LockScreen */,
 				432A89DF2F8A7C7500237ABF /* BottomRoundedRectangle.swift */,
 				14288DE72C6E01C800B9F80C /* ProgressIndicator.swift */,
 				14D570C12C5EAFBF0011E668 /* EmptyState.swift */,
@@ -618,6 +625,7 @@
 				437B18F32FFA9612000E4E6B /* TimerManager.swift */,
 				FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */,
 				43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */,
+				F033F9AC62494E578B2143F2 /* WeatherManager.swift */,
 				DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */,
 				FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */,
 				43494D4B2F90EF22002CB138 /* AudioRouteManager.swift */,
@@ -858,6 +866,14 @@
 			path = extensions;
 			sourceTree = "<group>";
 		};
+		A1B2C3D4E5F647890ABCDEF0 /* LockScreen */ = {
+			isa = PBXGroup;
+			children = (
+				E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */,
+			);
+			path = LockScreen;
+			sourceTree = "<group>";
+		};
 		B186542E2C6F453B000B926A /* Music */ = {
 			isa = PBXGroup;
 			children = (
@@ -898,6 +914,7 @@
 				58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */,
 				B1B112902C6A572100093D8F /* EditPanelView.swift */,
 				B1C448972C972CC4001F0858 /* ListItemPopover.swift */,
+				B3DB67F8AA294F03B01DAADB /* LockScreenMiniWidgetsSection.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -1099,6 +1116,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23DE785AC1C649C684F9C892 /* WeatherManager.swift in Sources */,
+				4DB0A3E8BAEE4F68AECEA6A4 /* LockScreenMiniWidgetRowWindow.swift in Sources */,
+				4F1793338DBF4A32A4E269A7 /* LockScreenMiniWidgetsSection.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchHUD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* KnotchCalendar.swift in Sources */,
 				1E325237692E45545723F80A /* MonthGridView.swift in Sources */,
@@ -1502,6 +1522,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app uses AppleEvents to control music";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app uses the calendar to display your calendar events";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app uses your location to show local weather on the lock screen";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to display a live camera view";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "This app uses Reminders to display your scheduled reminder in the calendar";
@@ -1556,6 +1577,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app uses AppleEvents to control music";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app uses the calendar to display your calendar events";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app uses your location to show local weather on the lock screen";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to display a live camera view";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "This app uses Reminders to display your scheduled reminder in the calendar";

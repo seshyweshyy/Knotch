@@ -3,6 +3,7 @@
 //  Knotch
 //
 
+import Combine
 import CoreAudio
 import Defaults
 import Foundation
@@ -10,17 +11,61 @@ import IOKit
 import IOBluetooth
 import CoreBluetooth
 
-final class BluetoothAudioManager {
+/// The currently connected Bluetooth output device, for consumers (e.g. the
+/// lock-screen "Connectivity" mini-widget) that need to read persistent
+/// current state rather than react to one-off connect events.
+struct ConnectedBluetoothDevice: Equatable {
+    let name: String
+    let icon: String
+    var batteryLevel: Int?
+}
+
+final class BluetoothAudioManager: ObservableObject {
     static let shared = BluetoothAudioManager()
 
+    /// Published on the main thread only, even though detection runs on `queue`.
+    @Published private(set) var connectedDevice: ConnectedBluetoothDevice?
+
     private var knownDeviceIDs: Set<AudioDeviceID> = []
+    private var trackedDevices: [AudioDeviceID: ConnectedBluetoothDevice] = [:]
     private let queue = DispatchQueue(label: "com.knotch.bluetooth", qos: .utility)
 
     private init() {
         queue.async { [weak self] in
             guard let self else { return }
             self.knownDeviceIDs = Set(self.currentDeviceIDs())
+            self.seedInitialTrackedDevices()
             self.startListening()
+        }
+    }
+
+    /// Silently populates `trackedDevices`/`connectedDevice` for anything
+    /// already connected at launch, without firing the connect HUD toast —
+    /// mirrors FocusModeManager's seeding of pre-existing state.
+    private func seedInitialTrackedDevices() {
+        for deviceID in knownDeviceIDs {
+            guard let name = deviceName(for: deviceID) else { continue }
+            let transport = transportType(for: deviceID)
+            guard transport == kAudioDeviceTransportTypeBluetooth ||
+                  transport == kAudioDeviceTransportTypeBluetoothLE else { continue }
+            guard deviceHasOutputChannels(deviceID) else { continue }
+
+            let device = AudioOutputDevice(id: deviceID, name: name, transportType: transport)
+            let address = bluetoothDeviceAddress(forName: name)
+            let batteryLevel = bluetoothBatteryLevel(address: address, name: name)
+            trackedDevices[deviceID] = ConnectedBluetoothDevice(
+                name: name,
+                icon: device.iconName,
+                batteryLevel: batteryLevel >= 0 ? batteryLevel : nil
+            )
+        }
+        publishConnectedDevice()
+    }
+
+    private func publishConnectedDevice() {
+        let device = trackedDevices.values.first
+        DispatchQueue.main.async { [weak self] in
+            self?.connectedDevice = device
         }
     }
 
@@ -43,8 +88,14 @@ final class BluetoothAudioManager {
         guard Defaults[.showBluetoothDeviceConnections] else { return }
 
         let current = Set(currentDeviceIDs())
-        let added = current.subtracting(knownDeviceIDs)
+        let previouslyKnown = knownDeviceIDs
+        let added = current.subtracting(previouslyKnown)
+        let removed = previouslyKnown.subtracting(current)
         knownDeviceIDs = current
+
+        for deviceID in removed {
+            trackedDevices.removeValue(forKey: deviceID)
+        }
 
         for deviceID in added {
             guard let name = deviceName(for: deviceID) else { continue }
@@ -59,6 +110,12 @@ final class BluetoothAudioManager {
             let batteryLevel = bluetoothBatteryLevel(address: address, name: name)
             print("[BT] '\(name)' connected — battery: \(batteryLevel)%")
 
+            trackedDevices[deviceID] = ConnectedBluetoothDevice(
+                name: name,
+                icon: icon,
+                batteryLevel: batteryLevel >= 0 ? batteryLevel : nil
+            )
+
             DispatchQueue.main.async {
                 KnotchViewCoordinator.shared.toggleBluetoothSneakPeek(
                     deviceName: name,
@@ -71,8 +128,12 @@ final class BluetoothAudioManager {
             // BLE GATT read as a last resort and update the HUD if it
             // resolves in time.
             if batteryLevel < 0 {
-                refreshBatteryLevelViaBLE(address: address, name: name)
+                refreshBatteryLevelViaBLE(address: address, name: name, deviceID: deviceID)
             }
+        }
+
+        if !added.isEmpty || !removed.isEmpty {
+            publishConnectedDevice()
         }
     }
 
@@ -388,13 +449,20 @@ final class BluetoothAudioManager {
     /// Connects live and reads the Battery Level characteristic directly.
     /// Async — has to establish a BLE connection — so it updates the
     /// already-shown HUD in place if a value arrives in time.
-    private func refreshBatteryLevelViaBLE(address: String?, name: String) {
+    private func refreshBatteryLevelViaBLE(address: String?, name: String, deviceID: AudioDeviceID) {
         let target = normalizeBluetoothName(name)
         guard let uuid = coreBluetoothPeripheralUUID(address: address, name: target) else { return }
 
-        liveBatteryReader.fetchBatteryLevel(for: uuid) { level in
-            guard let level else { return }
+        liveBatteryReader.fetchBatteryLevel(for: uuid) { [weak self] level in
+            guard let level, let self else { return }
             let clamped = min(max(level, 0), 100)
+
+            self.queue.async {
+                guard self.trackedDevices[deviceID] != nil else { return }
+                self.trackedDevices[deviceID]?.batteryLevel = clamped
+                self.publishConnectedDevice()
+            }
+
             Task { @MainActor in
                 guard KnotchViewCoordinator.shared.sneakPeek.show,
                       KnotchViewCoordinator.shared.sneakPeek.type == .bluetoothAudio,
