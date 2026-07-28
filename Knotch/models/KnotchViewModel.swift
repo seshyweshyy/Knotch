@@ -472,10 +472,20 @@ class KnotchViewModel: NSObject, ObservableObject {
             self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
             self.closedNotchSize = self.notchSize
             self.notchState = .closed
+        } completion: { [weak self] in
+            // Resetting compact mode back to the music view only once the close
+            // has finished — doing it inline would cross-fade calendar → music
+            // in full view while the notch is still collapsing. Skipped if the
+            // notch got reopened in the meantime.
+            guard let self, self.notchState == .closed else { return }
+            var resetTransaction = Transaction()
+            resetTransaction.disablesAnimations = true
+            withTransaction(resetTransaction) {
+                self.showingCompactCalendar = false
+            }
         }
         self.isBatteryPopoverActive = false
         self.isMediaOutputPopoverActive = false
-        self.showingCompactCalendar = false
         self.edgeAutoOpenActive = false
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
