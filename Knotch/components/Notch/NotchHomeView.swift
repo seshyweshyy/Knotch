@@ -1050,6 +1050,28 @@ struct MusicSliderView: View {
             Capsule()
                 .fill(.gray.opacity(0.3))
                 .frame(height: 5)
+            // Same technique as the timer ruler's edge fade: fill with the
+            // notch's actual background color and alpha-mask it, rather than
+            // baking opacity into the gradient itself — keeps the patch
+            // reading as the real background instead of a translucent smudge
+            // on top of it. Single peak at the center, no flat plateau, so
+            // it's a continuous fade the whole way across rather than a
+            // solid block with fades only at its edges.
+            Rectangle()
+                .fill(Color.black)
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black, location: 0.5),
+                            .init(color: .clear, location: 1),
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 70, height: 14)
+                .allowsHitTesting(false)
             Text("LIVE")
                 .font(.caption2)
                 .fontWeight(.semibold)
