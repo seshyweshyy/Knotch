@@ -45,6 +45,12 @@ let notchCloseSpring = Animation.spring(response: 0.45, dampingFraction: 1.0, bl
 // pairing that read as too quick/snappy.
 let rowMorphSpring = Animation.spring(response: 0.42, dampingFraction: 0.82, blendDuration: 0)
 
+// Only volume/brightness use this — a quicker expand-out specifically for
+// those two, layered on top of rowMorphSpring's normal timing for everything
+// else (including their own collapse-in, and every other HUD/live-activity
+// swap).
+let rowMorphFastSpring = Animation.spring(response: 0.26, dampingFraction: 0.82, blendDuration: 0)
+
 // How long to wait after starting the collapse (rowMorph -> 0) before actually
 // swapping displayedRowFamily's content — timed to land once the collapsing
 // content is already scaled/blurred down to effectively invisible, so the

@@ -86,12 +86,19 @@ class KnotchViewModel: NSObject, ObservableObject {
     // overshoots/wobbles on the way down, same as the liquid pull release.
     @Published var hudEdgeOvershoot: CGFloat = .zero
 
+    // Which edge is anchored for the current bounce — set once per trigger,
+    // not derived live from hudEdgeOvershoot's sign. hudLimitBounceSpring's
+    // dampingFraction (0.95) isn't quite critically damped, so the release
+    // can wobble a hair past zero to the opposite sign right at the tail end;
+    // deriving the anchor from that sign live meant the scaleEffect's anchor
+    // could flip sides mid-release, which reads as the *whole* notch jumping
+    // sideways rather than just the one edge stretching. Pinning it here for
+    // the whole bounce keeps the anchor (and so the fixed edge) constant
+    // regardless of that tail-end wobble.
+    @Published var hudOvershootAnchorX: CGFloat = 0.5
+
     var hudOvershootScale: CGFloat {
         1 + abs(hudEdgeOvershoot) * 0.03
-    }
-
-    var hudOvershootAnchorX: CGFloat {
-        hudEdgeOvershoot >= 0 ? 0 : 1
     }
 
     // Set at the top of open() — lets setupWidgetWidthObserver's correction
@@ -118,6 +125,14 @@ class KnotchViewModel: NSObject, ObservableObject {
         // A closed-state live activity (music bar, timer pill) still counts
         // as closed, so this only excludes the actual open panel.
         guard Defaults[.hudOvershootEnabled], notchState == .closed else { return }
+        // Snapped instantly (not animated) — only hudEdgeOvershoot's own
+        // decay back to zero should visibly animate; the anchor itself is a
+        // fixed choice for this whole bounce, not something that eases in.
+        var noAnim = Transaction()
+        noAnim.disablesAnimations = true
+        withTransaction(noAnim) {
+            hudOvershootAnchorX = rightEdge ? 0 : 1
+        }
         hudEdgeOvershoot = rightEdge ? 1 : -1
         withAnimation(hudLimitBounceSpring) {
             hudEdgeOvershoot = .zero

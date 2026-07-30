@@ -1425,11 +1425,19 @@ struct ContentView: View {
         rowTransitionGeneration += 1
         let myGeneration = rowTransitionGeneration
 
+        // Only the expand-out step for volume/brightness specifically runs
+        // quicker — collapsing away (whether it's volume/brightness or
+        // anything else) and every other family's own expand stay on
+        // rowMorphSpring's normal timing.
+        let expandSpring = (newFamily == .hud
+            && (coordinator.sneakPeek.type == .volume || coordinator.sneakPeek.type == .brightness))
+            ? rowMorphFastSpring : rowMorphSpring
+
         if newFamily == displayedRowFamily {
             // Flipped back before a pending swap fired (e.g. a rapid
             // retrigger) — just make sure we're settled back at full scale;
             // there's no new content to swap to.
-            withAnimation(rowMorphSpring) { rowMorph = 1 }
+            withAnimation(expandSpring) { rowMorph = 1 }
             return
         }
 
@@ -1449,7 +1457,7 @@ struct ContentView: View {
             noAnim.disablesAnimations = true
             withTransaction(noAnim) { displayedRowFamily = newFamily }
             NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
-            withAnimation(rowMorphSpring) { rowMorph = 1 }
+            withAnimation(expandSpring) { rowMorph = 1 }
         }
     }
 

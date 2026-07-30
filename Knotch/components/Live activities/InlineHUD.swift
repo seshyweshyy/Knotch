@@ -35,13 +35,13 @@ struct InlineHUD: View {
 
     var body: some View {
         HStack {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Group {
                     switch (type) {
                         case .volume:
                             if icon.isEmpty {
-                                VolumeHUDLottieView(value: value, displaySize: 22)
-                                    .frame(width: 22, height: 22, alignment: .leading)
+                                VolumeHUDLottieView(value: value, displaySize: 24)
+                                    .frame(width: 24, height: 24, alignment: .leading)
                             } else {
                                 Image(systemName: icon)
                                     .contentTransition(.interpolate)
@@ -50,8 +50,8 @@ struct InlineHUD: View {
                                     .frame(width: 20, height: 15, alignment: .leading)
                             }
                         case .brightness:
-                            DisplayHUDLottieView(value: value, displaySize: 30)
-                                .frame(width: 22, height: 22)
+                            DisplayHUDLottieView(value: value, displaySize: 32)
+                                .frame(width: 24, height: 24)
                         case .backlight:
                             Image(systemName: value > 0.5 ? "light.max" : "light.min")
                                 .contentTransition(.interpolate)
@@ -75,7 +75,7 @@ struct InlineHUD: View {
 
                 if type != .focusMode {
                     Text(Type2Name(type))
-                        .font(.subheadline)
+                        .font(.system(size: 12))
                         .fontWeight(.medium)
                         .lineLimit(1)
                         .allowsTightening(true)
