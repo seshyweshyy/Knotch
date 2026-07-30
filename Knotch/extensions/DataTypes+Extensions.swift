@@ -22,23 +22,35 @@ extension Date {
         return Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: self)!
     }
     
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        return f
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM"
+        return f
+    }()
+
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
+
     var date: String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "d"
-        return dateFormatter.string(from: self)
+        Self.dayFormatter.string(from: self)
     }
-    
+
     var month: String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMMM"
-        return dateFormatter.string(from: self)
+        Self.monthFormatter.string(from: self)
     }
-    
+
     func dayOfTheWeek(dayOfWeek: Int) -> String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "EEE"
         let date = Calendar.current.date(bySetting: .weekday, value: dayOfWeek, of: self) ?? self
-        return dateFormatter.string(from: date)
+        return Self.weekdayFormatter.string(from: date)
     }
 }
 

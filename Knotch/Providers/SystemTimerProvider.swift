@@ -39,6 +39,7 @@ final class SystemTimerProvider {
     private var fileDescriptor: CInt = -1
     private var watcher: DispatchSourceFileSystemObject?
     private var pollTimer: DispatchSourceTimer?
+    private var lastMirrored: [KnotchTimer]?
 
     init(onUpdate: @escaping ([KnotchTimer]) -> Void) {
         self.onUpdate = onUpdate
@@ -93,6 +94,13 @@ final class SystemTimerProvider {
 
     private func reload() {
         let mirrored = Self.parse()
+        // The poll timer fires every 0.5s forever regardless of whether
+        // anything changed; onUpdate reassigns a @Published array that's
+        // observed all the way up at ContentView, so an unconditional call
+        // here forced a full notch re-render twice a second at idle. Only
+        // forward it when the mirrored list actually differs.
+        guard mirrored != lastMirrored else { return }
+        lastMirrored = mirrored
         DispatchQueue.main.async { [onUpdate] in
             onUpdate(mirrored)
         }

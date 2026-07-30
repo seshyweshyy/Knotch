@@ -152,6 +152,7 @@ struct AudioSpectrumView: View {
     @State private var simulatedTime: Double = 0
     @Default(.liveWaveform) private var liveWaveformEnabled
     @State private var liveMix: CGFloat = Defaults[.liveWaveform] ? 1 : 0
+    @State private var tickCancellable: AnyCancellable?
 
     // Exponential approach coefficient applied each 1/30s tick — settles
     // (>98%) to the new target in roughly 0.6s.
@@ -177,19 +178,36 @@ struct AudioSpectrumView: View {
         // sibling mechanism above for why: TimelineView's clock doesn't fire
         // reliably in this notch window, but a real Timer-backed Combine
         // publisher (driving @State like the live data does) does.
-        .onReceive(Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()) { _ in
-            // Bars are clamped to minHeight whenever !isPlaying (see barHeight),
-            // so there's nothing to animate while paused — skip all work then,
-            // and also once liveMix has already converged, so this doesn't
-            // trigger a re-render on every tick for the rest of a listening
-            // session, only during the ~0.6s a transition is actually in flight.
-            guard isPlaying else { return }
-            simulatedTime += 1.0 / 30.0
-
-            let target: CGFloat = liveWaveformEnabled ? 1 : 0
-            if abs(target - liveMix) > 0.001 {
-                liveMix += (target - liveMix) * Self.liveMixCoeff
+        //
+        // The subscription itself is started/stopped from `isPlaying` (below)
+        // rather than left connected all the time — bars are clamped to
+        // minHeight whenever !isPlaying (see barHeight), so there's nothing
+        // to animate while paused, and up to three of these mount at once
+        // (closed-notch row, open-notch home, liquid glass widget). Letting
+        // a real 30Hz Combine timer run in each of them for the entire time
+        // the view stays mounted (which outlives isPlaying by the idle
+        // debounce window) was pure waste. This only toggles the timer
+        // connection, never the view tree shape, so it can't affect the
+        // `.animation(value: isPlaying)` bar transition above.
+        .onChange(of: isPlaying, initial: true) { _, playing in
+            guard playing else {
+                tickCancellable = nil
+                return
             }
+            guard tickCancellable == nil else { return }
+            tickCancellable = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in
+                    simulatedTime += 1.0 / 30.0
+
+                    let target: CGFloat = liveWaveformEnabled ? 1 : 0
+                    if abs(target - liveMix) > 0.001 {
+                        liveMix += (target - liveMix) * Self.liveMixCoeff
+                    }
+                }
+        }
+        .onDisappear {
+            tickCancellable = nil
         }
     }
 }

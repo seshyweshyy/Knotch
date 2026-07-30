@@ -123,7 +123,13 @@ final class TimerManager: ObservableObject {
                 }
             }
         }
-        objectWillChange.send() // keep countdown text updating every second
+        // Only broadcast while a countdown is actually advancing — this is
+        // @ObservedObject'd by ContentView (the whole notch tree), so sending
+        // unconditionally forced a full re-render every second even with no
+        // timers running at all.
+        if allTimers.contains(where: { !$0.isPaused }) {
+            objectWillChange.send()
+        }
     }
 
     // Mirrors MusicManager's play/pause idle debounce: once every timer is

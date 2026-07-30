@@ -27,13 +27,30 @@ extension NSImage {
             
             let width = cgImage.width
             let height = cgImage.height
-            let totalPixels = width * height
-            
+            guard width > 0, height > 0 else {
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+                return
+            }
+
+            // Average color only needs a coarse sample — summing every pixel
+            // of full-res artwork (easily 600x600+, called on every track
+            // change) was doing hundreds of thousands of scalar adds for a
+            // result a ~40px-wide downsample gives identically. Drawing the
+            // full image scaled into a small context does the resampling as
+            // part of the (hardware-accelerated) draw call.
+            let maxDimension = 40
+            let downscale = CGFloat(maxDimension) / CGFloat(max(width, height))
+            let sampleWidth = max(1, Int((CGFloat(width) * downscale).rounded()))
+            let sampleHeight = max(1, Int((CGFloat(height) * downscale).rounded()))
+            let totalPixels = sampleWidth * sampleHeight
+
             guard let context = CGContext(data: nil,
-                                          width: width,
-                                          height: height,
+                                          width: sampleWidth,
+                                          height: sampleHeight,
                                           bitsPerComponent: 8,
-                                          bytesPerRow: width * 4,
+                                          bytesPerRow: sampleWidth * 4,
                                           space: CGColorSpaceCreateDeviceRGB(),
                                           bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
                 DispatchQueue.main.async {
@@ -41,8 +58,9 @@ extension NSImage {
                 }
                 return
             }
-            
-            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+            context.interpolationQuality = .low
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight))
             
             guard let data = context.data else {
                 DispatchQueue.main.async {

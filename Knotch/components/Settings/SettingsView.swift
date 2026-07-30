@@ -478,8 +478,10 @@ struct SettingsView: View {
 
     // MARK: - Search Index
 
-    private var searchIndex: [SettingsSearchEntry] {
-        [
+    // Static content — was rebuilding all ~70 entries (each with their own
+    // keyword arrays) from scratch on every keystroke in the search field
+    // via searchSuggestions below. Hoisted to a one-time constant.
+    private static let searchIndex: [SettingsSearchEntry] = [
             // General
             SettingsSearchEntry(tabID: "General", title: "Show menu bar icon", keywords: ["menu bar", "menubar", "status bar"], highlightID: "General-Show menu bar icon"),
             SettingsSearchEntry(tabID: "General", title: "Launch at login", keywords: ["startup", "autostart"], highlightID: "General-Launch at login"),
@@ -576,14 +578,13 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "About", title: "Automatically check for updates", keywords: ["auto", "automatic", "update", "check", "sparkle"], highlightID: "About-Automatic updates"),
             SettingsSearchEntry(tabID: "About", title: "Automatically download updates", keywords: ["auto", "automatic", "download", "update", "sparkle"], highlightID: "About-Automatic updates"),
             SettingsSearchEntry(tabID: "About", title: "Release Notes", keywords: ["release notes", "changelog", "whats new", "version"], highlightID: "About-Release Notes"),
-        ]
-    }
+    ]
 
     private var searchSuggestions: [SettingsSearchEntry] {
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }
         return Array(
-            searchIndex.filter { entry in
+            Self.searchIndex.filter { entry in
                 entry.title.localizedCaseInsensitiveContains(trimmed) ||
                 entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
             }
@@ -601,18 +602,23 @@ struct SettingsView: View {
     }
 
     private var groupedTabs: [(header: String?, tabs: [SettingsTabItem])] {
+        // filteredTabs re-filters knotchTabs (and, while searching, rebuilds
+        // searchSuggestions) on every access — this used to call it once per
+        // group on top of the initial pass, redoing that work N+1 times per
+        // keystroke. Compute it once and reuse.
+        let tabs = filteredTabs
         var result: [(header: String?, tabs: [SettingsTabItem])] = []
         var seen: Set<String> = []
         var order: [String] = []
-        for tab in filteredTabs {
+        for tab in tabs {
             if !seen.contains(tab.group) {
                 seen.insert(tab.group)
                 order.append(tab.group)
             }
         }
         for group in order {
-            let tabs = filteredTabs.filter { $0.group == group }
-            result.append((header: group.isEmpty ? nil : group, tabs: tabs))
+            let groupTabs = tabs.filter { $0.group == group }
+            result.append((header: group.isEmpty ? nil : group, tabs: groupTabs))
         }
         return result
     }
@@ -1207,6 +1213,9 @@ struct LiveActivitiesSettings: View {
 // click pass through to whatever's behind it instead.
 private final class ClickThroughView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    var player: AVQueuePlayer?
+    var looper: AVPlayerLooper?
 }
 
 struct LoopingVideoView: NSViewRepresentable {
@@ -1215,15 +1224,25 @@ struct LoopingVideoView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = ClickThroughView()
         view.wantsLayer = true
-        let player = AVPlayer(url: url)
+
+        let item = AVPlayerItem(url: url)
+        // These clips render at 45x45pt (168x168px source) — capping decode
+        // output to roughly that size keeps the hardware decoder from doing
+        // full-source-resolution work for a thumbnail. Harmless no-op for
+        // sources already at/under this size.
+        item.preferredMaximumResolution = CGSize(width: 200, height: 200)
+
+        let player = AVQueuePlayer()
         player.isMuted = true
-        player.actionAtItemEnd = .none
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
-            queue: .main
-        ) { _ in player.seek(to: .zero); player.play() }
+        // AVPlayerLooper drives the loop natively (no per-cycle notification
+        // round-trip + seek-to-zero stutter like the old manual
+        // AVPlayerItemDidPlayToEndTime restart), and is the framework's own
+        // low-overhead mechanism for looping a short clip continuously.
+        let looper = AVPlayerLooper(player: player, templateItem: item)
+        view.player = player
+        view.looper = looper
         player.play()
+
         let layer = AVPlayerLayer(player: player)
         layer.videoGravity = .resizeAspect
         view.layer = layer
@@ -1231,6 +1250,19 @@ struct LoopingVideoView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
+
+    // Without this, every mount (e.g. once per Bluetooth connect event via
+    // BluetoothHUDView, or once per visit to the icon-style picker in
+    // Settings) leaked a new player that kept decoding/looping its video in
+    // the background forever — nothing ever paused, disabled the looper, or
+    // released it.
+    static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
+        guard let view = nsView as? ClickThroughView else { return }
+        view.player?.pause()
+        view.looper?.disableLooping()
+        view.looper = nil
+        view.player = nil
+    }
 }
 
 

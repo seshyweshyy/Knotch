@@ -370,8 +370,8 @@ class KnotchViewModel: NSObject, ObservableObject {
         case .notDetermined:
             isRequestingAuthorization = true
             webcamManager.checkAndRequestVideoAuthorization()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                self.isRequestingAuthorization = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                self?.isRequestingAuthorization = false
             }
 
         default:
