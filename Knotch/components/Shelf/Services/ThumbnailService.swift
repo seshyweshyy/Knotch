@@ -13,42 +13,57 @@ import UniformTypeIdentifiers
 actor ThumbnailService {
     static let shared = ThumbnailService()
 
-    private var cache: [String: NSImage] = [:]
+    // NSCache evicts under memory pressure and caps entry count, unlike the
+    // plain dictionary this replaced which grew forever (clearCache existed
+    // but nothing ever called it, so every Shelf thumbnail stayed resident).
+    private let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 200
+        return cache
+    }()
+    // NSCache can't enumerate/prefix-match its keys, so track which cache
+    // keys belong to a given file path to support clearCache(for:).
+    private var keysByPath: [String: Set<String>] = [:]
     private var pendingRequests: [String: Task<NSImage?, Never>] = [:]
     private let thumbnailGenerator = QLThumbnailGenerator.shared
 
     private init() {}
-    
+
     func thumbnail(for url: URL, size: CGSize) async -> NSImage? {
         let cacheKey = "\(url.path)_\(size.width)x\(size.height)"
-        
-        if let cached = cache[cacheKey] {
+
+        if let cached = cache.object(forKey: cacheKey as NSString) {
             return cached
         }
-        
+
         if let pending = pendingRequests[cacheKey] {
             return await pending.value
         }
-        
+
         let task = Task<NSImage?, Never> {
             let thumbnail = await generateQuickLookThumbnail(for: url, size: size)
             if let thumbnail = thumbnail {
-                cache[cacheKey] = thumbnail
+                cache.setObject(thumbnail, forKey: cacheKey as NSString)
+                keysByPath[url.path, default: []].insert(cacheKey)
             }
             pendingRequests[cacheKey] = nil
             return thumbnail
         }
-        
+
         pendingRequests[cacheKey] = task
         return await task.value
     }
-    
+
     func clearCache() {
-        cache.removeAll()
+        cache.removeAllObjects()
+        keysByPath.removeAll()
     }
-    
+
     func clearCache(for url: URL) {
-        cache = cache.filter { !$0.key.starts(with: url.path) }
+        guard let keys = keysByPath.removeValue(forKey: url.path) else { return }
+        for key in keys {
+            cache.removeObject(forKey: key as NSString)
+        }
     }
     
     // MARK: - Private Methods
