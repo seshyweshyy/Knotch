@@ -676,7 +676,16 @@ struct ContentView: View {
             // (it required sneakPeek.show, not just "music is the family").
             return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? 12 : activeCornerRadiusInsets.closed.top
-        case .timer, .none, .lock, .battery:
+        case .battery:
+            // Same concave treatment as the expanded Bluetooth/AirDrop cards
+            // above — only the low/full-battery takeover card (not the
+            // low-power-mode toggle message) is tall enough to need it.
+            // Matches restingBottomCornerRadius's isStandardBanner check.
+            let batteryModel = BatteryStatusViewModel.shared
+            let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
+                || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
+            return isStandardBanner ? 26 : activeCornerRadiusInsets.closed.top
+        case .timer, .none, .lock:
             return activeCornerRadiusInsets.closed.top
         }
     }
