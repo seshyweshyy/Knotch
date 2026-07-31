@@ -98,13 +98,13 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 > <br>
 
 <!-- VIRUSTOTAL:START -->
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F74_detections-brightgreen)](https://www.virustotal.com/gui/file/5563c914766963d4450bda9aeb383d6852a6b94cb1c9fd8d632ea755eeb102ea)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F75_detections-brightgreen)](https://www.virustotal.com/gui/file/4adf00ec9f641816f6f1461e30d3ce317f511de020e9003f2777515f4490ebc2)
 
 | Release | Scan Date | Detections | Scanned | Report |
 |---|---|---|---|---|
+| v1.8.0 | 2026-07-31 | 0 / 75 | App | [View report](https://www.virustotal.com/gui/file/4adf00ec9f641816f6f1461e30d3ce317f511de020e9003f2777515f4490ebc2) |
 | v1.7.7 | 2026-07-19 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/5563c914766963d4450bda9aeb383d6852a6b94cb1c9fd8d632ea755eeb102ea) |
 | v1.7.6 | 2026-07-16 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/eaee14225a90a911fd141bbc6f197caad9ce37d46700e28df108bf167f424469) |
-| v1.7.5 | 2026-07-16 | 0 / 74 | App | [View report](https://www.virustotal.com/gui/file/ac0535f6ddc69a2cf0f5a36d035bcd8735032135f9f25000bd7a9176b07c1e1e) |
 <!-- VIRUSTOTAL:END -->
 
 ***Knotch does not contain any pieces of malware, and is intended to be a simple app.***
