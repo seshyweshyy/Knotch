@@ -98,6 +98,22 @@ private func markdownBlocks(from attributed: AttributedString) -> [MarkdownBlock
     }
 }
 
+// MARK: - Section icons
+
+// Release notes are hand-written on GitHub with a leading emoji or `<img>` icon
+// (e.g. "✨ New Features"); neither renders through AttributedString's markdown
+// parser, so headers are matched by their trailing label and paired with the
+// equivalent SF Symbol instead.
+private extension MarkdownBlock {
+    var sectionIcon: (symbol: String, label: String, color: Color)? {
+        guard case .header = kind else { return nil }
+        let label = String(text.characters).trimmingCharacters(in: .whitespaces)
+        if label.hasSuffix("New Features") { return ("sparkles", "New Features", Color(red: 0.8549, green: 0.7333, blue: 0.3333)) }
+        if label.hasSuffix("Fixes") { return ("wrench.adjustable.fill", "Fixes", Color(red: 0.4431, green: 0.5804, blue: 0.7216)) }
+        return nil
+    }
+}
+
 struct ReleaseNotesView: View {
     @StateObject private var viewModel = ReleaseNotesViewModel()
     let version: String
@@ -119,10 +135,18 @@ struct ReleaseNotesView: View {
                     ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
                         switch block.kind {
                         case .header:
-                            Text(block.text)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .padding(.top, index == 0 ? 0 : 6)
+                            HStack(spacing: 6) {
+                                if let icon = block.sectionIcon {
+                                    Image(systemName: icon.symbol)
+                                        .foregroundStyle(icon.color)
+                                    Text(icon.label)
+                                } else {
+                                    Text(block.text)
+                                }
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .padding(.top, index == 0 ? 0 : 6)
                         case .listItem:
                             HStack(alignment: .top, spacing: 6) {
                                 Text("•")
