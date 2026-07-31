@@ -316,7 +316,7 @@ class MusicManager: ObservableObject {
 
             if artworkChanged, let artwork = state.artwork, !isLiveBrowserStream {
                 self.appIconFallbackWorkItem?.cancel()
-                self.updateArtwork(artwork, direction: capturedDirection)
+                self.updateArtwork(artwork, bundleIdentifier: state.bundleIdentifier, direction: capturedDirection)
             } else if state.artwork == nil || isLiveBrowserStream {
                 self.appIconFallbackWorkItem?.cancel()
                 let fallback = DispatchWorkItem { [weak self] in
@@ -636,13 +636,25 @@ class MusicManager: ObservableObject {
         DispatchQueue.main.async(execute: workItem)
     }
 
-    private func updateArtwork(_ artworkData: Data, direction: FlipDirection? = nil) {
+    private func updateArtwork(_ artworkData: Data, bundleIdentifier: String?, direction: FlipDirection? = nil) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            if let artworkImage = NSImage(data: artworkData) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.updateAlbumArt(newAlbumArt: artworkImage, direction: direction)
-                }
+            guard let artworkImage = NSImage(data: artworkData) else { return }
+
+            // Browsers can hand back their own app icon as "artwork" for tabs with no
+            // real page art (see the browserBundleIdentifiers comment above) — catch
+            // that here too, not just the no-duration live-stream case, so a finite-
+            // duration clip with no real art doesn't show e.g. the Chrome logo.
+            let resolvedArt: NSImage
+            if let bundleIdentifier, Self.browserBundleIdentifiers.contains(bundleIdentifier),
+               isLikelyBrowserAppIconArtwork(artworkImage, forBundleIdentifier: bundleIdentifier) {
+                resolvedArt = noArtworkPlaceholderImage
+            } else {
+                resolvedArt = artworkImage
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                self?.updateAlbumArt(newAlbumArt: resolvedArt, direction: direction)
             }
         }
     }
