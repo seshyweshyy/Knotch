@@ -3,6 +3,76 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.8.0</title>
+            <pubDate>Fri, 31 Jul 2026 05:18:25 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>27</sparkle:version>
+            <sparkle:shortVersionString>1.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2 id="sparkles-new-features">✨ New Features</h2>
+<ul>
+<li><strong>Revamped closed-notch HUD and live-activity transitions with
+unified collapse-expand choreography</strong></li>
+<li><strong>Added lock screen mini-widgets</strong></li>
+<li>Added sneak peek duration slider</li>
+<li>Added compact calendar all-day events toggle</li>
+<li>Added pull down gesture reactivity to compact mode</li>
+<li>Added option to disable app icon on album art</li>
+<li>Added info popup for macOS 26+ menu bar icon toggle that redirects
+to System Settings</li>
+<li>Added blur and flash to album art flip transition</li>
+<li>Compact mode media player title is now tappable to open the media
+source app</li>
+</ul>
+<h2 id="wrench-fixes">🔧 Fixes</h2>
+<ul>
+<li>Moved notch appearance settings to Appearance tab</li>
+<li>Fixed cpu/memory usage across notch, timers, and settings</li>
+<li>Fixed debug session OOM kill from CGEvent tap leak + unbounded
+thumbnail cache</li>
+<li>Fixed the notch open/close drift &amp; ghosting bug + restored
+liquid bounce on open</li>
+<li>Fixed home to tray switch revealing unmasked glass + disabled glass
+on solid black appearance</li>
+<li>Fixed sneak peek expand animation</li>
+<li>Fixed edge fade blocking text on sneak peek + fixed paused state for
+youtube thumbnails</li>
+<li>Fixed gesture settings including horizontal gestures to skip track +
+fixed sneak peek resetting glass mask background</li>
+<li>Fixed shuffle and repeat active indicator + fixed source media app
+repeat sync</li>
+<li>Fixed compact calendar view snapping to media view during close</li>
+<li>Fixed lock hud persisting on unlock</li>
+<li>Fixed default HUD sizing</li>
+<li>Fixed concave top corner + extended duration for expanded battery
+HUD</li>
+<li>Fixed browser tabs showing app icon instead of grey note fallback
+for no-artwork tracks</li>
+<li>Fixed macbook icon to match actual mac model</li>
+<li>Fixed bluetooth expanded hud corners</li>
+<li>Fixed settings window focus</li>
+<li>Fixed compact mode ui opening on file drag</li>
+<li>Airdrop and bluetooth HUD fixes</li>
+<li>Volume and brightness hud adjustments</li>
+<li>Gated liquid glass notch appearances behind macOS 26+ and improved
+lock screen widget styling on versions below macOS 26</li>
+<li>Implemented a second potential fix for liquid glass mask lagging
+issue</li>
+<li>Made toggles in settings respect compact mode capability + adjusted
+system HUD UI</li>
+<li>Changed media button click reactivity to scale whole button
+including highlight during click, not after</li>
+<li>Increased view transition blur + all-day event pill adjustments</li>
+<li>Reworked 'not playing' placeholder art</li>
+<li>Increased waveform size on compact view</li>
+<li>Changed artist names to use .medium</li>
+<li>Changed airdrop symbol</li>
+<li>Removed custom visualiser</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.8.0/Knotch.v.1.8.0.zip" length="15247888" type="application/octet-stream" sparkle:edSignature="fePdcVE0IdWjVC2A1lJy/3VSJTr3Lz+uAY8Z3dlnEiro7ZPS9lroTVsecNT2AxsrJNzp1WUBDwPvQttZDTQvBA=="/>
+        </item>
+        <item>
             <title>1.7.7</title>
             <pubDate>Sun, 19 Jul 2026 15:00:01 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -46,15 +116,6 @@ during notch open animation</li>
 </ul>
 ]]></description>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.6/Knotch.v.1.7.6.zip" length="14967894" type="application/octet-stream" sparkle:edSignature="ztmyfHoRy9raQ1Q7tYodeb5UGSYQL1+0jHwbu32T9C3TLtgNx4yXX/r1+MWk7wRal9hxPEfbai4+qyCN5i71BA=="/>
-        </item>
-        <item>
-            <title>1.7.5</title>
-            <pubDate>Thu, 16 Jul 2026 03:13:16 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>23</sparkle:version>
-            <sparkle:shortVersionString>1.7.5</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.5/Knotch.v.1.7.5.zip" length="15068253" type="application/octet-stream" sparkle:edSignature="C0nqekG8oYoJ+DxwYtEhNV8wXn9nXcQANoK5G+acs+t7ufXHNaTqaNjlGY2HhI/ULV2XSeQOOjHt2O3NbNs/CQ=="/>
         </item>
         <item>
             <title>1.6.3</title>
