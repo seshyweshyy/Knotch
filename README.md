@@ -121,10 +121,9 @@ Unzip the `.zip` file and move **Knotch** to your `/Applications` folder.
 - [x] Shelf with AirDrop & LocalSend support 📚
 - [x] Notch sizing & multi-display support 🖥️
 - [x] System HUD replacement (volume, brightness, backlight) 🎚️
-- [x] Lock screen widgets 🔒
 - [x] Customizable layout options 🛠️
 - [x] Bluetooth live activity (connect/disconnect) 🎧
-- [ ] Lock screen widgets ⛅
+- [x] Lock screen widgets ⛅
 
 ---
 
