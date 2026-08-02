@@ -130,6 +130,7 @@ private struct LockScreenMiniWidgetRowRoot: View {
 
     private var batteryIconName: String {
         if battery.isCharging { return "bolt.fill" }
+        if battery.isPluggedIn { return "powerplug.portrait.fill" }
         return "battery.100"
     }
 
@@ -143,6 +144,9 @@ private struct LockScreenMiniWidgetRowRoot: View {
         case .timeRemaining:
             if battery.isCharging {
                 return Self.formattedDuration(minutes: battery.timeToFullCharge, suffix: "until full")
+            }
+            if battery.isPluggedIn {
+                return "Plugged In"
             }
             return Self.formattedDuration(minutes: battery.timeToEmpty, suffix: "left")
         }

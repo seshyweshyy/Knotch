@@ -608,12 +608,28 @@ private struct CompactMoreEventsRow: View {
     let events: [EventModel]
     private let maxBars = 2
 
+    // One bar per distinct calendar color, not one per event — several same-
+    // colored events in a row shouldn't draw duplicate bars.
+    private var barColors: [Color] {
+        var seen: [NSColor] = []
+        for event in events {
+            let color = event.calendar.color
+            if !seen.contains(color) {
+                seen.append(color)
+                if seen.count == maxBars { break }
+            }
+        }
+        return seen.map(Color.init)
+    }
+
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(Array(events.prefix(maxBars).enumerated()), id: \.offset) { _, event in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color(event.calendar.color))
-                    .frame(width: 3, height: 12)
+            HStack(spacing: 2) {
+                ForEach(Array(barColors.enumerated()), id: \.offset) { _, color in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(color)
+                        .frame(width: 3, height: 12)
+                }
             }
             Text("\(events.count) more event\(events.count == 1 ? "" : "s")")
                 .font(.system(size: 11, weight: .regular, design: .default))
@@ -724,7 +740,7 @@ private struct CalendarEventRow: View {
     var body: some View {
         let calColor: Color = isPressed ? .black : Color(event.calendar.color)
 
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .center, spacing: 0) {
             // Colored left border
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color(event.calendar.color))
