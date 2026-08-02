@@ -73,7 +73,7 @@ struct MonthGridView: View {
             // which rows are "visible" as its enclosing view moves during the
             // music/calendar swap transition, which made rows pop in and out
             // independently instead of moving as one solid block.
-            Grid(horizontalSpacing: 0, verticalSpacing: 2) {
+            Grid(horizontalSpacing: 0, verticalSpacing: 1.5) {
                 GridRow {
                     ForEach(weekdaySymbols, id: \.self) { symbol in
                         Text(symbol)
@@ -120,7 +120,7 @@ struct MonthGridView: View {
                       : !isToday && isSelected ? Color.white
                       :                          Color.clear
                     )
-                    .frame(width: 17, height: 17)
+                    .frame(width: 16, height: 16)
                     .scaleEffect(isSelected ? 1.0 : 0.5)
                     .opacity(isSelected ? 1.0 : 0.0)
                     .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isSelected)
@@ -140,7 +140,7 @@ struct MonthGridView: View {
                         )
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 20)
+            .frame(maxWidth: .infinity, minHeight: 16.5)
             // Without this, the tap target shrinks to just the visible glyph
             // (the day number, or the filled circle when selected) instead of
             // the full cell — on unselected days that's a tiny sliver, since
