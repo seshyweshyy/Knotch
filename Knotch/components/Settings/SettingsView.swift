@@ -470,10 +470,10 @@ struct SettingsView: View {
     @State private var searchText = ""
     @StateObject private var highlightCoordinator = SettingsHighlightCoordinator()
 
-    let updaterController: SPUStandardUpdaterController?
+    let updater: SPUUpdater?
 
-    init(updaterController: SPUStandardUpdaterController? = nil) {
-        self.updaterController = updaterController
+    init(updater: SPUUpdater? = nil) {
+        self.updater = updater
     }
 
     // MARK: - Search Index
@@ -751,11 +751,7 @@ struct SettingsView: View {
                         SettingsForm(tabID: "Advanced") { Advanced() }
                     case "About":
                         SettingsForm(tabID: "About") {
-                            if let controller = updaterController {
-                                About(updaterController: controller)
-                            } else {
-                                About(updaterController: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil))
-                            }
+                            About(updater: updater ?? SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil).updater)
                         }
                     default:
                         SettingsForm(tabID: "General") { GeneralSettings() }
@@ -2683,20 +2679,20 @@ struct Shelf: View {
 
 struct About: View {
     @State private var showBuildNumber: Bool = false
-    let updaterController: SPUStandardUpdaterController
+    let updater: SPUUpdater
     @StateObject private var checkForUpdatesViewModel: CheckForUpdatesViewModel
     @Environment(\.openWindow) var openWindow
 
-    init(updaterController: SPUStandardUpdaterController) {
-        self.updaterController = updaterController
-        self._checkForUpdatesViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updaterController.updater))
+    init(updater: SPUUpdater) {
+        self.updater = updater
+        self._checkForUpdatesViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updater))
     }
 
     var body: some View {
         VStack {
             Form {
                 Section {
-                    Button(action: updaterController.updater.checkForUpdates) {
+                    Button(action: updater.checkForUpdates) {
                         HStack {
                             Text("Check for Updates…")
                                 .foregroundStyle(.primary)
@@ -2713,7 +2709,7 @@ struct About: View {
                     .settingsSubtleGlassButton()
                     .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
                     .settingsHighlight(id: "About-Check for Updates")
-                    UpdaterSettingsView(updater: updaterController.updater)
+                    UpdaterSettingsView(updater: updater)
                         .settingsHighlight(id: "About-Automatic updates")
                 } header: {
                     Text("Version Info & Updates")

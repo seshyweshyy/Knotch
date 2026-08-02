@@ -143,22 +143,35 @@ class KnotchSkyLightWindow: NSPanel {
     }
 
     // Momentarily takes key status to force NSGlassEffectView to resample
-    // its backdrop, then hands key status back so we don't steal keyboard
-    // focus from another window in the app (e.g. Settings). Safe to call
-    // opportunistically; .nonactivatingPanel means becoming key here never
-    // activates the app or steals focus from other apps. Not gated on
-    // isSkyLightEnabled: this window only enables SkyLight while the screen
-    // is locked, but the glass needs the same refresh in ordinary
-    // (unlocked) use, where SkyLight is never engaged at all.
+    // its backdrop, then relinquishes it again so we don't steal keyboard
+    // focus from another window (e.g. Settings, or another app entirely).
+    // .nonactivatingPanel only guarantees becoming key here won't activate
+    // Knotch or steal the frontmost-app slot — it says nothing about real
+    // keyboard-event routing, a separate, window-server-level notion of
+    // "key". The common case is some other app being frontmost, where
+    // NSApp.keyWindow (Knotch's own) is nil: there's no in-app window to
+    // hand key status back to, so instead of leaving it parked here we
+    // explicitly resignKey() and let the window server return real
+    // keyboard focus to whatever app actually owns it. Previously this
+    // fell through a guard that only handled the non-nil case, so a nil
+    // previousKeyWindow left the panel holding real focus indefinitely —
+    // seen as e.g. a text field needing a re-click after a HUD closed.
+    // Not gated on isSkyLightEnabled: this window only enables SkyLight
+    // while the screen is locked, but the glass needs the same refresh in
+    // ordinary (unlocked) use, where SkyLight is never engaged at all.
     func refreshGlassBackdrop() {
         guard isVisible else { return }
         let previousKeyWindow = NSApp.keyWindow
         makeKey()
-        guard let previousKeyWindow, previousKeyWindow !== self else { return }
+        guard previousKeyWindow !== self else { return }
         // Delayed rather than synchronous — becoming key only triggers the
         // resample, it doesn't block until the window server finishes it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            previousKeyWindow.makeKey()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            if let previousKeyWindow {
+                previousKeyWindow.makeKey()
+            } else {
+                self?.resignKey()
+            }
         }
     }
 

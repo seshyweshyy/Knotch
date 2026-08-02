@@ -104,7 +104,7 @@ private func markdownBlocks(from attributed: AttributedString) -> [MarkdownBlock
 // (e.g. "✨ New Features"); neither renders through AttributedString's markdown
 // parser, so headers are matched by their trailing label and paired with the
 // equivalent SF Symbol instead.
-private extension MarkdownBlock {
+extension MarkdownBlock {
     var sectionIcon: (symbol: String, label: String, color: Color)? {
         guard case .header = kind else { return nil }
         let label = String(text.characters).trimmingCharacters(in: .whitespaces)

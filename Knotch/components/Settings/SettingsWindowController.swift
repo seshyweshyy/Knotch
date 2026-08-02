@@ -12,7 +12,7 @@ import Sparkle
 
 class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
-    private var updaterController: SPUStandardUpdaterController?
+    private var updater: SPUUpdater?
     
     private init() {
         let window = KnotchSettingsWindow(
@@ -65,8 +65,8 @@ class SettingsWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func setUpdaterController(_ controller: SPUStandardUpdaterController) {
-        self.updaterController = controller
+    func setUpdater(_ updater: SPUUpdater) {
+        self.updater = updater
         // Don't rebuild the window — content is loaded lazily on first showWindow()
     }
     
@@ -103,7 +103,7 @@ class SettingsWindowController: NSWindowController {
         effectView.blendingMode = .behindWindow
         effectView.state = .active
 
-        let hostingView = NSHostingView(rootView: SettingsView(updaterController: updaterController))
+        let hostingView = NSHostingView(rootView: SettingsView(updater: updater))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = .clear

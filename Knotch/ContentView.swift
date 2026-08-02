@@ -1359,8 +1359,9 @@ struct ContentView: View {
                 VStack {
                     switch coordinator.currentView {
                     case .home:
-                        // NotchHomeView applies the stretch per-widget internally,
-                        // so each element stays in place relative to its neighbors.
+                        // NotchHomeView applies one stretch across its whole content
+                        // group (standard or compact), so nothing drifts relative
+                        // to its neighbors.
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         // The shelf ("tray") is unreachable in Compact mode — fall
@@ -1371,6 +1372,11 @@ struct ContentView: View {
                         } else {
                             ShelfView()
                                 .liquidStretch(vm)
+                                // Drop-zone outlines are actual drag targets — keep
+                                // their x-position fixed even though the shared
+                                // header+content group leans sideways on a
+                                // horizontal pull (liquidHorizontalGroup below).
+                                .liquidHorizontalGroupExempt(vm)
                         }
                     }
                 }

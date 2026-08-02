@@ -21,9 +21,6 @@ struct MusicPlayerView: View {
         HStack {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
                 .padding(.all, 5)
-                .liquidStretch(vm)
-            // Stretched internally per-row (song info+slider, then the button
-            // row) inside MusicControlsView, so they don't drift apart.
             MusicControlsWithVisualizer()
         }
     }
@@ -218,9 +215,7 @@ struct MusicControlsView: View {
     var body: some View {
         VStack(alignment: .leading) {
             songInfoAndSlider
-                .liquidStretch(vm)
             slotToolbar
-                .liquidStretch(vm)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -454,7 +449,7 @@ struct AudioOutputButton: View {
     @ObservedObject private var routeManager = AudioRouteManager.shared
     @StateObject private var volumeModel = MediaOutputVolumeViewModel()
     @State private var isPopoverPresented = false
-    @State private var isHoveringPopover = false
+    @State private var anchorView: NSView?
     @EnvironmentObject var vm: KnotchViewModel
 
     private var buttonIcon: String {
@@ -468,28 +463,34 @@ struct AudioOutputButton: View {
                 routeManager.refreshDevices()
             }
         }
-        .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
-            MediaOutputSelectorPopover(
-                routeManager: routeManager,
-                volumeModel: volumeModel,
-                onHoverChanged: { hovering in
-                    isHoveringPopover = hovering
-                },
-                dismiss: {
-                    isPopoverPresented = false
-                    isHoveringPopover = false
-                    vm.isMediaOutputPopoverActive = false
-                }
-            )
-        }
+        .background(PopoverAnchorView { anchorView = $0 })
+        // Custom window-based popover instead of `.popover()` — see
+        // MediaOutputPopoverWindowManager for why.
         .onChange(of: isPopoverPresented) { _, presented in
             vm.isMediaOutputPopoverActive = presented
-            if !presented {
-                isHoveringPopover = false
+            if presented {
+                guard let anchorView else { return }
+                MediaOutputPopoverWindowManager.shared.show(
+                    anchorView: anchorView,
+                    routeManager: routeManager,
+                    volumeModel: volumeModel,
+                    onDismiss: { isPopoverPresented = false }
+                )
+            } else {
+                MediaOutputPopoverWindowManager.shared.hide()
+            }
+        }
+        // Follows vm.isMediaOutputPopoverActive being forced false from outside
+        // this view (e.g. KnotchViewModel.close()) so the custom panel tears down too.
+        .onChange(of: vm.isMediaOutputPopoverActive) { _, active in
+            if !active {
+                isPopoverPresented = false
             }
         }
         .onDisappear {
             vm.isMediaOutputPopoverActive = false
+            isPopoverPresented = false
+            MediaOutputPopoverWindowManager.shared.hide()
         }
     }
 }
@@ -855,7 +856,6 @@ struct NotchHomeView: View {
             if showMusic {
                 MusicPlayerView(albumArtNamespace: albumArtNamespace)
                     .frame(width: WidgetWidth.music)
-                    .liquidStretch(vm)
             }
             if showCal {
                 if showMusic {
@@ -871,7 +871,6 @@ struct NotchHomeView: View {
                     )
                     .environmentObject(vm)
                     .transition(.opacity)
-                    .liquidStretch(vm)
             }
             if showCam {
                 if showCal || showMusic {
@@ -885,6 +884,10 @@ struct NotchHomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
+        // Single stretch for the whole row, anchored to its own top — matches
+        // compactContent so all widgets move together instead of drifting
+        // apart (each used to stretch from its own local top edge).
+        .liquidStretch(vm)
     }
 }
 

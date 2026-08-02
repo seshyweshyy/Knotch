@@ -62,10 +62,16 @@ class KnotchViewModel: NSObject, ObservableObject {
     }
 
     // Content elongation for pull-down-to-open, cosmetic only (notchSize is
-    // untouched). Standard mode's factor is much smaller than Compact's —
-    // its layout has more content near the bottom edge and clips at Compact's amount.
+    // untouched). Both modes apply this as a single scale over their whole
+    // content group now (see standardContent/compactContent), anchored at the
+    // panel's top — so a bottom-row element's actual travel is maxStretch *
+    // its own distance from that anchor, not just maxStretch alone. Standard's
+    // panel is both taller (190pt vs. Compact's 160pt) and pulls further
+    // (70pt clamp vs. Compact's 0.7x-reduced 49pt), so its factor has to stay
+    // well below Compact's to land on similar-looking travel for its own
+    // bottom row (the button toolbar) instead of overshooting it.
     var pullDownDeformScale: CGFloat {
-        let maxStretch: CGFloat = Defaults[.enableCompactUI] ? 0.16 : 0.02
+        let maxStretch: CGFloat = Defaults[.enableCompactUI] ? 0.16 : 0.045
         return 1 + liquidVerticalFactor * maxStretch
     }
 
@@ -532,8 +538,9 @@ class KnotchViewModel: NSObject, ObservableObject {
 }
 
 extension View {
-    // Pull-down deform/blur, applied per-widget, anchored to each widget's
-    // own top edge so a down-pull elongates them together as one group.
+    // Pull-down deform/blur, applied ONCE around a whole content group (not
+    // per-widget) so everything inside elongates together from the group's
+    // own top edge instead of drifting apart from separately-anchored widgets.
     func liquidStretch(_ vm: KnotchViewModel) -> some View {
         self
             .scaleEffect(x: 1, y: vm.pullDownDeformScale, anchor: UnitPoint(x: 0.5, y: 0))
@@ -546,5 +553,15 @@ extension View {
     // toward the pull direction together, like the group is being dragged.
     func liquidHorizontalGroup(_ vm: KnotchViewModel) -> some View {
         self.scaleEffect(x: vm.liquidHorizontalStretchScale, y: 1, anchor: UnitPoint(x: vm.liquidHorizontalAnchorX, y: 0.5))
+    }
+
+    // Cancels liquidHorizontalGroup's ancestor lean with the reciprocal scale
+    // around the same anchor, for content that has to stay pixel-stable
+    // regardless of pull — the shelf's drop-zone outlines are actual drag
+    // targets, so shifting them sideways mid-drag reads as broken, not liquid.
+    // Only valid for a view spanning the same width as the leaned ancestor
+    // (true here: both sit in the same maxWidth-.infinity content slot).
+    func liquidHorizontalGroupExempt(_ vm: KnotchViewModel) -> some View {
+        self.scaleEffect(x: 1 / vm.liquidHorizontalStretchScale, y: 1, anchor: UnitPoint(x: vm.liquidHorizontalAnchorX, y: 0.5))
     }
 }

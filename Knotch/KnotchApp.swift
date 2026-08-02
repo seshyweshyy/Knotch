@@ -12,6 +12,7 @@ import KeyboardShortcuts
 import Sparkle
 import SwiftUI
 import AlbumArtBackgroundWindow
+import os
 
 @main
 struct KnotchApp: App {
@@ -19,14 +20,22 @@ struct KnotchApp: App {
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
 
-    let updaterController: SPUStandardUpdaterController
+    let updater: SPUUpdater
+    private let updateUserDriver: KnotchUpdateUserDriver
 
     init() {
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        let userDriver = KnotchUpdateUserDriver()
+        updateUserDriver = userDriver
+        updater = SPUUpdater(
+            hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: nil)
+        do {
+            try updater.start()
+        } catch {
+            Logger(subsystem: "seshyweshyy.Knotch", category: "Updater").error("Failed to start Sparkle updater: \(error)")
+        }
 
-        // Initialize the settings window controller with the updater controller
-        SettingsWindowController.shared.setUpdaterController(updaterController)
+        // Initialize the settings window controller with the updater
+        SettingsWindowController.shared.setUpdater(updater)
     }
 
     var body: some Scene {
@@ -44,7 +53,7 @@ struct KnotchApp: App {
                 Label("Settings", systemImage: "gearshape.fill")
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            CheckForUpdatesView(updater: updaterController.updater)
+            CheckForUpdatesView(updater: updater)
             Divider()
             Button {
                 ApplicationRelauncher.restart()
