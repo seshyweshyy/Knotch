@@ -44,8 +44,15 @@ func restingRowWidth(
     closedNotchWidth: CGFloat,
     effectiveClosedNotchHeight: CGFloat,
     bluetoothHUDExpanded: Bool,
-    airdropHUDExpanded: Bool
+    airdropHUDExpanded: Bool,
+    isHovering: Bool = false
 ) -> CGFloat {
+    // InlineHUD's own leading/trailing blocks (sideWidth) each widen by 12pt
+    // on hover — matched here so the fixed box they're laid out in grows by
+    // the same amount, instead of staying put while the content inside wants
+    // more room than it's given (that mismatch was clipping through the
+    // notch's concave top corners once the content out-grew the mask).
+    let inlineHUDHoverGrowth: CGFloat = isHovering ? 24 : 0
     switch family {
     case .none:
         // The true collapse floor — matches the -20 every compact pill here
@@ -75,17 +82,17 @@ func restingRowWidth(
             return airdropHUDExpanded ? 300 : closedNotchWidth + effectiveClosedNotchHeight + 16
         case .mic:
             // Just an icon + short "muted"/"unmuted" label — no slider.
-            return closedNotchWidth + 44
+            return closedNotchWidth + 44 + inlineHUDHoverGrowth
         case .focusMode:
             // No slider either, but the focus mode's own name (label) can run
             // longer than "muted"/"unmuted" ("Do Not Disturb", etc.), so this
             // wants more trailing room than mic gets.
-            return closedNotchWidth + 58
+            return closedNotchWidth + 58 + inlineHUDHoverGrowth
         default:
             // Volume/brightness/backlight all carry a DraggableProgressBar
             // plus a percentage label — want real breathing room on the
             // trailing end so the slider/label don't crowd the pill's edge.
-            return closedNotchWidth + 170
+            return closedNotchWidth + 170 + inlineHUDHoverGrowth
         }
     case .music:
         // Matches MusicLiveActivity's own three-part HStack (album art +
@@ -159,7 +166,8 @@ struct ClosedNotchRowContent: View {
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
-            airdropHUDExpanded: airdropHUDExpanded
+            airdropHUDExpanded: airdropHUDExpanded,
+            isHovering: isHovering
         )
     }
 

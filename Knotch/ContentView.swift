@@ -853,7 +853,8 @@ struct ContentView: View {
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
-            airdropHUDExpanded: airdropHUDExpanded
+            airdropHUDExpanded: airdropHUDExpanded,
+            isHovering: isHovering
         )
         return bare + (resting - bare) * rowMorph
     }

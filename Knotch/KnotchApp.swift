@@ -145,6 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenLocked(_ notification: Notification) {
         isScreenLocked = true
+        closeOpenNotches()
         broadcastLockState(true)
         enableSkyLightOnAllWindows()
         showLiquidGlassWidgetIfNeeded()
@@ -163,6 +164,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         LockScreenMiniWidgetRowWindowController.shared.screenDidUnlock()
     }
     
+    @MainActor
+    private func closeOpenNotches() {
+        if Defaults[.showOnAllDisplays] {
+            for viewModel in viewModels.values where viewModel.notchState == .open {
+                viewModel.close()
+            }
+        } else if vm.notchState == .open {
+            vm.close()
+        }
+    }
+
     private func broadcastLockState(_ locked: Bool) {
         if locked {
             coordinator.isScreenLocked = true
