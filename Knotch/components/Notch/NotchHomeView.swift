@@ -6,6 +6,7 @@
 //  Modified by Harsh Vardhan Goswami & Richard Kunkli & Mustafa Ramadan
 //
 
+import AppKit
 import Combine
 import Defaults
 import SwiftUI
@@ -46,6 +47,58 @@ private struct MusicControlsWithVisualizer: View {
                     .padding(.top, 16)
             }
         }
+        // The preference reader that turns this into a real anchor view lives on
+        // NotchHomeView, not here — compact mode's AudioOutputButton (inside
+        // CompactMusicPlayerView) never renders this view at all, so a reader
+        // scoped to just this one would leave compact mode's anchor never set.
+    }
+}
+
+// MARK: - Audio Output Button anchor plumbing
+//
+// See MusicControlsWithVisualizer's `.overlayPreferenceValue` for why this
+// exists: AudioOutputButton reports its frame via preference from inside a
+// `.drawingGroup()`'d branch (safe — GeometryReader is pure layout, unaffected
+// by rasterization), and the real anchor NSView is planted outside that branch,
+// positioned to match.
+
+private let audioOutputAnchorSpaceName = "audioOutputAnchorSpace"
+
+private struct AudioOutputAnchorFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
+}
+
+// Holds the live anchor NSView so AudioOutputButton can read its real,
+// AppKit-native screen frame at tap time — no manual coordinate-space math.
+@MainActor
+final class AudioOutputAnchorHolder {
+    static let shared = AudioOutputAnchorHolder()
+    private init() {}
+    weak var view: NSView?
+}
+
+// hitTest returns nil so this is purely a geometry probe, never a target for
+// any mouse event (a hit-testable view here previously stole clicks meant for
+// the toggle button, seen live as a drag-prohibited cursor instead of a tap).
+private final class ClickThroughProbeNSView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+private struct AudioOutputAnchorProbe: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = ClickThroughProbeNSView(frame: .zero)
+        AudioOutputAnchorHolder.shared.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        AudioOutputAnchorHolder.shared.view = nsView
     }
 }
 
@@ -449,7 +502,6 @@ struct AudioOutputButton: View {
     @ObservedObject private var routeManager = AudioRouteManager.shared
     @StateObject private var volumeModel = MediaOutputVolumeViewModel()
     @State private var isPopoverPresented = false
-    @State private var anchorView: NSView?
     @EnvironmentObject var vm: KnotchViewModel
 
     private var buttonIcon: String {
@@ -463,15 +515,27 @@ struct AudioOutputButton: View {
                 routeManager.refreshDevices()
             }
         }
-        .background(PopoverAnchorView { anchorView = $0 })
+        // Reports this button's frame for NotchHomeView's real anchor probe to
+        // track — see its `.overlayPreferenceValue` for why the probe lives
+        // there instead of directly here.
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: AudioOutputAnchorFrameKey.self,
+                    value: geo.frame(in: .named(audioOutputAnchorSpaceName))
+                )
+            }
+        )
         // Custom window-based popover instead of `.popover()` — see
         // MediaOutputPopoverWindowManager for why.
         .onChange(of: isPopoverPresented) { _, presented in
             vm.isMediaOutputPopoverActive = presented
             if presented {
-                guard let anchorView else { return }
+                guard let anchorView = AudioOutputAnchorHolder.shared.view,
+                      let window = anchorView.window else { return }
+                let anchorFrameOnScreen = window.convertToScreen(anchorView.convert(anchorView.bounds, to: nil))
                 MediaOutputPopoverWindowManager.shared.show(
-                    anchorView: anchorView,
+                    anchorFrameOnScreen: anchorFrameOnScreen,
                     routeManager: routeManager,
                     volumeModel: volumeModel,
                     onDismiss: { isPopoverPresented = false }
@@ -802,6 +866,19 @@ struct NotchHomeView: View {
                 vm.notchSize = isCreating
                     ? CGSize(width: WidgetWidth.timerSlider, height: vm.notchSize.height)
                     : vm.computedHomeSize
+            }
+        }
+        .coordinateSpace(name: audioOutputAnchorSpaceName)
+        // Common to both compactContent and standardContent, so AudioOutputButton's
+        // real anchor probe gets placed regardless of which one is showing — see
+        // AudioOutputAnchorProbe's comment for why it can't just live at the
+        // button's own position inside standard mode's `.drawingGroup()`.
+        .overlayPreferenceValue(AudioOutputAnchorFrameKey.self) { frame in
+            if frame != .zero {
+                AudioOutputAnchorProbe()
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    .allowsHitTesting(false)
             }
         }
     }

@@ -6,20 +6,6 @@
 import AppKit
 import SwiftUI
 
-// Captures the NSView backing a SwiftUI view so its on-screen frame can be
-// read later (SwiftUI's own coordinate spaces are window-local, not screen).
-struct PopoverAnchorView: NSViewRepresentable {
-    let onCapture: (NSView) -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        DispatchQueue.main.async { onCapture(view) }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
 // Custom replacement for SwiftUI's `.popover()` for anchors living in
 // KnotchWindow. KnotchWindow.canBecomeKey is always false (it must never
 // steal focus), and NSPopover's close fade relies on the standard key-window
@@ -43,7 +29,7 @@ final class MediaOutputPopoverWindowManager {
     private init() {}
 
     func show(
-        anchorView: NSView,
+        anchorFrameOnScreen: CGRect,
         routeManager: AudioRouteManager,
         volumeModel: MediaOutputVolumeViewModel,
         onDismiss: @escaping () -> Void
@@ -52,8 +38,7 @@ final class MediaOutputPopoverWindowManager {
         panel?.orderOut(nil)
         panel = nil
 
-        guard let anchorWindow = anchorView.window else { return }
-        anchorFrameOnScreen = anchorWindow.convertToScreen(anchorView.convert(anchorView.bounds, to: nil))
+        self.anchorFrameOnScreen = anchorFrameOnScreen
 
         let cornerRadius: CGFloat = 22
         // Extra margin around the card so its own SwiftUI `.shadow(...)` (radius
