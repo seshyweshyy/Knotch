@@ -206,7 +206,7 @@ struct FileShareView: View {
                         Text("Currently: \(selected.id)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text("Files shared from the shelf will use this service")
+                        Text("Files shared from the tray will use this service")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -231,7 +231,9 @@ struct FileShareView: View {
 
 // MARK: - Host NSView extractor for anchoring share sheet
 
-private struct NSViewHost: NSViewRepresentable {
+// Shared with CompactTrayView's AirDrop square — both anchor a share sheet
+// off a plain NSView pulled out of the SwiftUI hierarchy the same way.
+struct NSViewHost: NSViewRepresentable {
     @Binding var view: NSView?
     
     func makeNSView(context: Context) -> NSView {

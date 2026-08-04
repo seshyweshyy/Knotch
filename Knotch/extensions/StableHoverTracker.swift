@@ -26,7 +26,7 @@ struct StableHoverTracker: NSViewRepresentable {
         nsView.onHoverChange = onHoverChange
     }
 
-    // Switching tabs (home -> shelf) or closing the notch unmounts this view
+    // Switching tabs (home -> tray) or closing the notch unmounts this view
     // entirely — if the cursor was over the wheel at that moment, nothing would
     // otherwise fire mouseExited to clear the hover flag, leaving it stuck true
     // and blocking gestures on whatever's shown next.

@@ -184,7 +184,9 @@ extension Defaults.Keys {
 
     // MARK: Notch Views
     static let showHomeView = Key<Bool>("showHomeView", default: true)
-    static let showShelfView = Key<Bool>("showShelfView", default: true)
+    // Storage key stays "showShelfView" — renamed identifier only, so
+    // existing users' persisted preference isn't reset by the rename.
+    static let showTrayView = Key<Bool>("showShelfView", default: true)
     
     // MARK: Media playback
     static let homeViewVisualizer = Key<Bool>("homeViewVisualizer", default: true)
@@ -265,14 +267,17 @@ extension Defaults.Keys {
     // MARK: AirDrop
     static let showAirDropReceiveProgress = Key<Bool>("showAirDropReceiveProgress", default: true)
 
-    // MARK: Shelf
-    static let knotchShelf = Key<Bool>("knotchShelf", default: true)
-    static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)
-    static let shelfTapToOpen = Key<Bool>("shelfTapToOpen", default: true)
+    // MARK: Tray
+    // Storage keys below are unchanged from their pre-rename "shelf" strings
+    // — renamed identifiers only, so existing users' persisted preferences
+    // aren't reset by the rename.
+    static let knotchTray = Key<Bool>("knotchShelf", default: true)
+    static let openTrayByDefault = Key<Bool>("openShelfByDefault", default: true)
+    static let trayTapToOpen = Key<Bool>("shelfTapToOpen", default: true)
     static let quickShareProvider = Key<String>("quickShareProvider", default: QuickShareProvider.defaultProvider.id)
     static let localSendSelectedDeviceID = Key<String>("localSendSelectedDeviceID", default: "")
     static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
-    static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
+    static let autoRemoveTrayItems = Key<Bool>("autoRemoveShelfItems", default: false)
     static let expandedDragDetection = Key<Bool>("expandedDragDetection", default: true)
     
     // MARK: Calendar

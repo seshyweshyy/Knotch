@@ -41,7 +41,7 @@ private let knotchTabs: [SettingsTabItem] = [
     SettingsTabItem(id: "Compact", title: "Compact Mode", systemImage: "rectangle.compress.vertical", tint: .pink, group: "Content"),
     SettingsTabItem(id: "LockScreen", title: "Lock Screen", systemImage: "lock.fill", tint: .black, group: "Content"),
     SettingsTabItem(id: "Calendar", title: "Calendar", systemImage: "calendar", tint: .cyan, group: "Content"),
-    SettingsTabItem(id: "Shelf", title: "Shelf", systemImage: "books.vertical", tint: .brown, group: "Content"),
+    SettingsTabItem(id: "Tray", title: "File Tray", systemImage: "books.vertical", tint: .brown, group: "Content"),
     // System
     SettingsTabItem(id: "HUD", title: "HUDs", systemImage: "dial.medium.fill", tint: .gray, group: "System"),
     SettingsTabItem(id: "Battery", title: "Battery", systemImage: "battery.100.bolt", tint: Color(red: 0.2, green: 0.78, blue: 0.35), group: "System"),
@@ -555,13 +555,13 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Battery", title: "Show battery percentage", keywords: ["battery", "percentage"], highlightID: "Battery-Show battery percentage"),
             SettingsSearchEntry(tabID: "Battery", title: "Show power status icons", keywords: ["power", "icons", "battery"], highlightID: "Battery-Show power status icons"),
             SettingsSearchEntry(tabID: "Battery", title: "Show battery percentage as icon", keywords: ["battery", "percentage", "icon", "ios"], highlightID: "Battery-Show battery percentage as icon"),
-            // Shelf
-            SettingsSearchEntry(tabID: "Shelf", title: "Enable shelf", keywords: ["shelf", "drop"], highlightID: "Shelf-Enable shelf"),
-            SettingsSearchEntry(tabID: "Shelf", title: "Open shelf by default if items are present", keywords: ["shelf", "default", "open"], highlightID: "Shelf-Open shelf by default"),
-            SettingsSearchEntry(tabID: "Shelf", title: "Expanded drag detection area", keywords: ["drag", "detection", "shelf"], highlightID: "Shelf-Expanded drag detection"),
-            SettingsSearchEntry(tabID: "Shelf", title: "Copy items on drag", keywords: ["copy", "drag", "shelf"], highlightID: "Shelf-Copy items on drag"),
-            SettingsSearchEntry(tabID: "Shelf", title: "Remove from shelf after dragging", keywords: ["remove", "drag", "shelf"], highlightID: "Shelf-Remove after dragging"),
-            SettingsSearchEntry(tabID: "Shelf", title: "Quick Share Service", keywords: ["share", "airdrop", "localsend", "shelf"], highlightID: "Shelf-Shelf activation gesture"),
+            // Tray
+            SettingsSearchEntry(tabID: "Tray", title: "Enable File Tray", keywords: ["tray", "file tray", "drop"], highlightID: "Tray-Enable tray"),
+            SettingsSearchEntry(tabID: "Tray", title: "Open tray by default if items are present", keywords: ["tray", "default", "open"], highlightID: "Tray-Open tray by default"),
+            SettingsSearchEntry(tabID: "Tray", title: "Expanded drag detection area", keywords: ["drag", "detection", "tray"], highlightID: "Tray-Expanded drag detection"),
+            SettingsSearchEntry(tabID: "Tray", title: "Copy items on drag", keywords: ["copy", "drag", "tray"], highlightID: "Tray-Copy items on drag"),
+            SettingsSearchEntry(tabID: "Tray", title: "Remove from tray after dragging", keywords: ["remove", "drag", "tray"], highlightID: "Tray-Remove after dragging"),
+            SettingsSearchEntry(tabID: "Tray", title: "Quick Share Service", keywords: ["share", "airdrop", "localsend", "tray"], highlightID: "Tray-Tray activation gesture"),
             // Shortcuts
             SettingsSearchEntry(tabID: "Shortcuts", title: "Toggle Sneak Peek", keywords: ["sneak peek", "shortcut"], highlightID: "Shortcuts-Toggle Sneak Peek"),
             SettingsSearchEntry(tabID: "Shortcuts", title: "Toggle notch open", keywords: ["open", "shortcut", "keyboard"], highlightID: "Shortcuts-Toggle notch open"),
@@ -743,8 +743,8 @@ struct SettingsView: View {
                         SettingsForm(tabID: "Battery") { Charge() }
                     case "LiveActivities":
                         SettingsForm(tabID: "LiveActivities") { LiveActivitiesSettings() }
-                    case "Shelf":
-                        SettingsForm(tabID: "Shelf") { Shelf() }
+                    case "Tray":
+                        SettingsForm(tabID: "Tray") { Tray() }
                     case "Shortcuts":
                         SettingsForm(tabID: "Shortcuts") { Shortcuts() }
                     case "Advanced":
@@ -1411,6 +1411,8 @@ struct Compact: View {
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.compactShowMusicView) var compactShowMusicView
     @Default(.compactShowCalendarView) var compactShowCalendarView
+    @Default(.quickShareProvider) var quickShareProvider
+    @StateObject private var quickShareService = QuickShareService.shared
 
     var body: some View {
         Form {
@@ -1419,7 +1421,7 @@ struct Compact: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable Compact UI")
                             .font(.headline)
-                        Text("Compact mode replaces the standard media player with a smaller, notch-hugging layout, and hides the shelf and header icons.")
+                        Text("Compact mode replaces the standard media player with a smaller, notch-hugging layout, and hides the tray and header icons.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1465,6 +1467,23 @@ struct Compact: View {
                 .settingsHighlight(id: "Compact-Show all-day events")
             } header: {
                 Text("Calendar")
+            }
+
+            Section {
+                IconMenuPicker(
+                    title: "Quick Share Service",
+                    items: quickShareService.availableProviders,
+                    selectionID: $quickShareProvider,
+                    icon: quickShareProviderIcon,
+                    label: { $0.id },
+                    iconSize: 20
+                )
+                .disabled(!enableCompactUI)
+                .settingsHighlight(id: "Compact-Quick Share Service")
+            } header: {
+                Text("File Tray")
+            } footer: {
+                Text("Choose which service the drag-and-drop overlay's AirDrop square shares files through — the same picker and setting as the standard tray's Quick Share Service.")
             }
         }
         .accentColor(.effectiveAccent)
@@ -2276,21 +2295,21 @@ struct Widgets: View {
     @Default(.showMirror) var showMirror
     @Default(.showTimer) var showTimer
     @Default(.showHomeView) var showHomeView
-    @Default(.showShelfView) var showShelfView
+    @Default(.showTrayView) var showTrayView
     @Default(.swipeToCycleViews) var swipeToCycleViews
     @Default(.enableCompactUI) var enableCompactUI
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
 
     // Swipe-to-cycle only makes sense when both views are enabled
     private var onlyOneViewEnabled: Bool {
-        !showHomeView || !showShelfView
+        !showHomeView || !showTrayView
     }
 
     var body: some View {
         Form {
             if enableCompactUI {
                 Section {
-                    Text("These settings only apply to the standard notch layout — Compact Mode replaces the home view and hides the shelf entirely.")
+                    Text("These settings only apply to the standard notch layout — Compact Mode replaces the home view and hides the tray entirely.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -2299,19 +2318,19 @@ struct Widgets: View {
                 Defaults.Toggle(key: .showHomeView) {
                     Text("Home view")
                 }
-                .disabled(!showShelfView) // can't disable both
+                .disabled(!showTrayView) // can't disable both
                 .settingsHighlight(id: "Widgets-Show home view")
-                Defaults.Toggle(key: .showShelfView) {
-                    Text("Shelf view")
+                Defaults.Toggle(key: .showTrayView) {
+                    Text("Tray view")
                 }
                 .disabled(!showHomeView) // can't disable both
-                .onChange(of: showShelfView) {
-                    // If shelf is disabled while we're on shelf, jump to home
-                    if !showShelfView && coordinator.currentView == .shelf {
+                .onChange(of: showTrayView) {
+                    // If tray is disabled while we're on tray, jump to home
+                    if !showTrayView && coordinator.currentView == .tray {
                         coordinator.currentView = .home
                     }
                 }
-                .settingsHighlight(id: "Widgets-Show shelf view")
+                .settingsHighlight(id: "Widgets-Show tray view")
                 if onlyOneViewEnabled {
                     Text("Swipe to cycle views is disabled when only one view is active.")
                         .font(.caption)
@@ -2577,10 +2596,10 @@ struct Shortcuts: View {
     }
 }
 
-// MARK: - Shelf
+// MARK: - Tray
 
-struct Shelf: View {
-    @Default(.shelfTapToOpen) var shelfTapToOpen: Bool
+struct Tray: View {
+    @Default(.trayTapToOpen) var trayTapToOpen: Bool
     @Default(.quickShareProvider) var quickShareProvider
     @Default(.expandedDragDetection) var expandedDragDetection: Bool
     @Default(.enableCompactUI) var enableCompactUI
@@ -2598,35 +2617,35 @@ struct Shelf: View {
         Form {
             if enableCompactUI {
                 Section {
-                    Text("The shelf is unreachable while Compact Mode is enabled.")
+                    Text("The tray is unreachable while Compact Mode is enabled. Its own tray settings, including which service the AirDrop square shares through, are in the Compact tab instead.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             Section {
-                Defaults.Toggle(key: .knotchShelf) {
-                    Text("Enable shelf")
+                Defaults.Toggle(key: .knotchTray) {
+                    Text("Enable File Tray")
                 }
-                .settingsHighlight(id: "Shelf-Enable shelf")
-                Defaults.Toggle(key: .openShelfByDefault) {
-                    Text("Open shelf by default if items are present")
+                .settingsHighlight(id: "Tray-Enable tray")
+                Defaults.Toggle(key: .openTrayByDefault) {
+                    Text("Open tray by default if items are present")
                 }
-                .settingsHighlight(id: "Shelf-Open shelf by default")
+                .settingsHighlight(id: "Tray-Open tray by default")
                 Defaults.Toggle(key: .expandedDragDetection) {
                     Text("Expanded drag detection area")
                 }
                 .onChange(of: expandedDragDetection) {
                     NotificationCenter.default.post(name: Notification.Name.expandedDragDetectionChanged, object: nil)
                 }
-                .settingsHighlight(id: "Shelf-Expanded drag detection")
+                .settingsHighlight(id: "Tray-Expanded drag detection")
                 Defaults.Toggle(key: .copyOnDrag) {
                     Text("Copy items on drag")
                 }
-                .settingsHighlight(id: "Shelf-Copy items on drag")
-                Defaults.Toggle(key: .autoRemoveShelfItems) {
-                    Text("Remove from shelf after dragging")
+                .settingsHighlight(id: "Tray-Copy items on drag")
+                Defaults.Toggle(key: .autoRemoveTrayItems) {
+                    Text("Remove from tray after dragging")
                 }
-                .settingsHighlight(id: "Shelf-Remove after dragging")
+                .settingsHighlight(id: "Tray-Remove after dragging")
             } header: {
                 HStack { Text("General") }
             }
@@ -2641,7 +2660,7 @@ struct Shelf: View {
                     label: { $0.id },
                     iconSize: 20
                 )
-                .settingsHighlight(id: "Shelf-Shelf activation gesture")
+                .settingsHighlight(id: "Tray-Tray activation gesture")
                 if let selectedProvider = selectedProvider {
                     HStack {
                         if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
@@ -2657,7 +2676,7 @@ struct Shelf: View {
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Currently selected: \(selectedProvider.id)").font(.caption).foregroundColor(.secondary)
-                            Text("Files dropped on the shelf will be shared via this service").font(.caption2).foregroundColor(.secondary)
+                            Text("Files dropped on the tray will be shared via this service").font(.caption2).foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 4)
@@ -2665,7 +2684,7 @@ struct Shelf: View {
             } header: {
                 HStack { Text("Quick Share") }
             } footer: {
-                Text("Choose which service to use when sharing files from the shelf. Click the shelf button to select files, or drag files onto it to share immediately.")
+                Text("Choose which service to use when sharing files from the tray. Click the tray button to select files, or drag files onto it to share immediately.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

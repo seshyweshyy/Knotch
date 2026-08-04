@@ -1,5 +1,5 @@
 //
-//  ShelfItem.swift
+//  TrayItem.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-09-24.
@@ -8,7 +8,7 @@
 import AppKit
 import Foundation
 
-enum ShelfItemKind: Codable, Equatable, Sendable {
+enum TrayItemKind: Codable, Equatable, Sendable {
     case file(bookmark: Data)
     case text(string: String)
     case link(url: URL)
@@ -49,11 +49,11 @@ enum ShelfItemKind: Codable, Equatable, Sendable {
 }
 
 @MainActor
-struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
+struct TrayItem: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
-    var kind: ShelfItemKind
+    var kind: TrayItemKind
     var isTemporary: Bool
-    init(id: UUID = UUID(), kind: ShelfItemKind, isTemporary: Bool = false) {
+    init(id: UUID = UUID(), kind: TrayItemKind, isTemporary: Bool = false) {
         self.id = id
         self.kind = kind
         self.isTemporary = isTemporary
@@ -120,7 +120,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     
     var fileURL: URL? {
         guard case .file = kind else { return nil }
-        return ShelfStateViewModel.shared.resolveFileURL(for: self)
+        return TrayStateViewModel.shared.resolveFileURL(for: self)
     }
     
     var URL: URL? {
@@ -133,7 +133,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
         guard case .file = kind else {
             return Self.thumbnailSymbolImage(systemName: kind.iconSymbolName) ?? NSImage()
         }
-        if let resolvedURL = ShelfStateViewModel.shared.resolveFileURL(for: self) {
+        if let resolvedURL = TrayStateViewModel.shared.resolveFileURL(for: self) {
             return NSWorkspace.shared.icon(forFile: resolvedURL.path)
         }
         return NSImage()
@@ -154,7 +154,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-private extension ShelfItem {
+private extension TrayItem {
    static func thumbnailSymbolImage(
         systemName: String,
     size: CGSize = CGSize(width: 64, height: 80), 
@@ -187,7 +187,7 @@ private extension ShelfItem {
 }
 
 // MARK: - Identity key for deduplication
-extension ShelfItem {
+extension TrayItem {
     var identityKey: String {
         switch kind {
         case .file(let bookmark):
@@ -204,7 +204,7 @@ extension ShelfItem {
 }
 
 // MARK: - Private helpers
-private extension ShelfItemKind {
+private extension TrayItemKind {
     var iconSymbolName: String {
         switch self {
         case .file:
@@ -217,7 +217,7 @@ private extension ShelfItemKind {
     }
 }
 
-private extension ShelfItem {
+private extension TrayItem {
     func resolvedContext(for bookmarkData: Data) -> (url: URL, bookmark: Data)? {
         let bookmark = Bookmark(data: bookmarkData)
         if let url = bookmark.resolveURL() {

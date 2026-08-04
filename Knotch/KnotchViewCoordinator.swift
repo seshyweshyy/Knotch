@@ -80,7 +80,7 @@ class KnotchViewCoordinator: ObservableObject {
         didSet {
             if !alwaysShowTabs {
                 openLastTabByDefault = false
-                if ShelfStateViewModel.shared.isEmpty || !Defaults[.openShelfByDefault] {
+                if TrayStateViewModel.shared.isEmpty || !Defaults[.openTrayByDefault] {
                     currentView = .home
                 }
             }

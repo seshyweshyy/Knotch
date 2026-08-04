@@ -284,7 +284,7 @@ struct AirDropReceiveHUD: View {
             .aspectRatio(contentMode: .fit)
     }
 
-    // The real system AirDrop icon — same fetch used for the Shelf's AirDrop
+    // The real system AirDrop icon — same fetch used for the Tray's AirDrop
     // quick-share provider (QuickShareService.swift). Constructing a fresh
     // NSSharingService by name, rather than reading .image off an enumerated
     // service, guarantees a fully-loaded icon. Fetched once per process.
@@ -296,7 +296,7 @@ struct AirDropReceiveHUD: View {
     // Image(nsImage:) + .resizable() skips it and upscales whichever
     // (often low-res) representation SwiftUI happens to grab by default —
     // same fix QuickShareService's resizedIconData already applies for the
-    // Shelf's copy of this same icon.
+    // Tray's copy of this same icon.
     private static let systemAirDropIcon: NSImage? = {
         guard let source = NSSharingService(named: .sendViaAirDrop)?.image,
               source.size.width > 0, source.size.height > 0

@@ -1235,7 +1235,7 @@ struct ContentView: View {
             if isTargeted {
                 if vm.notchState == .closed {
                     if !TimerManager.shared.isCreatingTimer {
-                        coordinator.currentView = .shelf
+                        coordinator.currentView = .tray
                     }
                     doOpen()
                 }
@@ -1364,14 +1364,14 @@ struct ContentView: View {
                         // group (standard or compact), so nothing drifts relative
                         // to its neighbors.
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
-                    case .shelf:
-                        // The shelf ("tray") is unreachable in Compact mode — fall
+                    case .tray:
+                        // The tray ("tray") is unreachable in Compact mode — fall
                         // back to the home content instead of ever showing it,
                         // regardless of how currentView got set.
                         if Defaults[.enableCompactUI] {
                             NotchHomeView(albumArtNamespace: albumArtNamespace)
                         } else {
-                            ShelfView()
+                            TrayView()
                                 .liquidStretch(vm)
                                 // Drop-zone outlines are actual drag targets — keep
                                 // their x-position fixed even though the shared
@@ -1386,7 +1386,7 @@ struct ContentView: View {
                 // image would otherwise grow into the offered extra height and get
                 // clipped by the shape's rounded top corner.
                 .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
-                // No more width transition between home and shelf — notchSize
+                // No more width transition between home and tray — notchSize
                 // is the same (computedHomeSize) for both now, so there's
                 // nothing left for this to react to.
                 .transition(
@@ -1410,13 +1410,13 @@ struct ContentView: View {
 
     @ViewBuilder
     var dragDetector: some View {
-        if Defaults[.knotchShelf] && vm.notchState == .closed && !Defaults[.enableCompactUI] {
+        if Defaults[.knotchTray] && vm.notchState == .closed && !Defaults[.enableCompactUI] {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
             vm.dropEvent = true
-            ShelfStateViewModel.shared.load(providers)
+            TrayStateViewModel.shared.load(providers)
             return true
         }
         } else {
@@ -1574,14 +1574,21 @@ struct ContentView: View {
 
             vm.liquidPull = min(translation, pullClamp)
 
-            if Defaults[.enableCompactUI] && coordinator.currentView == .home {
-                // Only something to swipe between when both compact views are
-                // enabled — otherwise whichever one is on is always shown.
-                if Defaults[.compactShowMusicView] && Defaults[.compactShowCalendarView] {
+            if Defaults[.enableCompactUI] {
+                // No tab concept in Compact mode — coordinator.currentView can
+                // still drift to .tray (e.g. close() landing there once the
+                // tray has items and openTrayByDefault is on), but Compact
+                // mode always renders NotchHomeView regardless, so gating this
+                // on .home would silently break swiping the moment the tray
+                // stopped being empty. Only something to cycle between when
+                // more than one compact page is reachable — music/calendar
+                // per their own settings, plus tray once the tray actually
+                // has items in it.
+                if vm.availableCompactPages.count > 1 {
                     hasTriggeredSwipe = true
                     if Defaults[.enableHaptics] { haptics.toggle() }
                     withAnimation(animationSpring) {
-                        vm.showingCompactCalendar.toggle()
+                        vm.cycleCompactPage()
                         // Snapped to full stretch in the same animation as the
                         // toggle, so the shape's reactivity always lands in sync
                         // with the switch regardless of how light the gesture was.
@@ -1589,10 +1596,10 @@ struct ContentView: View {
                     }
                 }
             } else if Defaults[.swipeToCycleViews] && !TimerManager.shared.isCreatingTimer && !Defaults[.enableCompactUI] {
-                let destination: NotchViews = coordinator.currentView == .home ? .shelf : .home
+                let destination: NotchViews = coordinator.currentView == .home ? .tray : .home
                 let destinationEnabled = destination == .home
                     ? Defaults[.showHomeView]
-                    : Defaults[.showShelfView]
+                    : Defaults[.showTrayView]
                 if destinationEnabled {
                     lockedView = destination
                     hasTriggeredSwipe = true

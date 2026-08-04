@@ -1,5 +1,5 @@
 //
-//  ShelfPersistenceService.swift
+//  TrayPersistenceService.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-09-24.
@@ -11,8 +11,8 @@ import Foundation
 @_exported import struct Foundation.URL
 
 
-final class ShelfPersistenceService {
-    static let shared = ShelfPersistenceService()
+final class TrayPersistenceService {
+    static let shared = TrayPersistenceService()
 
     private let fileURL: URL
     private let encoder = JSONEncoder()
@@ -21,6 +21,8 @@ final class ShelfPersistenceService {
     private init() {
         let fm = FileManager.default
         let support = try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        // Folder name stays "Shelf" — existing users already have persisted
+        // items on disk at this path; renaming it would orphan them.
         let dir = (support ?? fm.temporaryDirectory).appendingPathComponent("Knotch", isDirectory: true).appendingPathComponent("Shelf", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("items.json")
@@ -29,11 +31,11 @@ final class ShelfPersistenceService {
         encoder.dateEncodingStrategy = .iso8601
     }
 
-    func load() -> [ShelfItem] {
+    func load() -> [TrayItem] {
         guard let data = try? Data(contentsOf: fileURL) else { return [] }
         
         // Try to decode as array first (normal case)
-        if let items = try? decoder.decode([ShelfItem].self, from: data) {
+        if let items = try? decoder.decode([TrayItem].self, from: data) {
             return items
         }
         
@@ -41,41 +43,41 @@ final class ShelfPersistenceService {
         do {
             // Parse as JSON array to get individual item data
             guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [Any] else {
-                print("⚠️ Shelf persistence file is not a valid JSON array")
+                print("⚠️ Tray persistence file is not a valid JSON array")
                 return []
             }
             
-            var validItems: [ShelfItem] = []
+            var validItems: [TrayItem] = []
             var failedCount = 0
             
             for (index, jsonItem) in jsonArray.enumerated() {
                 do {
                     let itemData = try JSONSerialization.data(withJSONObject: jsonItem)
-                    let item = try decoder.decode(ShelfItem.self, from: itemData)
+                    let item = try decoder.decode(TrayItem.self, from: itemData)
                     validItems.append(item)
                 } catch {
                     failedCount += 1
-                    print("⚠️ Failed to decode shelf item at index \(index): \(error.localizedDescription)")
+                    print("⚠️ Failed to decode tray item at index \(index): \(error.localizedDescription)")
                 }
             }
             
             if failedCount > 0 {
-                print("📦 Successfully loaded \(validItems.count) shelf items, discarded \(failedCount) corrupted items")
+                print("📦 Successfully loaded \(validItems.count) tray items, discarded \(failedCount) corrupted items")
             }
             
             return validItems
         } catch {
-            print("❌ Failed to parse shelf persistence file: \(error.localizedDescription)")
+            print("❌ Failed to parse tray persistence file: \(error.localizedDescription)")
             return []
         }
     }
 
-    func save(_ items: [ShelfItem]) {
+    func save(_ items: [TrayItem]) {
         do {
             let data = try encoder.encode(items)
             try data.write(to: fileURL, options: Data.WritingOptions.atomic)
         } catch {
-            print("Failed to save shelf items: \(error.localizedDescription)")
+            print("Failed to save tray items: \(error.localizedDescription)")
         }
     }
 }

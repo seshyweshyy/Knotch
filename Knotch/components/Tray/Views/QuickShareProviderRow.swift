@@ -7,7 +7,7 @@ import SwiftUI
 import AppKit
 
 /// Shared icon + label row for QuickShareProvider, used by both the
-/// inline shelf popover (FileShareView) and Settings so they stay visually
+/// inline tray popover (FileShareView) and Settings so they stay visually
 /// identical and only need styling changes made in one place.
 struct QuickShareProviderRow: View {
     let provider: QuickShareProvider

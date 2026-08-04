@@ -89,6 +89,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowScreenDidChangeObserver: Any?
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
     private var cancellables = Set<AnyCancellable>()
+    // Debounces handleDragExitsNotchRegion for Compact mode's drag overlay —
+    // DragDetector's own notchRegion is hand-computed from openNotchSize
+    // rather than read off the compact panel's actual on-screen frame, so a
+    // mouse position right at that boundary can flap in/out for a moment even
+    // while the cursor visibly stays over the panel. A same-tick close would
+    // fire on every one of those transient exits; waiting a beat and
+    // re-checking lets a follow-up re-entry cancel it out first.
+    private var compactDragExitDebounceTask: Task<Void, Never>?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -310,21 +318,102 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.handleDragEntersNotchRegion(onScreen: screen)
             }
         }
-        
+
+        detector.onDragExitsNotchRegion = { [weak self] in
+            Task { @MainActor in
+                self?.handleDragExitsNotchRegion(onScreen: screen)
+            }
+        }
+
         dragDetectors[uuid] = detector
         detector.startMonitoring()
     }
 
     private func handleDragEntersNotchRegion(onScreen screen: NSScreen) {
-        guard !Defaults[.enableCompactUI] else { return }
         guard let uuid = screen.displayUUID else { return }
 
         if Defaults[.showOnAllDisplays], let viewModel = viewModels[uuid] {
-            viewModel.open()
-            coordinator.currentView = .shelf
+            beginDragOverlay(for: viewModel)
         } else if !Defaults[.showOnAllDisplays], let windowScreen = window?.screen, screen == windowScreen {
-            vm.open()
-            coordinator.currentView = .shelf
+            beginDragOverlay(for: vm)
+        }
+    }
+
+    private func beginDragOverlay(for viewModel: KnotchViewModel) {
+        // A re-entry (including a flapping one right on the detection
+        // boundary) supersedes any pending debounced exit-close.
+        compactDragExitDebounceTask?.cancel()
+        compactDragExitDebounceTask = nil
+
+        guard Defaults[.enableCompactUI] else {
+            viewModel.open()
+            coordinator.currentView = .tray
+            return
+        }
+
+        // Live-activity-style: morph whatever compact page is showing into a
+        // drop zone instead of switching to the (compact-mode-unreachable)
+        // tray tab. If the notch was closed, remember that so a drag that
+        // exits without dropping can close it back up rather than leaving it
+        // open on whatever compact page it fell back to.
+        if viewModel.notchState == .closed {
+            viewModel.isCompactDragAutoOpened = true
+        }
+        // Fences out every *unrelated* auto-close trigger (hover-exit,
+        // popover changes, sharingDidFinish, ...) for as long as this drag
+        // stays near the notch — see KnotchViewModel.close(), which already
+        // checks this same flag. Without it, the notch never got a real
+        // SwiftUI hover event (it was opened programmatically here, not via
+        // .onHover), so ContentView's own hover-exit close path was free to
+        // fire mid-drag with no idea a drop was in progress. Matched by
+        // finishCompactDragOverlay's endInteraction; guarded so a
+        // redundant/duplicate enter event while already active doesn't
+        // double up the reference count.
+        if !viewModel.isCompactDragOverlayActive {
+            SharingStateManager.shared.beginInteraction()
+        }
+        // Set before open(), not after — open() is what first mounts
+        // NotchHomeView (via ContentView's `if vm.notchState == .open`), and
+        // its very first body evaluation needs isCompactDragOverlayActive
+        // already true to render the drop-zone squares directly. Setting it
+        // afterward left a one-frame (sometimes longer, on a cold first drag
+        // of the session) window where the notch opened straight onto
+        // whatever compactPage defaulted to instead.
+        viewModel.isCompactDragOverlayActive = true
+        viewModel.isCompactDragCommitted = false
+        viewModel.open()
+    }
+
+    private func handleDragExitsNotchRegion(onScreen screen: NSScreen) {
+        guard Defaults[.enableCompactUI] else { return }
+        guard let uuid = screen.displayUUID else { return }
+
+        let viewModel: KnotchViewModel?
+        if Defaults[.showOnAllDisplays] {
+            viewModel = viewModels[uuid]
+        } else if let windowScreen = window?.screen, screen == windowScreen {
+            viewModel = vm
+        } else {
+            viewModel = nil
+        }
+
+        // A drop already landed on one of the three squares and is mid-async
+        // work (e.g. Converter resolving the file URL) — let its own
+        // completion handler decide what happens next instead of treating
+        // this as an abandoned drag.
+        guard let viewModel, viewModel.isCompactDragOverlayActive, !viewModel.isCompactDragCommitted else { return }
+
+        // Debounced rather than acted on immediately — see
+        // compactDragExitDebounceTask's declaration for why a same-tick close
+        // here is too eager. A follow-up re-entry (beginDragOverlay) cancels
+        // this before it fires; only a genuinely abandoned drag survives long
+        // enough to actually close the notch.
+        compactDragExitDebounceTask?.cancel()
+        compactDragExitDebounceTask = Task { @MainActor [weak viewModel] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled, let viewModel else { return }
+            guard viewModel.isCompactDragOverlayActive, !viewModel.isCompactDragCommitted else { return }
+            viewModel.finishCompactDragOverlay()
         }
     }
 

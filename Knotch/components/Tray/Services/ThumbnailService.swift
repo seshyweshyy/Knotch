@@ -15,7 +15,7 @@ actor ThumbnailService {
 
     // NSCache evicts under memory pressure and caps entry count, unlike the
     // plain dictionary this replaced which grew forever (clearCache existed
-    // but nothing ever called it, so every Shelf thumbnail stayed resident).
+    // but nothing ever called it, so every Tray thumbnail stayed resident).
     private let cache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 200

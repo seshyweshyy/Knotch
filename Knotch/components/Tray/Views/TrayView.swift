@@ -1,5 +1,5 @@
 //
-//  ShelfItemView.swift
+//  TrayItemView.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-09-24.
@@ -11,10 +11,10 @@ import os
 
 private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
-struct ShelfView: View {
+struct TrayView: View {
     @EnvironmentObject var vm: KnotchViewModel
-    @StateObject var tvm = ShelfStateViewModel.shared
-    @StateObject var selection = ShelfSelectionModel.shared
+    @StateObject var tvm = TrayStateViewModel.shared
+    @StateObject var selection = TraySelectionModel.shared
     @StateObject private var quickLookService = QuickLookService()
     private let spacing: CGFloat = 8
 
@@ -28,7 +28,7 @@ struct ShelfView: View {
                     handleDrop(providers: providers)
                 }
         }
-        // Bind Quick Look to shelf selection
+        // Bind Quick Look to tray selection
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
         }
@@ -42,7 +42,7 @@ struct ShelfView: View {
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         guard !selection.isDragging else { return false }
         vm.dropEvent = true
-        ShelfStateViewModel.shared.load(providers)
+        TrayStateViewModel.shared.load(providers)
         return true
     }
     
@@ -103,7 +103,7 @@ struct ShelfView: View {
                 ScrollView(.horizontal) {
                     HStack(spacing: spacing) {
                         ForEach(tvm.items) { item in
-                            ShelfItemView(item: item)
+                            TrayItemView(item: item)
                                 .environmentObject(quickLookService)
                         }
                     }
@@ -116,7 +116,7 @@ struct ShelfView: View {
             }
         }
         .onAppear {
-            ShelfStateViewModel.shared.cleanupInvalidItems()
+            TrayStateViewModel.shared.cleanupInvalidItems()
         }
     }
 }

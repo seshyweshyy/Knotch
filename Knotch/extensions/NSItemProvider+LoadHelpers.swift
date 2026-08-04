@@ -24,7 +24,26 @@ extension NSItemProvider {
         }
         return nil
     }
-    
+
+    /// extractFileURL() alone isn't reliable for every provider a Finder drag
+    /// can hand out — some only register a generic UTType.item or a
+    /// UTType.url pointing at the same file rather than public.file-url
+    /// directly. Falls through the same chain TrayDropService.processProvider
+    /// already relies on for the tray's own drop handling, so any drop that
+    /// works there resolves here too.
+    func resolveDroppedFileURL() async -> URL? {
+        if let url = await extractFileURL() {
+            return url
+        }
+        if let url = await extractItem() {
+            return url
+        }
+        if let url = await extractURL(), url.isFileURL {
+            return url
+        }
+        return nil
+    }
+
     /// Loads raw data for the given type identifier
     func loadData() async -> Data? {
         NSLog(String(describing: self.registeredTypeIdentifiers))

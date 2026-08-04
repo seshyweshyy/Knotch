@@ -1,5 +1,5 @@
 //
-//  ShelfItemView.swift
+//  TrayItemView.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-09-24.
@@ -11,11 +11,11 @@ import Defaults
 
 import QuickLook
 
-struct ShelfItemView: View {
-    let item: ShelfItem
+struct TrayItemView: View {
+    let item: TrayItem
     @EnvironmentObject var vm: KnotchViewModel
-    @ObservedObject var selection = ShelfSelectionModel.shared
-    @StateObject private var viewModel: ShelfItemViewModel
+    @ObservedObject var selection = TraySelectionModel.shared
+    @StateObject private var viewModel: TrayItemViewModel
     @EnvironmentObject private var quickLookService: QuickLookService
     @State private var showStack = false
     @State private var cachedPreviewImage: NSImage?
@@ -26,9 +26,9 @@ struct ShelfItemView: View {
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
     
-    init(item: ShelfItem) {
+    init(item: TrayItem) {
         self.item = item
-        _viewModel = StateObject(wrappedValue: ShelfItemViewModel(item: item))
+        _viewModel = StateObject(wrappedValue: TrayItemViewModel(item: item))
     }
 
     var body: some View {
@@ -112,7 +112,7 @@ struct ShelfItemView: View {
 
             if isItemHovered {
                 Button {
-                    ShelfActionService.remove(item)
+                    TrayActionService.remove(item)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.palette)
@@ -195,8 +195,8 @@ struct ShelfItemView: View {
 
 // MARK: - Draggable Click Handler with NSDraggingSource
 private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
-    let item: ShelfItem
-    let viewModel: ShelfItemViewModel
+    let item: TrayItem
+    let viewModel: TrayItemViewModel
     @Binding var cachedPreviewImage: NSImage?
     @ViewBuilder let dragPreviewContent: () -> Content
     let onRightClick: (NSEvent, NSView) -> Void
@@ -242,8 +242,8 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
     }
     
     final class DraggableClickView: NSView, NSDraggingSource {
-        var item: ShelfItem!
-        weak var viewModel: ShelfItemViewModel?
+        var item: TrayItem!
+        weak var viewModel: TrayItemViewModel?
         var dragPreviewImage: NSImage?
         var onRightClick: ((NSEvent, NSView) -> Void)?
         var onClick: ((NSEvent, NSView) -> Void)?
@@ -252,7 +252,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private var mouseDownEvent: NSEvent?
         private let dragThreshold: CGFloat = 3.0
         private var draggedURLs: [URL] = []
-        private var draggedItems: [ShelfItem] = []
+        private var draggedItems: [TrayItem] = []
         
         override func layout() {
             super.layout()
@@ -288,7 +288,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             if removeButtonRect.contains(point) {
                 if let item = item {
                     DispatchQueue.main.async {
-                        ShelfActionService.remove(item)
+                        TrayActionService.remove(item)
                     }
                 }
                 return
@@ -323,8 +323,8 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         
         private func startDragSession(with event: NSEvent) {
             // Prepare dragging items
-            let selectedItems = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
-            let itemsToDrag: [ShelfItem]
+            let selectedItems = TraySelectionModel.shared.selectedItems(in: TrayStateViewModel.shared.items)
+            let itemsToDrag: [TrayItem]
 
             if selectedItems.count > 1 && selectedItems.contains(where: { $0.id == item.id }) {
                 itemsToDrag = selectedItems
@@ -361,12 +361,12 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             beginDraggingSession(with: draggingItems, event: event, source: self)
         }
         
-        private func createPasteboardItem(for item: ShelfItem) -> NSPasteboardItem? {
+        private func createPasteboardItem(for item: TrayItem) -> NSPasteboardItem? {
             let pasteboardItem = NSPasteboardItem()
 
             switch item.kind {
             case .file:
-                guard let url = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) else {
+                guard let url = TrayStateViewModel.shared.resolveAndUpdateBookmark(for: item) else {
                     pasteboardItem.setString(item.displayName, forType: .string)
                     return pasteboardItem
                 }
@@ -411,12 +411,12 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         }
         
         func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
-            ShelfSelectionModel.shared.beginDrag()
+            TraySelectionModel.shared.beginDrag()
         }
         
         
         func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-            ShelfSelectionModel.shared.endDrag()
+            TraySelectionModel.shared.endDrag()
 
             // Stop accessing security-scoped resources after drag completes
             for url in draggedURLs {
@@ -425,10 +425,10 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             }
             draggedURLs.removeAll()
 
-            // Auto-remove items from shelf if enabled and drag succeeded
-            if Defaults[.autoRemoveShelfItems] && !operation.isEmpty {
+            // Auto-remove items from tray if enabled and drag succeeded
+            if Defaults[.autoRemoveTrayItems] && !operation.isEmpty {
                 for item in draggedItems {
-                    ShelfStateViewModel.shared.remove(item)
+                    TrayStateViewModel.shared.remove(item)
                 }
             }
             draggedItems.removeAll()

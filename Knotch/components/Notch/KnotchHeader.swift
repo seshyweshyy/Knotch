@@ -13,12 +13,12 @@ struct KnotchHeader: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var timerManager = TimerManager.shared
-    @StateObject var tvm = ShelfStateViewModel.shared
+    @StateObject var tvm = TrayStateViewModel.shared
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.knotchShelf] {
+                if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.knotchTray] {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()

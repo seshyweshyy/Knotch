@@ -1,5 +1,5 @@
 //
-//  ShelfActionService.swift
+//  TrayActionService.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-10-07.
@@ -8,11 +8,11 @@
 import AppKit
 import Foundation
 
-/// A service providing common actions for `ShelfItem`s, such as opening, revealing, or copying paths.
+/// A service providing common actions for `TrayItem`s, such as opening, revealing, or copying paths.
 @MainActor
-enum ShelfActionService {
+enum TrayActionService {
 
-    static func open(_ item: ShelfItem) {
+    static func open(_ item: TrayItem) {
         switch item.kind {
         case .file(let bookmark):
             handleBookmarkedFile(bookmark) { url in
@@ -26,14 +26,14 @@ enum ShelfActionService {
         }
     }
 
-    static func reveal(_ item: ShelfItem) {
+    static func reveal(_ item: TrayItem) {
         guard case .file(let bookmark) = item.kind else { return }
         handleBookmarkedFile(bookmark) { url in
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }
     }
 
-    static func copyPath(_ item: ShelfItem) {
+    static func copyPath(_ item: TrayItem) {
         guard case .file(let bookmark) = item.kind else { return }
         handleBookmarkedFile(bookmark) { url in
             NSPasteboard.general.clearContents()
@@ -41,8 +41,8 @@ enum ShelfActionService {
         }
     }
 
-    static func remove(_ item: ShelfItem) {
-        ShelfStateViewModel.shared.remove(item)
+    static func remove(_ item: TrayItem) {
+        TrayStateViewModel.shared.remove(item)
     }
 
     private static func handleBookmarkedFile(_ bookmarkData: Data, action: @escaping @Sendable (URL) -> Void) {

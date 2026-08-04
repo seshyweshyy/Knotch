@@ -47,6 +47,60 @@ enum ImageConverterError: LocalizedError {
 }
 
 struct ImageConverter {
+    /// Format-picker alert + save panel + convert flow shared by every entry
+    /// point that lets a user convert a single image file (the tray item
+    /// context menu, the compact drop-to-convert zone). Runs its modals
+    /// synchronously on the main thread.
+    @MainActor
+    static func presentConversionDialog(for fileURL: URL) {
+        let alert = NSAlert()
+        alert.messageText = "Convert Image"
+        alert.informativeText = "Choose a format to convert \"\(fileURL.lastPathComponent)\" to:"
+
+        let currentExt = fileURL.pathExtension.lowercased()
+        let availableFormats = ImageFormat.allCases.filter { $0.fileExtension != currentExt }
+
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 200, height: 24), pullsDown: false)
+        for format in availableFormats {
+            popup.addItem(withTitle: format.rawValue)
+        }
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "Convert…")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let selectedIndex = popup.indexOfSelectedItem
+        guard availableFormats.indices.contains(selectedIndex) else { return }
+        let format = availableFormats[selectedIndex]
+
+        // Save panel — this grants sandbox write access to the chosen location
+        let savePanel = NSSavePanel()
+        savePanel.title = "Convert Image"
+        savePanel.prompt = "Convert"
+        savePanel.nameFieldStringValue = fileURL.deletingPathExtension().lastPathComponent
+        savePanel.allowedContentTypes = [format.uti]
+        savePanel.directoryURL = fileURL.deletingLastPathComponent()
+
+        guard savePanel.runModal() == .OK, let outputURL = savePanel.url else { return }
+
+        fileURL.accessSecurityScopedResource { scoped in
+            do {
+                try ImageConverter.convert(scoped, to: format, outputURL: outputURL)
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = "Conversion Failed"
+                    alert.informativeText = error.localizedDescription
+                    alert.runModal()
+                }
+            }
+        }
+    }
+
     /// Converts the image at `sourceURL` to `format`, writing to `outputURL`.
     /// `outputURL` must already be sandbox-accessible (e.g. chosen via NSSavePanel).
     @discardableResult

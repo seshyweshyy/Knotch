@@ -17,18 +17,18 @@ struct TabModel: Identifiable {
 
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
-    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
+    TabModel(label: "Tray", icon: "tray.fill", view: .tray)
 ]
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var timerManager = TimerManager.shared
     @Default(.showHomeView) var showHomeView
-    @Default(.showShelfView) var showShelfView
+    @Default(.showTrayView) var showTrayView
     @Namespace var animation
 
     private func isEnabled(_ view: NotchViews) -> Bool {
-        view == .home ? showHomeView : showShelfView
+        view == .home ? showHomeView : showTrayView
     }
 
     var body: some View {

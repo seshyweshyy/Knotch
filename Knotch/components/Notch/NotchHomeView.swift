@@ -775,6 +775,11 @@ struct NotchHomeView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var timerManager = TimerManager.shared
+    // Observed so Compact mode's tray/converter pages reactively appear and
+    // disappear as their underlying state changes, instead of only updating
+    // on the next unrelated re-render.
+    @ObservedObject var trayState = TrayStateViewModel.shared
+    @ObservedObject var fileConverterState = FileConverterViewModel.shared
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
@@ -814,24 +819,39 @@ struct NotchHomeView: View {
         }
     }
 
-    // Calendar only shows if enabled; when music is disabled but calendar
-    // isn't, calendar is the only thing left to show regardless of the
-    // swipe-toggled flag.
-    private var compactShowingCalendar: Bool {
-        Defaults[.compactShowCalendarView] && (vm.showingCompactCalendar || !Defaults[.compactShowMusicView])
-    }
-
     private var compactContent: some View {
         Group {
-            if compactShowingCalendar {
-                CompactCalendarView()
-                    .transition(compactViewTransition)
+            if vm.isCompactDragOverlayActive {
+                // Transient live-activity overlay — morphs whatever page was
+                // showing into a drop target for the duration of the drag,
+                // using a "squish and blur" pop instead of the plain slide
+                // the page swaps below use.
+                CompactTrayDropZoneView()
+                    .transition(.liveActivityPop)
             } else {
-                CompactMusicPlayerView(albumArtNamespace: albumArtNamespace)
-                    .transition(compactViewTransition)
+                switch vm.resolvedCompactPage {
+                case .tray:
+                    CompactTrayView()
+                        .transition(compactViewTransition)
+                case .converter:
+                    // Reveals straight out of the drop-zone overlay, whose own
+                    // exit already uses .liveActivityPop — matching it here
+                    // instead of compactViewTransition's move-based swap keeps
+                    // that handoff one continuous blur/scale instead of a
+                    // squish-then-slide mismatch.
+                    CompactFileConverterView()
+                        .transition(.liveActivityPop)
+                case .calendar:
+                    CompactCalendarView()
+                        .transition(compactViewTransition)
+                case .music:
+                    CompactMusicPlayerView(albumArtNamespace: albumArtNamespace)
+                        .transition(compactViewTransition)
+                }
             }
         }
-        .animation(.smooth(duration: 0.35), value: compactShowingCalendar)
+        .animation(liveActivityPopSpring, value: vm.isCompactDragOverlayActive)
+        .animation(.smooth(duration: 0.35), value: vm.resolvedCompactPage)
         // Same liquid stretch the standard widgets get, riding the drag before
         // the swap commits — already comes out toned down here since compact
         // mode clamps liquidPull itself to 0.4x during the gesture.

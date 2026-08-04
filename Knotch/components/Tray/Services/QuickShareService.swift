@@ -244,7 +244,7 @@ private class SharingServiceDelegate: NSObject {}
             } else if foundText == nil, let text = await provider.extractText() {
                 foundText = text
             } else if let itemFileURL = await provider.extractItem() {
-                let resolvedURL = await resolveShelfItemBookmark(for: itemFileURL) ?? itemFileURL
+                let resolvedURL = await resolveTrayItemBookmark(for: itemFileURL) ?? itemFileURL
                 itemsToShare.append(resolvedURL)
             }
         }
@@ -266,17 +266,17 @@ private class SharingServiceDelegate: NSObject {}
         }
     }
 
-    private func resolveShelfItemBookmark(for fileURL: URL) async -> URL? {
-        let items = await ShelfStateViewModel.shared.items
+    private func resolveTrayItemBookmark(for fileURL: URL) async -> URL? {
+        let items = await TrayStateViewModel.shared.items
 
         for itm in items {
-            if let resolved = await ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: itm) {
+            if let resolved = await TrayStateViewModel.shared.resolveAndUpdateBookmark(for: itm) {
                 if resolved.standardizedFileURL.path == fileURL.standardizedFileURL.path {
                     return resolved
                 }
             }
         }
-        print("❌ Failed to resolve bookmark for shelf item")
+        print("❌ Failed to resolve bookmark for tray item")
         return nil
     }
 }

@@ -12,6 +12,15 @@ import os
 
 private let dragDiagnosticsLogger = Logger(subsystem: "seshyweshyy.Knotch", category: "DragDropDiagnostics")
 
+// The pages Compact mode can show/swipe between — mirrors the standard
+// home/tray tabs, but as a single fixed-size panel instead of separate tabs.
+enum CompactPage: Equatable {
+    case music
+    case calendar
+    case tray
+    case converter
+}
+
 class KnotchViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var detector = FullscreenMediaDetector.shared
@@ -32,9 +41,128 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     @Published var edgeAutoOpenActive: Bool = false
     @Published var isHoveringCalendar: Bool = false
-    @Published var showingCompactCalendar: Bool = false
+    @Published var compactPage: CompactPage = .music
     @Published var isBatteryPopoverActive: Bool = false
     @Published var isMediaOutputPopoverActive: Bool = false
+
+    // Transient drag overlay for Compact mode — true while a file is being
+    // dragged near the notch, regardless of which compact page was showing
+    // before it started.
+    @Published var isCompactDragOverlayActive: Bool = false
+    // Set when the drag overlay itself opened a closed notch, so a drag that
+    // exits without dropping can close it back up instead of leaving it open.
+    var isCompactDragAutoOpened: Bool = false
+    // Set synchronously the instant any compact drop square accepts a drop,
+    // before whatever async work it still needs to do (e.g. Converter
+    // resolving the dropped file's URL before it has anything to show).
+    // Distinguishes "a drop landed and is still being processed" from "still
+    // actively dragging", so a stray drag-exit-region event arriving mid-async
+    // work doesn't get mistaken for an abandoned drag and close the notch out
+    // from under it — see KnotchApp.handleDragExitsNotchRegion.
+    var isCompactDragCommitted: Bool = false
+    // See setupTrayEmptyGracePeriod — kept true for a brief window after the
+    // tray empties out, so availableCompactPages doesn't withdraw .tray
+    // before CompactTrayView's own onChange handler gets a chance to leave
+    // the page gracefully.
+    @Published private(set) var isTrayEmptyGracePeriodActive: Bool = false
+    private var trayEmptyGraceTask: Task<Void, Never>?
+
+    // Which compact pages are currently reachable by swipe — music/calendar
+    // per their own settings, tray only once the tray actually has items
+    // (or is still within its empty grace period, see above).
+    var availableCompactPages: [CompactPage] {
+        var pages: [CompactPage] = []
+        if Defaults[.compactShowMusicView] { pages.append(.music) }
+        if Defaults[.compactShowCalendarView] { pages.append(.calendar) }
+        if !TrayStateViewModel.shared.isEmpty || isTrayEmptyGracePeriodActive { pages.append(.tray) }
+        if FileConverterViewModel.shared.hasItem { pages.append(.converter) }
+        return pages.isEmpty ? [.music] : pages
+    }
+
+    // The page actually shown right now — falls back to the first available
+    // page if the remembered one became unreachable (e.g. the tray emptied
+    // out from under it).
+    var resolvedCompactPage: CompactPage {
+        let pages = availableCompactPages
+        return pages.contains(compactPage) ? compactPage : pages[0]
+    }
+
+    func cycleCompactPage() {
+        let pages = availableCompactPages
+        guard pages.count > 1, let index = pages.firstIndex(of: resolvedCompactPage) else { return }
+        compactPage = pages[(index + 1) % pages.count]
+    }
+
+    // Called from the Converter page's own X button. Clearing
+    // FileConverterViewModel.item immediately would empty out
+    // CompactFileConverterView's content a beat before the outer page-switch
+    // transition even starts, so the "blur away" would animate an already-
+    // blank box instead of the file tile/buttons — leaves the page first
+    // (with the item still intact, so .liveActivityPop captures real content
+    // sliding out) and only clears the item once that's had time to play.
+    func dismissCompactConverterPage() {
+        let itemIDToClear = FileConverterViewModel.shared.item?.id
+        compactPage = availableCompactPages.first(where: { $0 != .converter }) ?? .music
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard FileConverterViewModel.shared.item?.id == itemIDToClear else { return }
+            FileConverterViewModel.shared.clear()
+        }
+    }
+
+    // Called once CompactTrayView notices the tray's item count hit zero,
+    // regardless of which action emptied it (the "All" button, an
+    // individual item's own remove button, auto-remove-on-drag-out). Unlike
+    // dismissCompactConverterPage there's no state left to clear here — the
+    // tray is already empty by the time this fires — this just leaves the
+    // page so resolvedCompactPage's own fallback takes over.
+    func dismissCompactTrayPage() {
+        guard compactPage == .tray else { return }
+        compactPage = availableCompactPages.first(where: { $0 != .tray }) ?? .music
+    }
+
+    // Ends the transient drag overlay — shared by every drop square's own
+    // handler and by the "dragged out without dropping" exit path. Passing a
+    // page (e.g. .tray/.converter once they actually have something to show)
+    // reveals it and leaves the notch open; passing nil (AirDrop, or an
+    // abandoned drag) closes the notch back down if the drag itself was what
+    // opened it, since there's nothing new left worth showing.
+    func finishCompactDragOverlay(revealing page: CompactPage? = nil) {
+        // Idempotency guard — both a drop's own async completion and a stray
+        // exit event can end up calling this; only the first should touch
+        // SharingStateManager's reference count.
+        guard isCompactDragOverlayActive || isCompactDragCommitted else { return }
+
+        // Abandoned drag that auto-opened a closed notch — nothing new to
+        // show, so close directly instead of hiding the overlay first.
+        // Hiding it would immediately reveal whatever compact page was
+        // underneath (e.g. music, from before this drag ever started) for
+        // the moment before the notch shuts, which read as an unwanted
+        // flash — staggering the two animations with a delay (an earlier
+        // attempt at this) only made that flash last longer, since the
+        // wrong content was still the first thing shown either way.
+        // Deliberately leaves isCompactDragOverlayActive/isCompactDragCommitted
+        // untouched here — the drop-zone squares stay the visible content
+        // all the way through the close animation, and close()'s own
+        // completion handler already resets both (with compactPage) once
+        // the notch is safely hidden, invisibly, the same way it already
+        // resets compactPage today.
+        if page == nil, isCompactDragAutoOpened {
+            SharingStateManager.shared.endInteraction()
+            isCompactDragAutoOpened = false
+            close()
+            return
+        }
+
+        // Matches beginDragOverlay's beginInteraction.
+        SharingStateManager.shared.endInteraction()
+        isCompactDragOverlayActive = false
+        isCompactDragCommitted = false
+        if let page {
+            compactPage = page
+            isCompactDragAutoOpened = false
+        }
+    }
 
     @Published var screenUUID: String?
 
@@ -188,14 +316,48 @@ class KnotchViewModel: NSObject, ObservableObject {
         closedNotchSize = notchSize
 
         Publishers.CombineLatest($dropZoneTargeting, $dragDetectorTargeting)
-            .map { shelf, drag in
-                shelf || drag
+            .map { tray, drag in
+                tray || drag
             }
             .assign(to: \.anyDropZoneTargeting, on: self)
             .store(in: &cancellables)
-        
+
+        setupTrayEmptyGracePeriod()
         setupDetectorObserver()
         setupWidgetWidthObserver()
+    }
+
+    // The tray can go empty via several different removal paths (the "All"
+    // button, an individual item's own remove button, auto-remove-on-drag-out)
+    // with no single dismiss action to hook into the way
+    // dismissCompactConverterPage has one. Without this, availableCompactPages
+    // drops .tray the instant TrayStateViewModel's items empties, and
+    // resolvedCompactPage's automatic fallback yanks CompactTrayView out of
+    // the tree on that very same render pass — before its own onChange
+    // handler (which needs the view to still be mounted) ever gets a chance
+    // to leave gracefully with content still visible. Keeping .tray nominally
+    // "available" for a brief grace window after it empties gives that
+    // handler room to run and explicitly change compactPage first, the same
+    // "explicit change happens before the reactive fallback" ordering that
+    // already makes the Converter dismiss button correctly.
+    private func setupTrayEmptyGracePeriod() {
+        TrayStateViewModel.shared.$items
+            .map(\.isEmpty)
+            .removeDuplicates()
+            .sink { [weak self] isEmpty in
+                guard let self else { return }
+                self.trayEmptyGraceTask?.cancel()
+                if isEmpty {
+                    self.isTrayEmptyGracePeriodActive = true
+                    self.trayEmptyGraceTask = Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .milliseconds(400))
+                        self?.isTrayEmptyGracePeriodActive = false
+                    }
+                } else {
+                    self.isTrayEmptyGracePeriodActive = false
+                }
+            }
+            .store(in: &cancellables)
     }
     
     
@@ -448,7 +610,7 @@ class KnotchViewModel: NSObject, ObservableObject {
             if TimerManager.shared.isCreatingTimer {
                 self.notchSize = CGSize(width: WidgetWidth.timerSlider, height: computedHomeSize.height)
             } else {
-                // Same size for both home and shelf now (see the matching
+                // Same size for both home and tray now (see the matching
                 // change in ContentView's onChange(of: coordinator.currentView))
                 // — no more width transition between them at all.
                 self.notchSize = computedHomeSize
@@ -498,31 +660,46 @@ class KnotchViewModel: NSObject, ObservableObject {
             // has finished — doing it inline would cross-fade calendar → music
             // in full view while the notch is still collapsing. Skipped if the
             // notch got reopened in the meantime.
-            guard let self, self.notchState == .closed else { return }
-            var resetTransaction = Transaction()
-            resetTransaction.disablesAnimations = true
-            withTransaction(resetTransaction) {
-                self.showingCompactCalendar = false
+            //
+            // The withAnimation completion above fires as soon as
+            // notchCloseSpring itself settles, but ContentView's own outer
+            // `if vm.notchState == .open` removal transition (NotchHomeView's
+            // scale/opacity/blur fade-out) can still be finishing a beat
+            // later — resetting compactPage here with disablesAnimations
+            // landed as a visible snap-to-music right at its tail end. A
+            // short extra buffer lets that transition fully settle first.
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, self.notchState == .closed else { return }
+                var resetTransaction = Transaction()
+                resetTransaction.disablesAnimations = true
+                withTransaction(resetTransaction) {
+                    self.compactPage = .music
+                    self.isCompactDragOverlayActive = false
+                    self.isCompactDragAutoOpened = false
+                    self.isCompactDragCommitted = false
+                }
             }
         }
         self.isBatteryPopoverActive = false
         self.isMediaOutputPopoverActive = false
         self.edgeAutoOpenActive = false
 
-        // Set the current view to shelf if it contains files and the user enables openShelfByDefault
-        // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
-        if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] && Defaults[.showShelfView] {
-            coordinator.currentView = .shelf
+        // Set the current view to tray if it contains files and the user enables openTrayByDefault
+        // Otherwise, if the user has not enabled openLastTrayByDefault, set the view to home
+        if !TrayStateViewModel.shared.isEmpty && Defaults[.openTrayByDefault] && Defaults[.showTrayView] {
+            coordinator.currentView = .tray
         } else if !coordinator.openLastTabByDefault {
             // Ensure we land on an enabled view
-            coordinator.currentView = Defaults[.showHomeView] ? .home : .shelf
+            coordinator.currentView = Defaults[.showHomeView] ? .home : .tray
         }
 
         // Never leave the remembered tab pointed at a view the user has disabled
         // (e.g. "open last tab" kept it on Home after Home view was turned off).
         if coordinator.currentView == .home && !Defaults[.showHomeView] {
-            coordinator.currentView = .shelf
-        } else if coordinator.currentView == .shelf && !Defaults[.showShelfView] {
+            coordinator.currentView = .tray
+        } else if coordinator.currentView == .tray && !Defaults[.showTrayView] {
             coordinator.currentView = .home
         }
     }
@@ -557,7 +734,7 @@ extension View {
 
     // Cancels liquidHorizontalGroup's ancestor lean with the reciprocal scale
     // around the same anchor, for content that has to stay pixel-stable
-    // regardless of pull — the shelf's drop-zone outlines are actual drag
+    // regardless of pull — the tray's drop-zone outlines are actual drag
     // targets, so shifting them sideways mid-drag reads as broken, not liquid.
     // Only valid for a view spanning the same width as the leaned ancestor
     // (true here: both sit in the same maxWidth-.infinity content slot).

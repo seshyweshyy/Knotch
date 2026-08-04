@@ -58,6 +58,11 @@ let rowMorphFastSpring = Animation.spring(response: 0.26, dampingFraction: 0.82,
 // since the content is unreadable well before the spring fully settles.
 let rowMorphSwapDelay: TimeInterval = 0.28
 
+// Drives the live-activity "squish and blur" pop in/out (see
+// AnyTransition.liveActivityPop in NotchTransition.swift). Used for the
+// compact drag-and-drop overlay's own appearance/disappearance.
+let liveActivityPopSpring = Animation.spring(response: 0.47, dampingFraction: 0.77)
+
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 // Add a wider size specifically for the home view
 let openNotchHomeSize: CGSize = .init(width: 680, height: 190)

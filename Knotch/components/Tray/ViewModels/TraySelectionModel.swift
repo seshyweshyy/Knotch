@@ -1,5 +1,5 @@
 //
-//  ShelfSelectionModel.swift
+//  TraySelectionModel.swift
 //  Knotch
 //
 //  Created by Alexander on 2025-09-26.
@@ -8,14 +8,14 @@
 import Foundation
 import Combine
 
-private let _shelfTypeAnchor: Bool = {
-    _ = String(describing: ShelfItem.self)
+private let _trayTypeAnchor: Bool = {
+    _ = String(describing: TrayItem.self)
     return true
 }()
 
 @MainActor
-final class ShelfSelectionModel: ObservableObject {
-    static let shared = ShelfSelectionModel()
+final class TraySelectionModel: ObservableObject {
+    static let shared = TraySelectionModel()
 
     @Published private(set) var selectedIDs: Set<UUID> = []
 
@@ -26,21 +26,21 @@ final class ShelfSelectionModel: ObservableObject {
 
     var hasSelection: Bool { !selectedIDs.isEmpty }
 
-    var firstSelectedItem: ShelfItem? {
+    var firstSelectedItem: TrayItem? {
         guard let firstID = selectedIDs.first else { return nil }
-        return ShelfStateViewModel.shared.items.first(where: { $0.id == firstID })
+        return TrayStateViewModel.shared.items.first(where: { $0.id == firstID })
     }
 
-    func selectedItems(in allItems: [ShelfItem]) -> [ShelfItem] {
+    func selectedItems(in allItems: [TrayItem]) -> [TrayItem] {
         allItems.filter { selectedIDs.contains($0.id) }
     }
 
-    func selectSingle(_ item: ShelfItem) {
+    func selectSingle(_ item: TrayItem) {
         selectedIDs = [item.id]
         lastAnchorID = item.id
     }
 
-    func toggle(_ item: ShelfItem) {
+    func toggle(_ item: TrayItem) {
         if selectedIDs.contains(item.id) {
             selectedIDs.remove(item.id)
         } else {
@@ -49,7 +49,7 @@ final class ShelfSelectionModel: ObservableObject {
         lastAnchorID = item.id
     }
 
-    func shiftSelect(to item: ShelfItem, in allItems: [ShelfItem]) {
+    func shiftSelect(to item: TrayItem, in allItems: [TrayItem]) {
         // Determine anchor
         let anchorID = lastAnchorID ?? selectedIDs.first ?? item.id
         guard let startIndex = allItems.firstIndex(where: { $0.id == anchorID }),
@@ -69,7 +69,7 @@ final class ShelfSelectionModel: ObservableObject {
     }
 
     // Keep anchor sane if items array changed drastically (optional helper)
-    func ensureValidAnchor(in allItems: [ShelfItem]) {
+    func ensureValidAnchor(in allItems: [TrayItem]) {
         if let anchor = lastAnchorID, !allItems.contains(where: { $0.id == anchor }) {
             lastAnchorID = selectedIDs.first
         }
