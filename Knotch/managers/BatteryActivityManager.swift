@@ -8,6 +8,12 @@ class BatteryActivityManager {
 
     static let shared = BatteryActivityManager()
 
+    // The controller's instantaneous-current math occasionally spikes to
+    // implausible figures (e.g. 900+ hours) when the discharge rate
+    // momentarily reads near-zero. No Mac battery lasts anywhere close to
+    // a day, so anything past this is noise, not a real estimate.
+    private static let maxPlausibleMinutes = 24 * 60
+
     var onBatteryLevelChange: ((Float) -> Void)?
     var onMaxCapacityChange: ((Float) -> Void)?
     var onPowerModeChange: ((Bool) -> Void)?
@@ -282,7 +288,7 @@ class BatteryActivityManager {
             batteryInfo.timeToFullCharge = estimates.timeToFullCharge
                 ?? (description[kIOPSTimeToFullChargeKey] as? Int) ?? 0
             batteryInfo.timeToEmpty = estimates.timeToEmpty
-                ?? (description[kIOPSTimeToEmptyKey] as? Int).flatMap { $0 > 0 ? $0 : nil } ?? 0
+                ?? (description[kIOPSTimeToEmptyKey] as? Int).flatMap { $0 > 0 && $0 <= Self.maxPlausibleMinutes ? $0 : nil } ?? 0
 
             return batteryInfo
             
@@ -319,7 +325,7 @@ class BatteryActivityManager {
         }
 
         func validMinutes(_ key: String) -> Int? {
-            guard let value = props[key] as? Int, value > 0, value != 65535 else { return nil }
+            guard let value = props[key] as? Int, value > 0, value != 65535, value <= Self.maxPlausibleMinutes else { return nil }
             return value
         }
 
