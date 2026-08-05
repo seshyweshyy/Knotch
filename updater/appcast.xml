@@ -3,6 +3,43 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.8.1</title>
+            <pubDate>Wed, 05 Aug 2026 01:07:06 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>28</sparkle:version>
+            <sparkle:shortVersionString>1.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[id="-knotch-v181"><img src="https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/icons/macbook.svg" width="52" height="52" align="absmiddle" alt="">
+Knotch v1.8.1</h1>
+<h2
+id="-new-features"><img src="https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/icons/sparkles.svg" width="28" height="28" align="absmiddle" alt="">
+New Features</h2>
+<ul>
+<li><strong>Added file drop to compact mode</strong></li>
+</ul>
+<h2
+id="-fixes"><img src="https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/icons/wrench-fixes.svg" width="28" height="28" align="absmiddle" alt="">
+Fixes</h2>
+<ul>
+<li>Fixed compact calendar not showing as many events as possible</li>
+<li>Fixed audio output button being disabled in normal UI mode</li>
+<li>Forced notch to close on screen lock</li>
+<li>Fixed system HUD hover clipping issue</li>
+<li>Fixed 6-row compact calendar months being clipped</li>
+<li>Compact calendar and battery mini-widget adjustments</li>
+<li>Reworked update popup UI</li>
+<li>Fixed closed notch activities causing the focused app to lose
+focus</li>
+<li>Gesture reactivity (swipe to open/close/cycle views) no longer
+triggers from clicking and dragging with the cursor - only trackpad
+swipes trigger it now</li>
+<li>Capped the battery mini-widget's "time left" estimate to prevent it
+occasionally showing an absurdly high number of hours</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.8.1/Knotch.v.1.8.1.zip" length="15470244" type="application/octet-stream" sparkle:edSignature="TWeQBhHjhZae9zUwIHqSEEjQgJMah3l+d/1px5OwvUS6FX/dasqD+lNhpUy8XYJdiZp/vBbgKZzoH7LBvu9IBg=="/>
+        </item>
+        <item>
             <title>1.8.0</title>
             <pubDate>Fri, 31 Jul 2026 05:18:25 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -96,26 +133,6 @@ during notch open animation</li>
 </ul>
 ]]></description>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.7/Knotch.v.1.7.7.zip" length="15058889" type="application/octet-stream" sparkle:edSignature="bBspLUw5C9StrTByuOM+wwnA7GMi44YuDDgMaAaIjehfz1PYrJKD4XWJ4uo8SpskmdLeR7r7v3nGa7f/7gPEDw=="/>
-        </item>
-        <item>
-            <title>1.7.6</title>
-            <pubDate>Thu, 16 Jul 2026 14:23:06 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>24</sparkle:version>
-            <sparkle:shortVersionString>1.7.6</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-<h2 id="sparkles-new-features">✨ New Features</h2>
-<ul>
-<li><strong>Added airdrop notifications</strong></li>
-</ul>
-<h2 id="wrench-fixes">🔧 Fixes</h2>
-<ul>
-<li>Fixed shuffle sync with media source app</li>
-<li>Fixed airpods battery level detection</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.6/Knotch.v.1.7.6.zip" length="14967894" type="application/octet-stream" sparkle:edSignature="ztmyfHoRy9raQ1Q7tYodeb5UGSYQL1+0jHwbu32T9C3TLtgNx4yXX/r1+MWk7wRal9hxPEfbai4+qyCN5i71BA=="/>
         </item>
         <item>
             <title>1.6.3</title>
