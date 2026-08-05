@@ -23,6 +23,7 @@ let tabs = [
 struct TabSelectionView: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var timerManager = TimerManager.shared
+    @ObservedObject var trayViewModel = TrayStateViewModel.shared
     @Default(.showHomeView) var showHomeView
     @Default(.showTrayView) var showTrayView
     @Namespace var animation
@@ -31,11 +32,18 @@ struct TabSelectionView: View {
         view == .home ? showHomeView : showTrayView
     }
 
+    // Full whenever the tray holds anything, regardless of how many items —
+    // this is a presence indicator, not a count.
+    private func icon(for tab: TabModel) -> String {
+        guard tab.view == .tray else { return tab.icon }
+        return trayViewModel.isEmpty ? "tray.fill" : "tray.full.fill"
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(tabs) { tab in
                     let disabled = timerManager.isCreatingTimer || !isEnabled(tab.view)
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
+                    TabButton(label: tab.label, icon: icon(for: tab), selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
                         }

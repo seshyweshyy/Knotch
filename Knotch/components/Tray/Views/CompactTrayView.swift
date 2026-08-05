@@ -24,7 +24,11 @@ private enum CompactDropTargetKind: CaseIterable, Equatable {
 struct CompactTrayDropZoneView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @StateObject private var quickShare = QuickShareService.shared
+    @StateObject private var trayViewModel = TrayStateViewModel.shared
     @Default(.quickShareProvider) private var quickShareProviderID
+    @Default(.compactShowQuickShareSquare) private var showQuickShareSquare
+    @Default(.compactShowTraySquare) private var showTraySquare
+    @Default(.compactShowConverterSquare) private var showConverterSquare
     @State private var airDropHostView: NSView?
     // Single source of truth for which box the cursor is over — native onDrop
     // targeting is already mutually exclusive between sibling drop targets,
@@ -58,87 +62,117 @@ struct CompactTrayDropZoneView: View {
     var body: some View {
         GeometryReader { geo in
             HStack(spacing: CompactDropZoneMetrics.spacing) {
-                CompactDropTargetSquare(
-                    title: LocalizedStringKey(shareProvider?.id ?? "AirDrop"),
-                    tint: .blue,
-                    isTargeted: targetedKind == .airDrop
-                ) {
-                    shareProviderIcon
-                }
-                .background(NSViewHost(view: $airDropHostView))
-                .frame(width: width(for: .airDrop, totalWidth: geo.size.width))
-                .onDrop(of: [.fileURL, .url, .data], isTargeted: targetedBinding(for: .airDrop)) { providers in
-                    guard let shareProvider else { return false }
-                    vm.dropEvent = true
-                    vm.isCompactDragCommitted = true
-                    let hostView = airDropHostView
-                    Task { await quickShare.shareDroppedFiles(providers, using: shareProvider, from: hostView) }
-                    vm.finishCompactDragOverlay()
-                    return true
+                // Each square below is independently gated by its own
+                // setting — width(for:) sizes off availableDropKinds, which
+                // already excludes whichever ones are hidden, so the
+                // remaining squares split the row evenly instead of leaving
+                // a gap.
+                if showQuickShareSquare {
+                    CompactDropTargetSquare(
+                        title: LocalizedStringKey(shareProvider?.id ?? "AirDrop"),
+                        tint: .blue,
+                        isTargeted: targetedKind == .airDrop
+                    ) {
+                        shareProviderIcon
+                    }
+                    .background(NSViewHost(view: $airDropHostView))
+                    .frame(width: width(for: .airDrop, totalWidth: geo.size.width))
+                    .onDrop(of: [.fileURL, .url, .data], isTargeted: targetedBinding(for: .airDrop)) { providers in
+                        guard let shareProvider else { return false }
+                        vm.dropEvent = true
+                        vm.isCompactDragCommitted = true
+                        let hostView = airDropHostView
+                        Task { await quickShare.shareDroppedFiles(providers, using: shareProvider, from: hostView) }
+                        vm.finishCompactDragOverlay()
+                        return true
+                    }
                 }
 
-                CompactDropTargetSquare(title: "Tray", tint: nil, isTargeted: targetedKind == .tray) {
-                    Image(systemName: "tray.full.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: width(for: .tray, totalWidth: geo.size.width))
-                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: targetedBinding(for: .tray)) { providers in
-                    vm.dropEvent = true
-                    // Same fix as the Converter square: TrayStateViewModel's
-                    // plain load(_:) is fire-and-forget, so revealing .tray
-                    // right after calling it used to race the actual async
-                    // add — resolvedCompactPage would see the tray still
-                    // empty for a beat and fall back to music before the
-                    // items landed and it snapped over to tray. Awaiting the
-                    // load before revealing removes that gap entirely.
-                    vm.isCompactDragCommitted = true
-                    Task { @MainActor in
-                        await TrayStateViewModel.shared.loadAwaiting(providers)
-                        vm.finishCompactDragOverlay(revealing: .tray)
+                if showTraySquare {
+                    CompactDropTargetSquare(title: "Tray", tint: nil, isTargeted: targetedKind == .tray) {
+                        Image(systemName: trayViewModel.isEmpty ? "tray.fill" : "tray.full.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.white)
                     }
-                    return true
+                    .frame(width: width(for: .tray, totalWidth: geo.size.width))
+                    .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: targetedBinding(for: .tray)) { providers in
+                        vm.dropEvent = true
+                        // Same fix as the Converter square: TrayStateViewModel's
+                        // plain load(_:) is fire-and-forget, so revealing .tray
+                        // right after calling it used to race the actual async
+                        // add — resolvedCompactPage would see the tray still
+                        // empty for a beat and fall back to music before the
+                        // items landed and it snapped over to tray. Awaiting the
+                        // load before revealing removes that gap entirely.
+                        vm.isCompactDragCommitted = true
+                        Task { @MainActor in
+                            await TrayStateViewModel.shared.loadAwaiting(providers)
+                            // Explicit, not left to the Group's own ambient
+                            // .animation(value:) modifiers in NotchHomeView —
+                            // isCompactDragOverlayActive and compactPage both
+                            // change in this one call, and each of those has its
+                            // own separate .animation(value:) tracking it, which
+                            // don't reliably combine into one transition when
+                            // both fire in the same instant. Wrapping here forces
+                            // a single, well-defined animated transaction for the
+                            // whole overlay-to-tray handoff instead of a snap.
+                            withAnimation(liveActivityPopSpring) {
+                                vm.finishCompactDragOverlay(revealing: .tray)
+                            }
+                        }
+                        return true
+                    }
                 }
 
-                CompactDropTargetSquare(title: "Converter", tint: .green, isTargeted: targetedKind == .converter) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.green)
-                }
-                .frame(width: width(for: .converter, totalWidth: geo.size.width))
-                .onDrop(of: [.fileURL, .url, .data], isTargeted: targetedBinding(for: .converter)) { providers in
-                    guard let provider = providers.first else { return false }
-                    vm.dropEvent = true
-                    // Marks the drop as "being handled" immediately so a stray
-                    // drag-exit-region event firing while extractFileURL()
-                    // resolves can't be mistaken for an abandoned drag and
-                    // close the notch — see isCompactDragCommitted and
-                    // KnotchApp.handleDragExitsNotchRegion. The page itself
-                    // only gets revealed once setFile actually succeeds, so
-                    // there's no premature switch to .converter before
-                    // FileConverterViewModel actually has something to show.
-                    vm.isCompactDragCommitted = true
-                    Task { @MainActor in
-                        // extractFileURL() alone isn't always enough — Tray's
-                        // TrayDropService falls through extractURL()/
-                        // extractItem() too for providers that don't register
-                        // public.file-url directly, and Converter only had the
-                        // one path, silently doing nothing on a drop it
-                        // couldn't resolve.
-                        guard let fileURL = await provider.resolveDroppedFileURL() else {
-                            NSLog("Converter drop: could not resolve a file URL from \(provider.registeredTypeIdentifiers)")
-                            vm.finishCompactDragOverlay()
-                            return
-                        }
-                        do {
-                            try FileConverterViewModel.shared.setFile(fileURL)
-                            vm.finishCompactDragOverlay(revealing: .converter)
-                        } catch {
-                            NSLog("Converter drop failed to load \(fileURL.path): \(error.localizedDescription)")
-                            vm.finishCompactDragOverlay()
-                        }
+                if showConverterSquare {
+                    CompactDropTargetSquare(title: "Converter", tint: .green, isTargeted: targetedKind == .converter) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.green)
                     }
-                    return true
+                    .frame(width: width(for: .converter, totalWidth: geo.size.width))
+                    .onDrop(of: [.fileURL, .url, .data], isTargeted: targetedBinding(for: .converter)) { providers in
+                        guard let provider = providers.first else { return false }
+                        vm.dropEvent = true
+                        // Marks the drop as "being handled" immediately so a stray
+                        // drag-exit-region event firing while extractFileURL()
+                        // resolves can't be mistaken for an abandoned drag and
+                        // close the notch — see isCompactDragCommitted and
+                        // KnotchApp.handleDragExitsNotchRegion. The page itself
+                        // only gets revealed once setFile actually succeeds, so
+                        // there's no premature switch to .converter before
+                        // FileConverterViewModel actually has something to show.
+                        vm.isCompactDragCommitted = true
+                        Task { @MainActor in
+                            // extractFileURL() alone isn't always enough — Tray's
+                            // TrayDropService falls through extractURL()/
+                            // extractItem() too for providers that don't register
+                            // public.file-url directly, and Converter only had the
+                            // one path, silently doing nothing on a drop it
+                            // couldn't resolve.
+                            guard let fileURL = await provider.resolveDroppedFileURL() else {
+                                NSLog("Converter drop: could not resolve a file URL from \(provider.registeredTypeIdentifiers)")
+                                vm.finishCompactDragOverlay()
+                                return
+                            }
+                            do {
+                                try FileConverterViewModel.shared.setFile(fileURL)
+                                // Explicit for the same reason as the Tray square
+                                // above — isCompactDragOverlayActive and
+                                // compactPage both change here, and each has its
+                                // own separate ambient .animation(value:) in
+                                // NotchHomeView that doesn't reliably combine when
+                                // both fire in the same instant.
+                                withAnimation(liveActivityPopSpring) {
+                                    vm.finishCompactDragOverlay(revealing: .converter)
+                                }
+                            } catch {
+                                NSLog("Converter drop failed to load \(fileURL.path): \(error.localizedDescription)")
+                                vm.finishCompactDragOverlay()
+                            }
+                        }
+                        return true
+                    }
                 }
             }
             .frame(maxHeight: .infinity)
@@ -166,11 +200,24 @@ struct CompactTrayDropZoneView: View {
         )
     }
 
+    // Excludes whichever squares are hidden by their own setting, so the
+    // remaining ones split the row evenly instead of leaving a gap.
+    private var availableDropKinds: [CompactDropTargetKind] {
+        CompactDropTargetKind.allCases.filter { kind in
+            switch kind {
+            case .airDrop: return showQuickShareSquare
+            case .tray: return showTraySquare
+            case .converter: return showConverterSquare
+            }
+        }
+    }
+
     private func width(for kind: CompactDropTargetKind, totalWidth: CGFloat) -> CGFloat {
         let baseWeight: CGFloat = 1
         let expandedWeight: CGFloat = 1.6
-        let availableWidth = max(totalWidth - CompactDropZoneMetrics.spacing * CGFloat(CompactDropTargetKind.allCases.count - 1), 0)
-        let totalWeight = CompactDropTargetKind.allCases.reduce(CGFloat.zero) { partial, candidate in
+        let kinds = availableDropKinds
+        let availableWidth = max(totalWidth - CompactDropZoneMetrics.spacing * CGFloat(kinds.count - 1), 0)
+        let totalWeight = kinds.reduce(CGFloat.zero) { partial, candidate in
             partial + (candidate == targetedKind ? expandedWeight : baseWeight)
         }
         let myWeight = kind == targetedKind ? expandedWeight : baseWeight
@@ -290,7 +337,7 @@ struct CompactTrayView: View {
         GeometryReader { geo in
             HStack {
                 HStack(spacing: 5) {
-                    Image(systemName: "tray.full.fill")
+                    Image(systemName: tvm.isEmpty ? "tray.fill" : "tray.full.fill")
                         .font(.system(size: 14, weight: .semibold))
                     Text("\(tvm.items.count)")
                         .font(.system(size: 12, weight: .medium, design: .rounded))

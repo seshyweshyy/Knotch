@@ -41,7 +41,7 @@ private let knotchTabs: [SettingsTabItem] = [
     SettingsTabItem(id: "Compact", title: "Compact Mode", systemImage: "rectangle.compress.vertical", tint: .pink, group: "Content"),
     SettingsTabItem(id: "LockScreen", title: "Lock Screen", systemImage: "lock.fill", tint: .black, group: "Content"),
     SettingsTabItem(id: "Calendar", title: "Calendar", systemImage: "calendar", tint: .cyan, group: "Content"),
-    SettingsTabItem(id: "Tray", title: "File Tray", systemImage: "books.vertical", tint: .brown, group: "Content"),
+    SettingsTabItem(id: "Tray", title: "File Drop", systemImage: "books.vertical", tint: .brown, group: "Content"),
     // System
     SettingsTabItem(id: "HUD", title: "HUDs", systemImage: "dial.medium.fill", tint: .gray, group: "System"),
     SettingsTabItem(id: "Battery", title: "Battery", systemImage: "battery.100.bolt", tint: Color(red: 0.2, green: 0.78, blue: 0.35), group: "System"),
@@ -556,7 +556,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Battery", title: "Show power status icons", keywords: ["power", "icons", "battery"], highlightID: "Battery-Show power status icons"),
             SettingsSearchEntry(tabID: "Battery", title: "Show battery percentage as icon", keywords: ["battery", "percentage", "icon", "ios"], highlightID: "Battery-Show battery percentage as icon"),
             // Tray
-            SettingsSearchEntry(tabID: "Tray", title: "Enable File Tray", keywords: ["tray", "file tray", "drop"], highlightID: "Tray-Enable tray"),
+            SettingsSearchEntry(tabID: "Tray", title: "Enable File Drop", keywords: ["tray", "file drop", "drop"], highlightID: "Tray-Enable tray"),
             SettingsSearchEntry(tabID: "Tray", title: "Open tray by default if items are present", keywords: ["tray", "default", "open"], highlightID: "Tray-Open tray by default"),
             SettingsSearchEntry(tabID: "Tray", title: "Expanded drag detection area", keywords: ["drag", "detection", "tray"], highlightID: "Tray-Expanded drag detection"),
             SettingsSearchEntry(tabID: "Tray", title: "Copy items on drag", keywords: ["copy", "drag", "tray"], highlightID: "Tray-Copy items on drag"),
@@ -1411,6 +1411,8 @@ struct Compact: View {
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.compactShowMusicView) var compactShowMusicView
     @Default(.compactShowCalendarView) var compactShowCalendarView
+    @Default(.compactShowFileDropView) var compactShowFileDropView
+    @Default(.compactShowQuickShareSquare) var compactShowQuickShareSquare
     @Default(.quickShareProvider) var quickShareProvider
     @StateObject private var quickShareService = QuickShareService.shared
 
@@ -1448,10 +1450,15 @@ struct Compact: View {
                 }
                 .disabled(!enableCompactUI)
                 .settingsHighlight(id: "Compact-Calendar view")
+                Defaults.Toggle(key: .compactShowFileDropView) {
+                    Text("File Drop View")
+                }
+                .disabled(!enableCompactUI)
+                .settingsHighlight(id: "Compact-File Drop View")
             } header: {
                 Text("Views")
             } footer: {
-                Text("With both enabled, swipe down on the music view to reveal the calendar. With only one enabled, that view is always shown and the swipe gesture does nothing.")
+                Text("With both music and calendar enabled, swipe down on the music view to reveal the calendar. With only one enabled, that view is always shown and the swipe gesture does nothing. File Drop View is the overall switch for the drag-and-drop overlay and the tray page it fills — turning it off disables the squares in the File Drop section below and makes the tray unreachable, regardless of their own settings.")
             }
 
             Section {
@@ -1470,6 +1477,22 @@ struct Compact: View {
             }
 
             Section {
+                Defaults.Toggle(key: .compactShowQuickShareSquare) {
+                    Text("Quick Share square")
+                }
+                .disabled(!enableCompactUI || !compactShowFileDropView)
+                .settingsHighlight(id: "Compact-Quick Share square")
+                Defaults.Toggle(key: .compactShowTraySquare) {
+                    Text("Tray square")
+                }
+                .disabled(!enableCompactUI || !compactShowFileDropView)
+                .settingsHighlight(id: "Compact-Tray square")
+                Defaults.Toggle(key: .compactShowConverterSquare) {
+                    Text("Converter square")
+                }
+                .disabled(!enableCompactUI || !compactShowFileDropView)
+                .settingsHighlight(id: "Compact-Converter square")
+
                 IconMenuPicker(
                     title: "Quick Share Service",
                     items: quickShareService.availableProviders,
@@ -1478,12 +1501,12 @@ struct Compact: View {
                     label: { $0.id },
                     iconSize: 20
                 )
-                .disabled(!enableCompactUI)
+                .disabled(!enableCompactUI || !compactShowFileDropView || !compactShowQuickShareSquare)
                 .settingsHighlight(id: "Compact-Quick Share Service")
             } header: {
-                Text("File Tray")
+                Text("File Drop")
             } footer: {
-                Text("Choose which service the drag-and-drop overlay's AirDrop square shares files through — the same picker and setting as the standard tray's Quick Share Service.")
+                Text("Controls which squares appear in the drag-and-drop overlay shown when a file is dragged near the notch in Compact mode. These require File Drop View above to be on.")
             }
         }
         .accentColor(.effectiveAccent)
@@ -2624,7 +2647,7 @@ struct Tray: View {
             }
             Section {
                 Defaults.Toggle(key: .knotchTray) {
-                    Text("Enable File Tray")
+                    Text("Enable File Drop")
                 }
                 .settingsHighlight(id: "Tray-Enable tray")
                 Defaults.Toggle(key: .openTrayByDefault) {

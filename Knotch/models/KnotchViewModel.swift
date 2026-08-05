@@ -74,7 +74,7 @@ class KnotchViewModel: NSObject, ObservableObject {
         var pages: [CompactPage] = []
         if Defaults[.compactShowMusicView] { pages.append(.music) }
         if Defaults[.compactShowCalendarView] { pages.append(.calendar) }
-        if !TrayStateViewModel.shared.isEmpty || isTrayEmptyGracePeriodActive { pages.append(.tray) }
+        if Defaults[.compactShowFileDropView] && (!TrayStateViewModel.shared.isEmpty || isTrayEmptyGracePeriodActive) { pages.append(.tray) }
         if FileConverterViewModel.shared.hasItem { pages.append(.converter) }
         return pages.isEmpty ? [.music] : pages
     }

@@ -351,6 +351,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // File Drop View is the master switch for the whole drag-and-drop
+        // overlay — off means dragging a file near the notch does nothing
+        // at all, regardless of the individual square settings below it.
+        guard Defaults[.compactShowFileDropView] else { return }
+
+        // If every square is individually disabled, the overlay would have
+        // nothing to show — skip it entirely rather than popping open an
+        // empty drop zone.
+        let anySquareVisible = Defaults[.compactShowQuickShareSquare]
+            || Defaults[.compactShowTraySquare]
+            || Defaults[.compactShowConverterSquare]
+        guard anySquareVisible else { return }
+
         // Live-activity-style: morph whatever compact page is showing into a
         // drop zone instead of switching to the (compact-mode-unreachable)
         // tray tab. If the notch was closed, remember that so a drag that

@@ -426,14 +426,12 @@ struct CompactCalendarView: View {
         .buttonStyle(.plain)
     }
 
-    // Capped at a fixed number of rows (1 all-day pill + 1 timed event +
-    // 1 overflow summary) regardless of how many events exist, so this
-    // view's height never depends on the day's event count.
+    // Always shown individually up to these caps, with anything beyond them
+    // summarized in the overflow row — not "show everything if the whole
+    // day happens to fit," just a fixed budget that's safe against clipping
+    // regardless of how many events the day actually has.
     private let maxAllDayPills = 1
-    // Same fixed budget as above, expressed as a row count — when the day's
-    // events (all-day + timed) fit within it, every one of them gets its
-    // own row instead of collapsing straight to the 1-pill/summary forms.
-    private let maxRows = 3
+    private let maxVisibleTimedEvents = 2
 
     // All-day events are pinned above the timed list, rendered small as
     // pills rather than full event rows.
@@ -446,20 +444,18 @@ struct CompactCalendarView: View {
         if allDayEvents.isEmpty && timedEvents.isEmpty {
             emptyState
         } else {
-            // Everything fits its own row without collapsing anything, so
-            // show every all-day event individually rather than jumping
-            // straight to the compressed 1-pill/summary-row forms below.
-            let fitsIndividually = allDayEvents.count + timedEvents.count <= maxRows
-            let allDayPillCount = fitsIndividually ? allDayEvents.count : maxAllDayPills
-            // With more than one all-day event and not enough room to list
-            // them individually, a single pill can only ever show one of
-            // them — swap to the icon-stack summary row instead so nothing
-            // is silently hidden, and none of the all-day events then need
-            // to fall through to the generic overflow row below.
-            let showAllDaySummary = !fitsIndividually && allDayEvents.count > 1
-            let hiddenEvents = fitsIndividually
-                ? []
-                : (showAllDaySummary ? [] : allDayEvents.dropFirst(allDayPillCount)) + timedEvents.dropFirst(1)
+            // With more than one all-day event, a single pill can only ever
+            // show one of them — swap to the icon-stack summary row instead
+            // so nothing is silently hidden, and none of the all-day events
+            // then need to fall through to the generic overflow row below.
+            let showAllDaySummary = allDayEvents.count > maxAllDayPills
+            // An all-day pill/summary row already claims one of the budgeted
+            // rows above the timed list, so only 1 timed event (not the
+            // usual 2) fits underneath it without clipping.
+            let visibleTimedEventCount = allDayEvents.isEmpty ? maxVisibleTimedEvents : 1
+            let visibleTimedEvents = Array(timedEvents.prefix(visibleTimedEventCount))
+            let hiddenEvents = (showAllDaySummary ? [] : allDayEvents.dropFirst(min(allDayEvents.count, maxAllDayPills)))
+                + timedEvents.dropFirst(visibleTimedEvents.count)
             VStack(alignment: .leading, spacing: 4) {
                 if showAllDaySummary {
                     Button {
@@ -473,7 +469,7 @@ struct CompactCalendarView: View {
                     .id(selectedDate)
                     .transition(pillTransition)
                 } else {
-                    ForEach(allDayEvents.prefix(allDayPillCount)) { event in
+                    ForEach(allDayEvents.prefix(maxAllDayPills)) { event in
                         Button {
                             if let url = event.calendarAppURL() { openURL(url) }
                         } label: {
@@ -483,22 +479,22 @@ struct CompactCalendarView: View {
                         .transition(pillTransition)
                     }
                 }
-                if let firstTimed = timedEvents.first {
+                ForEach(visibleTimedEvents) { event in
                     Button {
-                        if let url = firstTimed.calendarAppURL() { openURL(url) }
+                        if let url = event.calendarAppURL() { openURL(url) }
                     } label: {
-                        if case .reminder(let completed) = firstTimed.type {
-                            ReminderRow(event: firstTimed, isCompleted: completed, showFullTitle: false, compactSizing: true)
+                        if case .reminder(let completed) = event.type {
+                            ReminderRow(event: event, isCompleted: completed, showFullTitle: false, compactSizing: true)
                         } else {
-                            CalendarEventRow(event: firstTimed, showFullTitle: false, compactSizing: true)
+                            CalendarEventRow(event: event, showFullTitle: false, compactSizing: true)
                         }
                     }
-                    .buttonStyle(EventRowButtonStyle(color: Color(firstTimed.calendar.color)))
+                    .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color)))
                     // Same day, different event (e.g. after switching from a
                     // day with no timed events) — this id forces a fresh view
                     // so the transition actually fires instead of the Button
                     // just updating its label content in place.
-                    .id(firstTimed.id)
+                    .id(event.id)
                     .transition(pillTransition)
                 }
                 if !hiddenEvents.isEmpty {
@@ -624,6 +620,8 @@ private struct CompactMoreEventsRow: View {
 
     var body: some View {
         HStack(spacing: 4) {
+            // Matches CalendarEventRow's own bar leading padding, so this
+            // row's bar lines up with the ones on the event rows above it.
             HStack(spacing: 2) {
                 ForEach(Array(barColors.enumerated()), id: \.offset) { _, color in
                     RoundedRectangle(cornerRadius: 1.5)
@@ -631,6 +629,7 @@ private struct CompactMoreEventsRow: View {
                         .frame(width: 3, height: 12)
                 }
             }
+            .padding(.leading, 4)
             Text("\(events.count) more event\(events.count == 1 ? "" : "s")")
                 .font(.system(size: 11, weight: .regular, design: .default))
                 .foregroundColor(.secondary)

@@ -127,6 +127,10 @@ extension Defaults.Keys {
     static let enableCompactUI = Key<Bool>("enableCompactUI", default: false)
     static let compactShowMusicView = Key<Bool>("compactShowMusicView", default: true)
     static let compactShowCalendarView = Key<Bool>("compactShowCalendarView", default: true)
+    static let compactShowFileDropView = Key<Bool>("compactShowFileDropView", default: true)
+    static let compactShowQuickShareSquare = Key<Bool>("compactShowQuickShareSquare", default: true)
+    static let compactShowTraySquare = Key<Bool>("compactShowTraySquare", default: true)
+    static let compactShowConverterSquare = Key<Bool>("compactShowConverterSquare", default: true)
     static let compactShowReminders = Key<Bool>("compactShowReminders", default: true)
     static let compactShowAllDayEvents = Key<Bool>("compactShowAllDayEvents", default: true)
 
