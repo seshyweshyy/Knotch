@@ -1243,6 +1243,11 @@ struct CustomSlider: View {
                     }
             )
             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: dragging)
+            // Ticks arrive every 0.5s from the parent TimelineView; animating the
+            // fill linearly over that same interval turns the once-per-tick jump
+            // into continuous motion instead of a snap. Skipped while dragging so
+            // the thumb tracks the cursor immediately.
+            .animation(dragging ? nil : .linear(duration: 0.5), value: value)
         }
     }
 }
