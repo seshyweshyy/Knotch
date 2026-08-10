@@ -15,6 +15,7 @@ enum OnboardingStep {
     case remindersPermission
     case accessibilityPermission
     case musicPermission
+    case uiModeSelection
     case finished
 }
 
@@ -126,6 +127,16 @@ struct OnboardingView: View {
                 
             case .musicPermission:
                 MusicControllerSelectionView(
+                    onContinue: {
+                        withAnimation(.easeInOut(duration: 0.6)) {
+                            step = .uiModeSelection
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .uiModeSelection:
+                UIModeSelectionView(
                     onContinue: {
                         withAnimation(.easeInOut(duration: 0.6)) {
                             KnotchViewCoordinator.shared.firstLaunch = false

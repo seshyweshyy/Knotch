@@ -535,6 +535,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name.previewOnboardingRequested, object: nil, queue: nil
+        ) { [weak self] notification in
+            let step = notification.userInfo?["step"] as? OnboardingStep ?? .welcome
+            Task { @MainActor in
+                self?.showOnboardingWindow(step: step)
+            }
+        }
+
         // Use closure-based observers for DistributedNotificationCenter and keep tokens for removal
         screenLockedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(rawValue: "com.apple.screenIsLocked"),
@@ -801,42 +810,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(self)
     }
 
+    // Always rebuilds rather than reusing onboardingWindowController, since a
+    // prior window may have already been closed (and thus released) by
+    // onFinish — reusing it would show a stale/dead window.
     private func showOnboardingWindow(step: OnboardingStep = .welcome) {
-        if onboardingWindowController == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
-                styleMask: [.titled, .fullSizeContentView],
-                backing: .buffered,
-                defer: false
-            )
-            window.center()
-            window.title = "Onboarding"
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.contentView = NSHostingView(
-                rootView: OnboardingView(
-                    step: step,
-                    onFinish: {
-                        window.orderOut(nil)
-//                        NSApp.setActivationPolicy(.accessory)
-                        window.close()
-                        NSApp.deactivate()
-                    },
-                    onOpenSettings: {
-                        window.close()
-                        SettingsWindowController.shared.showWindow()
-                    }
-                ))
-            window.isRestorable = false
-            window.identifier = NSUserInterfaceItemIdentifier("OnboardingWindow")
-            window.backgroundColor = .clear
-            window.isOpaque = false
-            window.contentView?.wantsLayer = true
-            window.contentView?.layer?.cornerRadius = 30
-            window.contentView?.layer?.masksToBounds = true
+        onboardingWindowController?.window?.close()
 
-            onboardingWindowController = NSWindowController(window: window)
-        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+            styleMask: [.titled, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.center()
+        window.title = "Onboarding"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.contentView = NSHostingView(
+            rootView: OnboardingView(
+                step: step,
+                onFinish: {
+                    window.orderOut(nil)
+//                        NSApp.setActivationPolicy(.accessory)
+                    window.close()
+                    NSApp.deactivate()
+                },
+                onOpenSettings: {
+                    window.close()
+                    SettingsWindowController.shared.showWindow()
+                }
+            ))
+        window.isRestorable = false
+        window.identifier = NSUserInterfaceItemIdentifier("OnboardingWindow")
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.cornerRadius = 30
+        window.contentView?.layer?.masksToBounds = true
+
+        onboardingWindowController = NSWindowController(window: window)
 
 //        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -851,4 +863,5 @@ extension Notification.Name {
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
     static let expandedDragDetectionChanged = Notification.Name("expandedDragDetectionChanged")
+    static let previewOnboardingRequested = Notification.Name("previewOnboardingRequested")
 }

@@ -47,11 +47,9 @@ struct PermissionRequestView: View {
 
             HStack {
                 Button("Not Now") { onSkip() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .settingsSubtleGlassButton()
                 Button("Allow Access") { onAllow() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .settingsProminentGlassButton()
             }
             .padding(.top, 10)
         }

@@ -37,13 +37,11 @@ struct OnboardingFinishView: View {
             VStack(spacing: 12) {
                 Button(action: onOpenSettings) {
                     Label("Customize in Settings", systemImage: "gearshape.fill")
-                        .controlSize(.large)
                 }
-                .controlSize(.large)
+                .settingsSubtleGlassButton()
 
                 Button("Finish", action: onFinish)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .settingsProminentGlassButton()
                     .keyboardShortcut(.defaultAction)
             }
             .padding(24)

@@ -155,6 +155,40 @@ private struct SettingsGlassPanel: ViewModifier {
     }
 }
 
+/// Selectable list-row card (music source, UI mode, etc.) — accent-tinted glass
+/// when selected, plain glass otherwise, on macOS 26+; the previous hand-drawn
+/// fill/stroke combo before.
+private struct SettingsGlassSelectableCard: ViewModifier {
+    var isSelected: Bool
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    isSelected
+                        ? Glass.regular.tint(Color.effectiveAccent).interactive()
+                        : Glass.regular.interactive(),
+                    in: .rect(cornerRadius: cornerRadius, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(isSelected ? Color.effectiveAccent : Color.clear, lineWidth: 1.5)
+                )
+        } else {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(isSelected ? Color.effectiveAccent.opacity(0.15) : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(isSelected ? Color.effectiveAccent : Color.secondary.opacity(0.3), lineWidth: 1.5)
+                )
+        }
+    }
+}
+
 /// Draws a glass background around the button's own label with no other opinions —
 /// unlike the system `.glass`/`.glassProminent` styles (PrimitiveButtonStyle, AppKit-bridged
 /// on macOS), it doesn't replace the button's gesture handling (which was losing to Form/
@@ -186,9 +220,13 @@ extension View {
         modifier(SettingsGlassPanel(cornerRadius: cornerRadius))
     }
 
+    func settingsGlassSelectableCard(isSelected: Bool, cornerRadius: CGFloat = 12) -> some View {
+        modifier(SettingsGlassSelectableCard(isSelected: isSelected, cornerRadius: cornerRadius))
+    }
+
     /// Primary/prominent action buttons — accent-tinted glass on macOS 26+, .borderedProminent before.
     @ViewBuilder
-    fileprivate func settingsProminentGlassButton() -> some View {
+    func settingsProminentGlassButton() -> some View {
         if #available(macOS 26.0, *) {
             self
                 .foregroundStyle(.white)
@@ -206,7 +244,7 @@ extension View {
 
     /// Subtle row-style buttons (Check for Updates, etc.) — dark grey glass on macOS 26+, custom subtle style before.
     @ViewBuilder
-    fileprivate func settingsSubtleGlassButton() -> some View {
+    func settingsSubtleGlassButton() -> some View {
         if #available(macOS 26.0, *) {
             self
                 .buttonStyle(SettingsGlassButtonStyle(
@@ -222,7 +260,7 @@ extension View {
 
     /// Clear, untinted glass — for actions like Quit that shouldn't carry a colored fill.
     @ViewBuilder
-    fileprivate func settingsClearGlassButton() -> some View {
+    func settingsClearGlassButton() -> some View {
         if #available(macOS 26.0, *) {
             self.buttonStyle(SettingsGlassButtonStyle(glass: Glass.clear.interactive(), cornerRadius: 15))
         } else {
@@ -2767,6 +2805,27 @@ struct About: View {
                             .padding(.top, -8)
                     }
                 }
+                #if DEBUG
+                Section {
+                    Button("Preview Onboarding (Full)") {
+                        NotificationCenter.default.post(
+                            name: .previewOnboardingRequested, object: nil,
+                            userInfo: ["step": OnboardingStep.welcome]
+                        )
+                    }
+                    .settingsSubtleGlassButton()
+
+                    Button("Preview Layout Selection Screen") {
+                        NotificationCenter.default.post(
+                            name: .previewOnboardingRequested, object: nil,
+                            userInfo: ["step": OnboardingStep.uiModeSelection]
+                        )
+                    }
+                    .settingsSubtleGlassButton()
+                } header: {
+                    Text("Developer")
+                }
+                #endif
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
                     Button {

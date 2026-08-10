@@ -64,8 +64,7 @@ struct MusicControllerSelectionView: View {
                 )
                 onContinue()
             })
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .settingsProminentGlassButton()
                 .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -84,7 +83,7 @@ struct ControllerOptionView: View {
         HStack(spacing: 16) {
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 .font(.title2)
-                .foregroundColor(isSelected ? .effectiveAccent : .secondary.opacity(0.5))
+                .foregroundColor(isSelected ? .white : .secondary.opacity(0.5))
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -106,14 +105,7 @@ struct ControllerOptionView: View {
             Spacer()
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isSelected ? Color.effectiveAccent.opacity(0.15) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isSelected ? Color.effectiveAccent : Color.secondary.opacity(0.3), lineWidth: 1.5)
-        )
+        .settingsGlassSelectableCard(isSelected: isSelected)
         .contentShape(Rectangle())
     }
 }

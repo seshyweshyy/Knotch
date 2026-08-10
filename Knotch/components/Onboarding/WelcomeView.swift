@@ -56,8 +56,7 @@ struct WelcomeView: View {
                         Text("Get started")
                             .padding(.horizontal, 8)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .settingsProminentGlassButton()
                 }
                 .padding(.top)
             }
