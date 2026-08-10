@@ -80,7 +80,7 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         case .previous:
             return "backward.fill"
         case .playPause:
-            return "playpause"
+            return "playpause.fill"
         case .next:
             return "forward.fill"
         case .repeatMode:

@@ -123,7 +123,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cleanupWindows()
         XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
     }
-    
+
     @MainActor
     private func showLiquidGlassWidgetIfNeeded() {
         guard Defaults[.lockScreenMusicWidget] else { return }

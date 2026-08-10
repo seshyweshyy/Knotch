@@ -99,7 +99,9 @@ struct CompactMusicPlayerView: View {
                             font: .system(size: 13, weight: .semibold),
                             nsFont: .subheadline,
                             textColor: .white,
-                            frameWidth: max(0, textAreaWidth - textLeadingInset)
+                            frameWidth: max(0, textAreaWidth - textLeadingInset),
+                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                            trailingIconColor: Color(white: 0.55)
                         )
                         Text(musicManager.artistName)
                             .font(.system(size: 11.5, weight: .medium))

@@ -295,7 +295,9 @@ struct MusicControlsView: View {
                             font: .headline,
                             nsFont: .headline,
                             textColor: .white,
-                            frameWidth: width - trailingReserve
+                            frameWidth: width - trailingReserve,
+                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                            trailingIconColor: Color(white: 0.55)
                         )
                         .edgeFade()
                         MarqueeText(

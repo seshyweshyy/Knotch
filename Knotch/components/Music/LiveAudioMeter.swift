@@ -209,6 +209,10 @@ final class LiveAudioMeter {
     // tiny, uncontended critical sections and avoids a torn/racy read.
     private let amplitudeBuffer = UnsafeMutableBufferPointer<Float>.allocate(capacity: bandCount)
     private var amplitudeLock = os_unfair_lock_s()
+    // Set when processBlock writes a fresh FFT frame, cleared once publishAmplitudes
+    // consumes it — keeps the smoothing step from re-applying itself to the same
+    // stale target on 60Hz ticks that land between 30Hz FFT updates.
+    private var hasNewAmplitudeData = false
 
     // Published smoothed amplitudes, updated on main thread by display link
     @Published private(set) var amplitudes: [Float] = Array(repeating: 0, count: bandCount)
@@ -453,6 +457,7 @@ final class LiveAudioMeter {
         for i in 0..<Self.bandCount {
             amplitudeBuffer[i] = newAmplitudes[i]
         }
+        hasNewAmplitudeData = true
         os_unfair_lock_unlock(&amplitudeLock)
     }
 
@@ -477,6 +482,11 @@ final class LiveAudioMeter {
     private func publishAmplitudes() {
         var next = [Float](repeating: 0, count: Self.bandCount)
         os_unfair_lock_lock(&amplitudeLock)
+        guard hasNewAmplitudeData else {
+            os_unfair_lock_unlock(&amplitudeLock)
+            return
+        }
+        hasNewAmplitudeData = false
         for i in 0..<Self.bandCount {
             next[i] = amplitudeBuffer[i]
         }

@@ -188,7 +188,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         // Spotify, where MRMediaRemoteSetRepeatMode is silently ignored entirely — so
         // toggle the real property directly via AppleScript and re-read it for those
         // two apps. Spotify's AppleScript dictionary only exposes a boolean "repeating",
-        // no repeat-one, matching SpotifyController's own toggleRepeat().
+        // no repeat-one — this path only runs when Spotify is being driven through the
+        // generic Now Playing controller rather than SpotifyController, which reaches
+        // repeat-one via spotify_cli instead.
         switch playbackState.bundleIdentifier {
         case "com.apple.Music":
             try? await AppleScriptHelper.executeVoid("""

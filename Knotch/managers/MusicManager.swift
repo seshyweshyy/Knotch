@@ -116,6 +116,7 @@ class MusicManager: ObservableObject {
     @Published var syncedLyrics: [(time: Double, text: String)] = []
     @Published var canFavoriteTrack: Bool = false
     @Published var isFavoriteTrack: Bool = false
+    @Published var isExplicitTrack: Bool = false
 
     private var artworkData: Data? = nil
 
@@ -400,6 +401,9 @@ class MusicManager: ObservableObject {
         }
         if state.isFavorite != self.isFavoriteTrack {
             self.isFavoriteTrack = state.isFavorite
+        }
+        if state.isExplicit != self.isExplicitTrack {
+            self.isExplicitTrack = state.isExplicit
         }
         
         if volumeChanged {
