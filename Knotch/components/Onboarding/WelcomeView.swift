@@ -26,13 +26,16 @@ struct WelcomeView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 100, height: 100)
                         .padding(.bottom, 8)
+                        .staggeredEntrance(3)
                     Text("Knotch")
                         .font(.system(.largeTitle, design: .default))
                         .fontWeight(.semibold)
+                        .staggeredEntrance(2)
                     Text("Welcome")
                         .font(.title)
                         .foregroundStyle(.secondary)
                         .padding(.bottom, 30)
+                        .staggeredEntrance(1)
                     if false {
                         Text("PRO")
                             .font(.system(size: 18, design: .rounded))
@@ -57,6 +60,7 @@ struct WelcomeView: View {
                             .padding(.horizontal, 8)
                     }
                     .settingsProminentGlassButton()
+                    .staggeredEntrance(0)
                 }
                 .padding(.top)
             }
@@ -73,7 +77,7 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ignoresSafeArea()
         .background {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow, alpha: 0.94)
                 .ignoresSafeArea()
         }
     }

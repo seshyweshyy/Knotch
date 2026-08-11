@@ -17,12 +17,14 @@ struct UIModeSelectionView: View {
                 .font(.title)
                 .fontWeight(.bold)
                 .padding(.top, 24)
+                .staggeredEntrance(4)
 
             Text("Pick how Knotch's UI should look. You can change this later in Settings.")
                 .multilineTextAlignment(.center)
                 .font(.body)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
+                .staggeredEntrance(3)
 
             ScrollView {
                 VStack(spacing: 14) {
@@ -35,6 +37,7 @@ struct UIModeSelectionView: View {
                     .onTapGesture {
                         useCompactMode = false
                     }
+                    .staggeredEntrance(2)
 
                     UIModeOptionRow(
                         title: "Compact",
@@ -46,6 +49,7 @@ struct UIModeSelectionView: View {
                     .onTapGesture {
                         useCompactMode = true
                     }
+                    .staggeredEntrance(1)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 4)
@@ -57,10 +61,11 @@ struct UIModeSelectionView: View {
             }
             .settingsProminentGlassButton()
             .padding(.bottom, 24)
+            .staggeredEntrance(0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow, alpha: 0.94)
                 .ignoresSafeArea()
         )
     }

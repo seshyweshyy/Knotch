@@ -21,6 +21,20 @@ enum OnboardingStep {
 
 private let calendarService = CalendarService()
 
+private let onboardingStepAnimation: Animation = .spring(response: 0.45, dampingFraction: 0.86)
+
+private extension AnyTransition {
+    // Wizard-style push: incoming step rises up from below while fading in,
+    // the outgoing one continues rising out toward the top while fading out —
+    // both stay horizontally centered, no left/right drift.
+    static var onboardingPush: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .top).combined(with: .opacity)
+        )
+    }
+}
+
 struct OnboardingView: View {
     @State var step: OnboardingStep = .welcome
     let onFinish: () -> Void
@@ -31,11 +45,11 @@ struct OnboardingView: View {
             switch step {
             case .welcome:
                 WelcomeView {
-                    withAnimation(.easeInOut(duration: 0.6)) {
+                    withAnimation(onboardingStepAnimation) {
                         step = .cameraPermission
                     }
                 }
-                .transition(.opacity)
+                .transition(.onboardingPush)
 
             case .cameraPermission:
                 PermissionRequestView(
@@ -43,21 +57,22 @@ struct OnboardingView: View {
                     title: "Enable Camera Access",
                     description: "Knotch includes a mirror feature that lets you quickly check your appearance using your camera, right from the notch. Camera access is required only to show this live preview. You can turn the mirror feature on or off at any time in the app.",
                     privacyNote: "Your camera is never used without your consent, and nothing is recorded or stored.",
+                    iconColor: .gray,
                     onAllow: {
                         Task {
                             await requestCameraPermission()
-                            withAnimation(.easeInOut(duration: 0.6)) {
+                            withAnimation(onboardingStepAnimation) {
                                 step = .calendarPermission
                             }
                         }
                     },
                     onSkip: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                        withAnimation(onboardingStepAnimation) {
                             step = .calendarPermission
                         }
                     }
                 )
-                .transition(.opacity)
+                .transition(.onboardingPush)
 
             case .calendarPermission:
                 PermissionRequestView(
@@ -65,21 +80,22 @@ struct OnboardingView: View {
                     title: "Enable Calendar Access",
                     description: "Knotch can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
                     privacyNote: "Your calendar data is only used to show your events and is never shared.",
+                    iconColor: .red,
                     onAllow: {
                         Task {
                                 await requestCalendarPermission()
-                                withAnimation(.easeInOut(duration: 0.6)) {
+                                withAnimation(onboardingStepAnimation) {
                                     step = .remindersPermission
                                 }
                         }
                     },
                     onSkip: {
-                            withAnimation(.easeInOut(duration: 0.6)) {
+                            withAnimation(onboardingStepAnimation) {
                                 step = .remindersPermission
                             }
                     }
                 )
-                .transition(.opacity)
+                .transition(.onboardingPush)
 
                 case .remindersPermission:
                     PermissionRequestView(
@@ -87,21 +103,22 @@ struct OnboardingView: View {
                         title: "Enable Reminders Access",
                         description: "Knotch can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
                         privacyNote: "Your reminders data is only used to show your reminders and is never shared.",
+                        iconColor: .orange,
                         onAllow: {
                             Task {
                                 await requestRemindersPermission()
-                                withAnimation(.easeInOut(duration: 0.6)) {
+                                withAnimation(onboardingStepAnimation) {
                                     step = .accessibilityPermission
                                 }
                             }
                         },
                         onSkip: {
-                            withAnimation(.easeInOut(duration: 0.6)) {
+                            withAnimation(onboardingStepAnimation) {
                                 step = .accessibilityPermission
                             }
                         }
                     )
-                    .transition(.opacity)
+                    .transition(.onboardingPush)
                 
             case .accessibilityPermission:
                 PermissionRequestView(
@@ -109,48 +126,54 @@ struct OnboardingView: View {
                     title: "Enable Accessibility Access",
                     description: "Accessibility access is required to replace system notifications with the Knotch HUD. This allows the app to intercept media and brightness events to display custom HUD overlays.",
                     privacyNote: "Accessibility access is used only to improve media and brightness notifications. No data is collected or shared.",
+                    iconColor: .blue,
                     onAllow: {
                         Task {
                             await requestAccessibilityPermission()
-                            withAnimation(.easeInOut(duration: 0.6)) {
+                            withAnimation(onboardingStepAnimation) {
                                 step = .musicPermission
                             }
                         }
                     },
                     onSkip: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                        withAnimation(onboardingStepAnimation) {
                             step = .musicPermission
                         }
                     }
                 )
-                .transition(.opacity)
+                .transition(.onboardingPush)
                 
             case .musicPermission:
                 MusicControllerSelectionView(
                     onContinue: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                        withAnimation(onboardingStepAnimation) {
                             step = .uiModeSelection
                         }
                     }
                 )
-                .transition(.opacity)
+                .transition(.onboardingPush)
 
             case .uiModeSelection:
                 UIModeSelectionView(
                     onContinue: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                        withAnimation(onboardingStepAnimation) {
                             KnotchViewCoordinator.shared.firstLaunch = false
                             step = .finished
                         }
                     }
                 )
-                .transition(.opacity)
+                .transition(.onboardingPush)
 
             case .finished:
                 OnboardingFinishView(onFinish: onFinish, onOpenSettings: onOpenSettings)
+                    .transition(.onboardingPush)
             }
         }
         .frame(width: 400, height: 600)
+        .clipped()
+        // Declarative fallback for the window's rounded corners, since the AppKit
+        // layer.cornerRadius set in showOnboardingWindow can get silently dropped.
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
     }
 
     // MARK: - Permission Request Logic

@@ -24,22 +24,28 @@ struct MusicControllerSelectionView: View {
     
     @State private var selectedMediaController: MediaControllerType = Defaults[.mediaController]
     
+    // Bottom-most element gets the smallest delay so the entrance reads as a
+    // reveal rising up the screen, matching each element's own upward slide.
+    private var staggerCount: Int { availableMediaControllers.count + 3 }
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Choose a Music Source")
                 .font(.title)
                 .fontWeight(.bold)
                 .padding(.top, 24)
+                .staggeredEntrance(staggerCount - 1)
 
             Text("Select the music source you want to use. You can change this later in the app settings.")
                 .multilineTextAlignment(.center)
                 .font(.body)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
+                .staggeredEntrance(staggerCount - 2)
 
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(availableMediaControllers) { controller in
+                    ForEach(Array(availableMediaControllers.enumerated()), id: \.element) { index, controller in
                         ControllerOptionView(
                             controller: controller,
                             isSelected: self.selectedMediaController == controller
@@ -47,6 +53,7 @@ struct MusicControllerSelectionView: View {
                         .onTapGesture {
                             self.selectedMediaController = controller
                         }
+                        .staggeredEntrance(staggerCount - 3 - index)
                     }
                 }
                 .padding()
@@ -66,10 +73,11 @@ struct MusicControllerSelectionView: View {
             })
                 .settingsProminentGlassButton()
                 .padding(.bottom, 24)
+                .staggeredEntrance(0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow, alpha: 0.94)
                 .ignoresSafeArea()
         )
     }

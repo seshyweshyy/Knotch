@@ -37,18 +37,24 @@ struct EditPanelView: View {
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
-    
+    // Native alpha rather than SwiftUI's .opacity() — wrapping a .behindWindow
+    // NSVisualEffectView in a SwiftUI opacity/compositing group breaks its
+    // desktop sampling and can tear the window's rounded corner mask.
+    var alpha: CGFloat = 1.0
+
     func makeNSView(context _: Context) -> NSVisualEffectView {
         let visualEffectView = NSVisualEffectView()
         visualEffectView.material = material
         visualEffectView.blendingMode = blendingMode
         visualEffectView.state = NSVisualEffectView.State.active
         visualEffectView.isEmphasized = true
+        visualEffectView.alphaValue = alpha
         return visualEffectView
     }
-    
+
     func updateNSView(_ visualEffectView: NSVisualEffectView, context _: Context) {
         visualEffectView.material = material
         visualEffectView.blendingMode = blendingMode
+        visualEffectView.alphaValue = alpha
     }
 }

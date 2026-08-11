@@ -12,6 +12,7 @@ struct PermissionRequestView: View {
     let title: String
     let description: String
     let privacyNote: String?
+    var iconColor: Color = .effectiveAccent
     let onAllow: () -> Void
     let onSkip: () -> Void
 
@@ -21,16 +22,19 @@ struct PermissionRequestView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 70, height: 56)
-                .foregroundColor(.effectiveAccent)
+                .foregroundColor(iconColor)
                 .padding(.top, 32)
+                .staggeredEntrance(4)
 
             Text(title)
                 .font(.title)
                 .fontWeight(.semibold)
+                .staggeredEntrance(3)
 
             Text(description)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+                .staggeredEntrance(2)
 
             if let privacyNote = privacyNote {
                 HStack(spacing: 8) {
@@ -43,6 +47,7 @@ struct PermissionRequestView: View {
                 }
                 .padding(.bottom, 8)
                 .padding(.horizontal)
+                .staggeredEntrance(1)
             }
 
             HStack {
@@ -52,10 +57,11 @@ struct PermissionRequestView: View {
                     .settingsProminentGlassButton()
             }
             .padding(.top, 10)
+            .staggeredEntrance(0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow, alpha: 0.94)
                 .ignoresSafeArea()
         )
     }
