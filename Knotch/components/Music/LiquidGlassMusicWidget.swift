@@ -38,13 +38,17 @@ struct LiquidGlassMusicWidget: View {
 
     var body: some View {
         if #available(macOS 26.0, *) {
-            GlassEffectContainer {
-                innerContent
-                    .glassEffect(.regular, in: .rect(cornerRadius: 22))
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
-            }
-            .onChange(of: musicManager.artFlipSignal) { _, signal in flipArt(signal) }
+            // style: 0 (.regular) instead of the main notch's .clear — a
+            // confirmed-working reference project renders genuinely visible
+            // lock-screen glass using .regular, not .clear. controlActiveState
+            // forced active since this window never becomes the frontmost
+            // app, which otherwise makes AppKit dim materials as "inactive".
+            innerContent
+                .background(KnotchLiquidGlass(shape: .roundedRect(cornerRadius: 22), adaptiveAppearance: true, style: 0))
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
+                .environment(\.controlActiveState, .active)
+                .onChange(of: musicManager.artFlipSignal) { _, signal in flipArt(signal) }
         } else {
             innerContent
                 .background(
@@ -77,7 +81,9 @@ struct LiquidGlassMusicWidget: View {
                         font: .headline,
                         nsFont: .headline,
                         textColor: .white,
-                        frameWidth: isExpanded ? 260 : 180
+                        frameWidth: isExpanded ? 260 : 180,
+                        trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                        trailingIconColor: Color(white: 0.55)
                     )
                     .fontWeight(.semibold)
                     .id("title-\(isExpanded)")

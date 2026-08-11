@@ -39,11 +39,35 @@ class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
         isMovable = false
         // sharingType is managed by KnotchSkyLightWindow.updateSharingType()
+        // shouldAutoFlattenLayerTree: WindowServer auto-flattens a window's
+        // layer tree into a single bitmap after ~1s of inactivity for
+        // performance — which kills CABackdropLayer's ability to sample
+        // live content behind it. canHostLayersInWindowServer: per Oskar
+        // Groth's "Reverse Engineering NSVisualEffectView"
+        // (oskargroth.com/blog/reverse-engineering-nsvisualeffectview),
+        // simply setting this true isn't enough — if a CABackdropLayer gets
+        // added to a window that's already hosting layers in WindowServer,
+        // the backdrop doesn't work because WindowServer isn't aware of the
+        // new layer. Toggling false→true forces the whole layer tree to be
+        // recreated with proper backdrop support, which is what we were
+        // missing (we'd only ever set it true once).
+        setValue(false, forKey: "shouldAutoFlattenLayerTree")
+        setValue(false, forKey: "canHostLayersInWindowServer")
+        setValue(true, forKey: "canHostLayersInWindowServer")
     }
 
     func setClickThrough(_ passThrough: Bool) {
         ignoresMouseEvents = passThrough
     }
+
+    // KnotchSkyLightWindow.canBecomeMain is false (correctly, for the main
+    // notch, which must never steal main-window status system-wide while
+    // the user's using another app). This subclass is lock-screen-only —
+    // only ever shown while the screen is locked — so there's no other app
+    // whose main-window status it could steal. A confirmed-working
+    // reference project makes its lock-screen glass window both key and
+    // main (not just briefly key), which this mirrors.
+    override var canBecomeMain: Bool { true }
 }
 
 // MARK: - Root SwiftUI host
@@ -144,8 +168,9 @@ private struct LiquidGlassWidgetRoot: View {
 
 // MARK: - Controller
 
-/// NSHostingView that accepts the very first click even while its window
-/// can't become key (KnotchSkyLightWindow always returns canBecomeKey == false).
+/// NSHostingView that accepts the very first click even before the window
+/// has actually become key (there's a brief window between orderFront and
+/// the explicit makeKey() call in show() below).
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
@@ -168,6 +193,13 @@ class LiquidGlassWidgetWindowController {
                 defer: false
             )
             win.contentView = FirstMouseHostingView(rootView: LiquidGlassWidgetRoot())
+            // Re-set after the content view actually attaches — the glass's
+            // own CABackdropLayer is created around this point, and the
+            // toggle needs to happen after that layer exists to force its
+            // recreation with proper backdrop support (see init's comment).
+            win.setValue(false, forKey: "shouldAutoFlattenLayerTree")
+            win.setValue(false, forKey: "canHostLayersInWindowServer")
+            win.setValue(true, forKey: "canHostLayersInWindowServer")
             window = win
         }
 
@@ -175,14 +207,29 @@ class LiquidGlassWidgetWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
+        // Holds key/main persistently rather than the brief 50ms grab
+        // refreshGlassBackdrop() does elsewhere — this window only exists
+        // while the screen is locked (see hide()'s full-teardown comment),
+        // so there's no other app's focus to protect here.
+        win.makeKey()
+        win.makeMain()
         installClickMonitor()
     }
 
+    // Fully destroys the window rather than just hiding it — confirmed via
+    // direct testing that a freshly-created NSGlassEffectView correctly
+    // reads the current system Liquid Glass Clear/Tinted value at creation
+    // time, but a reused instance from an earlier lock doesn't update on
+    // later locks even when the system setting hasn't changed. Reusing the
+    // window (the old behavior) meant only the very first lock after app
+    // launch ever had a chance at genuinely reflecting the current setting.
     func hide() {
         guard let win = window else { return }
         removeClickMonitor()
         win.disableSkyLight()
         win.orderOut(nil)
+        win.contentView = nil
+        window = nil
     }
 
     func setClickThrough(_ passThrough: Bool) {

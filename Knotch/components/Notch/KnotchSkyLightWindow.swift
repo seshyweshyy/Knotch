@@ -13,7 +13,7 @@ import Combine
 extension SkyLightOperator {
     func undelegateWindow(_ window: NSWindow) {
         typealias F_SLSRemoveWindowsFromSpaces = @convention(c) (Int32, CFArray, CFArray) -> Int32
-        
+
         let handler = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
         guard let SLSRemoveWindowsFromSpaces = unsafeBitCast(
             dlsym(handler, "SLSRemoveWindowsFromSpaces"),
@@ -21,7 +21,7 @@ extension SkyLightOperator {
         ) else {
             return
         }
-        
+
         // Remove the window from the SkyLight space
         _ = SLSRemoveWindowsFromSpaces(
             connection,
@@ -33,7 +33,7 @@ extension SkyLightOperator {
 
 class KnotchSkyLightWindow: NSPanel {
     private var isSkyLightEnabled: Bool = false
-    
+
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -46,11 +46,11 @@ class KnotchSkyLightWindow: NSPanel {
             backing: backing,
             defer: flag
         )
-        
+
         configureWindow()
         setupObservers()
     }
-    
+
     private func configureWindow() {
         isFloatingPanel = true
         isOpaque = false
@@ -61,21 +61,21 @@ class KnotchSkyLightWindow: NSPanel {
         level = .mainMenu + 3
         hasShadow = false
         isReleasedWhenClosed = false
-        
+
         // Force dark appearance regardless of system setting
         appearance = NSAppearance(named: .darkAqua)
-        
+
         collectionBehavior = [
             .fullScreenAuxiliary,
             .stationary,
             .canJoinAllSpaces,
             .ignoresCycle,
         ]
-        
+
         // Apply initial sharing type setting
         updateSharingType()
     }
-    
+
     private func setupObservers() {
         // Listen for changes to the hideFromScreenRecording setting
         Defaults.publisher(.hideFromScreenRecording)
@@ -103,10 +103,23 @@ class KnotchSkyLightWindow: NSPanel {
         // vm.notchSize nor the corner radii were the cause (both change
         // exactly once, cleanly); it was specifically the glass material
         // catching up to geometry it already had.
+        //
+        // EXPERIMENT: holds key status for the notch's whole open duration
+        // (see holdGlassBackdropKey/releaseGlassBackdropKey) instead of the
+        // brief 50ms grab-and-release refreshGlassBackdrop() normally does.
+        // Testing whether duration, not just a momentary key transition, is
+        // what's needed for the lock-screen glass to track the system
+        // Clear/Tinted setting — a real click on the open notch (which
+        // holds key status for however long the user is actually
+        // interacting) has correlated with clear glass afterward, while a
+        // hover-only open (no real key hold at all) hasn't. This is purely
+        // diagnostic, not the intended end UX — the goal is still for this
+        // to work automatically without requiring the user to open the
+        // notch before locking.
         NotificationCenter.default
             .publisher(for: .knotchWillOpen)
             .sink { [weak self] _ in
-                self?.refreshGlassBackdrop()
+                self?.holdGlassBackdropKey()
             }
             .store(in: &observers)
 
@@ -114,11 +127,11 @@ class KnotchSkyLightWindow: NSPanel {
         NotificationCenter.default
             .publisher(for: .knotchWillClose)
             .sink { [weak self] _ in
-                self?.refreshGlassBackdrop()
+                self?.releaseGlassBackdropKey()
             }
             .store(in: &observers)
     }
-    
+
     private func updateSharingType() {
         if Defaults[.hideFromScreenRecording] {
             sharingType = .none
@@ -126,7 +139,7 @@ class KnotchSkyLightWindow: NSPanel {
             sharingType = .readOnly
         }
     }
-    
+
     func enableSkyLight() {
         if !isSkyLightEnabled {
             SkyLightOperator.shared.delegateWindow(self)
@@ -173,6 +186,31 @@ class KnotchSkyLightWindow: NSPanel {
                 self?.resignKey()
             }
         }
+    }
+
+    // EXPERIMENT — see the .knotchWillOpen subscription's comment. Takes
+    // key status and holds it (no 50ms auto-release) until
+    // releaseGlassBackdropKey() is called on close, instead of the brief
+    // grab-and-release refreshGlassBackdrop() does.
+    private var heldPreviousKeyWindow: NSWindow?
+    private var isHoldingGlassBackdropKey = false
+
+    func holdGlassBackdropKey() {
+        guard isVisible, !isHoldingGlassBackdropKey else { return }
+        heldPreviousKeyWindow = NSApp.keyWindow
+        makeKey()
+        isHoldingGlassBackdropKey = (heldPreviousKeyWindow !== self)
+    }
+
+    func releaseGlassBackdropKey() {
+        guard isHoldingGlassBackdropKey else { return }
+        isHoldingGlassBackdropKey = false
+        if let heldPreviousKeyWindow {
+            heldPreviousKeyWindow.makeKey()
+        } else {
+            resignKey()
+        }
+        heldPreviousKeyWindow = nil
     }
 
     private var observers: Set<AnyCancellable> = []

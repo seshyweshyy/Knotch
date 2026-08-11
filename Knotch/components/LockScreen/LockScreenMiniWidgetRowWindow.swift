@@ -20,12 +20,12 @@ import Combine
 import Defaults
 import SwiftUI
 
-/// How the mini-widget row renders each pill. `.glassCapsules` is prone to
-/// looking permanently frosted rather than truly glassy — NSGlassEffectView
-/// (public modifier or the notch's own hand-configured wrapper alike)
-/// doesn't seem to get a live backdrop feed on a SkyLight-delegated window,
-/// so `.floatingText` exists as a reliable fallback that doesn't depend on
-/// any backdrop-sampling material at all.
+/// How the mini-widget row renders each pill. `.glassCapsules` uses
+/// KnotchLiquidGlass with adaptiveAppearance: true (see that file), which
+/// is confirmed necessary (though not yet confirmed sufficient on its own)
+/// for the glass to track the system Liquid Glass Clear/Tinted setting.
+/// `.floatingText` remains as a fallback that doesn't depend on any
+/// backdrop material at all.
 enum MiniWidgetAppearanceStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case glassCapsules = "Glass Capsules"
     case floatingText = "Floating Text"
@@ -221,6 +221,7 @@ private struct LockScreenMiniWidgetPill: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(pillBackground)
+                    .environment(\.controlActiveState, .active)
             case .floatingText:
                 // Same padding as the glass-capsule case (just no
                 // capsule/material behind it) — without it the text has no
@@ -249,9 +250,10 @@ private struct LockScreenMiniWidgetPill: View {
     @ViewBuilder
     private var pillBackground: some View {
         if #available(macOS 26.0, *) {
-            Capsule()
-                .fill(.clear)
-                .glassEffect(.regular, in: .capsule)
+            // adaptiveAppearance: true, style: 0 (.regular) — see
+            // KnotchLiquidGlass.swift and LiquidGlassMusicWidget.swift's
+            // matching usage.
+            KnotchLiquidGlass(shape: .capsule, adaptiveAppearance: true, style: 0)
         } else {
             Capsule()
                 .fill(.thickMaterial)
@@ -364,6 +366,10 @@ final class LockScreenMiniWidgetRowWindowController {
             )
             win.contentView = FirstMouseMiniWidgetHostingView(rootView: LockScreenMiniWidgetRowRoot())
             win.setClickThrough(true)
+            // See LiquidGlassWidgetWindowController.show's matching comment.
+            win.setValue(false, forKey: "shouldAutoFlattenLayerTree")
+            win.setValue(false, forKey: "canHostLayersInWindowServer")
+            win.setValue(true, forKey: "canHostLayersInWindowServer")
             window = win
         }
 
@@ -371,11 +377,23 @@ final class LockScreenMiniWidgetRowWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
+        // See LiquidGlassWidgetWindowController.show's matching comment —
+        // holds key/main persistently since this window only exists while
+        // the screen is locked.
+        win.makeKey()
+        win.makeMain()
     }
 
+    // See LiquidGlassWidgetWindowController.hide's matching comment — fully
+    // destroys the window instead of just hiding it, so every lock gets a
+    // freshly-created NSGlassEffectView that correctly reads the current
+    // system Clear/Tinted setting at creation time, rather than reusing a
+    // stale instance from an earlier lock that no longer updates.
     private func hide() {
         guard let win = window else { return }
         win.disableSkyLight()
         win.orderOut(nil)
+        win.contentView = nil
+        window = nil
     }
 }

@@ -1,15 +1,46 @@
 import AppKit
 import SwiftUI
 
+/// Reads macOS's live system-wide Liquid Glass Clear↔Tinted preference
+/// directly — `NSGlassTintAmount` in the global preferences domain,
+/// confirmed via `defaults read -g NSGlassTintAmount` to update live the
+/// moment the System Settings slider moves (0 = fully Clear, higher = more
+/// Tinted). `NSGlassEffectView`'s own `_adaptiveAppearance` tracking of
+/// this value turned out unreliable specifically on the lock screen's
+/// SkyLight-delegated windows (extensively confirmed across many private-
+/// API approaches — see the project_adaptive_appearance_glass_fix memory),
+/// so the lock-screen glass reads this directly and drives its own overlay
+/// from it instead of depending on that tracking.
+enum KnotchSystemGlassTint {
+    static var currentAmount: Double {
+        UserDefaults.standard.double(forKey: "NSGlassTintAmount")
+    }
+}
 
 struct KnotchLiquidGlass: NSViewRepresentable {
     enum GlassShape {
         case notch(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat)
         case capsule
+        case roundedRect(cornerRadius: CGFloat)
     }
 
     var variant: Int = 9
     var shape: GlassShape
+    // Whether the glass tracks the system-wide Liquid Glass Clear/Tinted
+    // accessibility setting (Settings → Appearance). Confirmed necessary via
+    // a controlled remove/re-add test: with this false, the lock-screen
+    // glass never goes clear no matter what else is done; with it true, it
+    // can. Not yet confirmed sufficient on its own — clarity was still seen
+    // to be intermittent even with this true, correlated with whether the
+    // main notch had been opened/interacted with before locking. Defaults
+    // to false to leave the main notch's already-working look untouched.
+    var adaptiveAppearance: Bool = false
+    // NSGlassEffectViewStyle: .regular (0) vs .clear (1). Defaults to .clear
+    // to preserve the main notch's already-working look. A confirmed-working
+    // reference project (LiquidGlassWidget, see git history/handoff notes)
+    // uses .regular for its lock-screen-style widget and renders genuinely
+    // visible glass — worth trying .regular at the lock-screen call sites.
+    var style: Int = 1
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -69,6 +100,7 @@ struct KnotchLiquidGlass: NSViewRepresentable {
             name: NSView.frameDidChangeNotification,
             object: glass
         )
+        context.coordinator.configureBackdropLayer()
 
         return glass
     }
@@ -77,6 +109,13 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         applyProperties(to: nsView)
         context.coordinator.shape = shape
         context.coordinator.applyPath()
+        #if DEBUG
+        // Checking whether an instance that read back _adaptiveAppearance=0
+        // in makeNSView (despite adaptiveAppearance being passed true)
+        // self-corrects on a later SwiftUI-triggered update, since
+        // applyProperties reapplies the value on every call here too.
+        print("KnotchGlassDebug: updateNSView shape=\(shape) _adaptiveAppearance=\(nsView.value(forKey: "_adaptiveAppearance") ?? "nil")")
+        #endif
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
@@ -96,16 +135,11 @@ struct KnotchLiquidGlass: NSViewRepresentable {
     // resets several of these back to its own defaults once the view is
     // actually attached to a window, which happens after makeNSView returns.
     private func applyProperties(to view: NSView) {
-        view.setValue(false, forKey: "_adaptiveAppearance")
+        view.setValue(adaptiveAppearance, forKey: "_adaptiveAppearance")
         view.setValue(0, forKey: "_scrimState")
         view.setValue(false, forKey: "_subduedState")
         view.setValue(true, forKey: "_contentLensing")
-        // Public NSGlassEffectViewStyle: .regular (0, what SwiftUI's own
-        // `.glassEffect()` modifier defaults to) is the "Standard glass
-        // effect style" — more opaque/tinted by design, which is why views
-        // using the public modifier read as frosted rather than truly
-        // glassy. .clear (1) is the fully transparent one used here.
-        view.setValue(1, forKey: "style")
+        view.setValue(style, forKey: "style")
         view.setValue(variant, forKey: "_variant")
     }
 
@@ -115,6 +149,30 @@ struct KnotchLiquidGlass: NSViewRepresentable {
 
         @objc func handleFrameChange(_ notification: Notification) {
             applyPath()
+            configureBackdropLayer()
+        }
+
+        // Per Oskar Groth's "Reverse Engineering NSVisualEffectView"
+        // (oskargroth.com/blog/reverse-engineering-nsvisualeffectview):
+        // behind-window blending's CABackdropLayer needs windowServerAware
+        // and allowsSubstituteColor set directly on itself, not just window-
+        // level flags (see LiquidGlassWidgetWindow's shouldAutoFlattenLayerTree/
+        // canHostLayersInWindowServer). allowsSubstituteColor specifically
+        // is new — without it, WindowServer reportedly shows black
+        // rectangles instead of substituting a reasonable color whenever
+        // live sampling is restricted, which could read as exactly the flat/
+        // frosted look we've been fighting.
+        func configureBackdropLayer() {
+            guard let glassView, let rootLayer = glassView.layer else { return }
+            setBackdropProperties(in: rootLayer)
+        }
+
+        private func setBackdropProperties(in layer: CALayer) {
+            if NSStringFromClass(type(of: layer)).contains("CABackdropLayer") {
+                layer.setValue(true, forKey: "windowServerAware")
+                layer.setValue(true, forKey: "allowsSubstituteColor")
+            }
+            layer.sublayers?.forEach { setBackdropProperties(in: $0) }
         }
 
         // NSGlassEffectView's edge lensing/refraction is tied to its own
@@ -133,6 +191,9 @@ struct KnotchLiquidGlass: NSViewRepresentable {
                     .path(in: view.bounds).cgPath
             case .capsule:
                 path = Capsule(style: .continuous).path(in: view.bounds).cgPath
+            case .roundedRect(let cornerRadius):
+                path = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .path(in: view.bounds).cgPath
             }
 
             // SwiftUI Path uses a top-left origin; NSGlassEffectView
