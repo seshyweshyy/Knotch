@@ -71,7 +71,11 @@ struct LiquidGlassMusicWidget: View {
 
     @ViewBuilder
     private var innerContent: some View {
-        VStack(alignment: isExpanded ? .center : .leading, spacing: 0) {
+        // Always centered — the top row's own HStack (below) is already
+        // full-width/flexible so this doesn't move it, but MusicSlotToolbar
+        // and the progress bar aren't, so a .leading guide here was pinning
+        // them to the left instead of letting them center in the 320pt card.
+        VStack(alignment: .center, spacing: 0) {
             // ── Top row ──
             HStack(alignment: .center, spacing: 12) {
                 if !isExpanded { albumArtThumbnail }
@@ -81,13 +85,23 @@ struct LiquidGlassMusicWidget: View {
                         font: .headline,
                         nsFont: .headline,
                         textColor: .white,
-                        frameWidth: isExpanded ? 260 : 180,
+                        // Narrower than the row's own available space so the
+                        // box (and its trailing edge fade) clears the waveform
+                        // overlay instead of running under it.
+                        frameWidth: isExpanded ? 210 : 190,
                         trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                        trailingIconColor: Color(white: 0.55)
+                        trailingIconColor: Color(white: 0.55),
+                        centerWhenFits: isExpanded
                     )
                     .fontWeight(.semibold)
-                    .id("title-\(isExpanded)")
-                    .edgeFade()
+                    // MarqueeText's internal GeometryReader always fills whatever
+                    // width its parent proposes rather than clamping to
+                    // frameWidth itself — without this, the .frame(maxWidth:
+                    // .infinity) below hands it the full row width, and the
+                    // correctly-centered content inside ends up pinned to the
+                    // left edge of that (rather than actually centered in the row).
+                    .frame(width: isExpanded ? 210 : 190)
+                    .edgeFade(trailing: 6)
                     MarqueeText(
                         .constant(musicManager.artistName.isEmpty ? "—" : musicManager.artistName),
                         font: .subheadline,
@@ -95,23 +109,32 @@ struct LiquidGlassMusicWidget: View {
                         textColor: playerColorTinting
                             ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
                             : Color.white.opacity(0.65),
-                        frameWidth: isExpanded ? 260 : 180
+                        frameWidth: isExpanded ? 210 : 190,
+                        centerWhenFits: isExpanded
                     )
                     .fontWeight(.medium)
-                    .id("artist-\(isExpanded)")
-                    .edgeFade()
+                    .frame(width: isExpanded ? 210 : 190)
+                    .edgeFade(trailing: 6)
                 }
-                .frame(maxWidth: .infinity)
-                Spacer()
-                AudioSpectrumView(isPlaying: $musicManager.isPlaying)
-                    .frame(width: AudioSpectrum.recommendedFrameSize.width, height: AudioSpectrum.recommendedFrameSize.height)
-                    .colorMultiply(.white)
-                    .opacity(0.50)
-                    .fixedSize()
-                    .padding(.trailing, 4)
+                // Alignment spelled out explicitly (rather than relying on
+                // default .center) so the text stays pinned leading in the
+                // collapsed row regardless of how much space this flexible
+                // frame is handed — needed now that the waveform below is an
+                // always-present overlay rather than a same-row sibling
+                // competing for space via a Spacer.
+                .frame(maxWidth: .infinity, alignment: isExpanded ? .center : .leading)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, isExpanded ? 12 : 14)
+            .padding(.horizontal, isExpanded ? 14 : 12)
+            .padding(.top, isExpanded ? 16 : 14)
+            .overlay(alignment: .trailing) {
+                // A single persistent view (not conditionally inserted per
+                // state) so its position — trailing inset and vertical offset
+                // — animates smoothly between collapsed/expanded instead of
+                // snapping via an insert/remove swap.
+                audioSpectrum
+                    .padding(.trailing, isExpanded ? 14 : 12)
+                    .offset(y: 5)
+            }
 
             // ── Progress bar ──
             TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
@@ -140,7 +163,7 @@ struct LiquidGlassMusicWidget: View {
                 withAnimation(.easeOut(duration: 0.4)) { sliderValue = target }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 4)
+            .padding(.top, isExpanded ? 0 : 4)
 
             // ── Transport controls ──
             MusicSlotToolbar(isLockScreenContext: true)
@@ -193,6 +216,15 @@ struct LiquidGlassMusicWidget: View {
             .allowsHitTesting(false)
     }
 
+    private var audioSpectrum: some View {
+        AudioSpectrumView(isPlaying: $musicManager.isPlaying)
+            .frame(width: AudioSpectrum.recommendedFrameSize.width, height: AudioSpectrum.recommendedFrameSize.height)
+            .colorMultiply(.white)
+            .opacity(0.50)
+            .fixedSize()
+            .padding(.trailing, 4)
+    }
+
     @ViewBuilder private var bottomBorderOverlay: some View {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
             .strokeBorder(LinearGradient(
@@ -212,12 +244,21 @@ struct LiquidGlassMusicWidget: View {
             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .matchedGeometryEffect(id: "albumArt", in: artNamespace)
             .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
             .blur(radius: flipBlur)
             .brightness(flipBrightness)
             .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
-            .opacity(isExpanded ? 0 : 1)
+            // Shrinks + fades in place on expand, rather than morphing into the
+            // expanded position — the expanded view fades/scales in separately
+            // (LiquidGlassWidgetRoot), so these are two independent transitions.
+            // Both scale and opacity get their own fast, explicit animation
+            // rather than riding the ambient spring — the card itself also
+            // slides down as part of that same spring (the root's bottom
+            // Spacer shrinks on expand), and letting the thumbnail's shrink
+            // stretch across that whole slower transaction was what made it
+            // look like the art was drifting downward as it shrank; finishing
+            // quickly, before the card has moved far, avoids that.
+            .transition(.scale(scale: 0.35, anchor: .center).animation(.easeOut(duration: 0.22)).combined(with: .opacity.animation(.easeOut(duration: 0.22))))
             .allowsHitTesting(false)
             .background(
                 GeometryReader { proxy in

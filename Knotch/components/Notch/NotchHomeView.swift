@@ -1249,7 +1249,15 @@ struct CustomSlider: View {
             // fill linearly over that same interval turns the once-per-tick jump
             // into continuous motion instead of a snap. Skipped while dragging so
             // the thumb tracks the cursor immediately.
-            .animation(dragging ? nil : .linear(duration: 0.5), value: value)
+            //
+            // Keyed on filledTrackWidth (not just value) so a width change from
+            // an ancestor's own animation (e.g. the lock-screen widget's expand/
+            // collapse spring resizing this view's container) also falls inside
+            // this animation's tracked scope — otherwise .animation(value:)
+            // silently opts everything BUT `value` changes out of animating at
+            // all, so a width-only change snapped instantly instead of easing,
+            // which read as the fill flashing/disappearing mid-transition.
+            .animation(dragging ? nil : .linear(duration: 0.5), value: filledTrackWidth)
         }
     }
 }

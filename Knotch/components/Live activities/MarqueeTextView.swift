@@ -127,11 +127,29 @@ struct MarqueeText: View {
     }
 
     var body: some View {
-        if centerWhenFits {
-            centeringBody
-        } else {
-            defaultBody
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                measurementProbe
+                if needsScrolling {
+                    scrollingPair
+                } else {
+                    restingText
+                }
+            }
+            .frame(width: frameWidth, alignment: .leading)
+            .offset(x: centeringOffset)
+            .clipped()
         }
+        .frame(height: textSize.height * 1.3)
+    }
+
+    // Slides resting text into a centered position within frameWidth via a
+    // plain numeric offset instead of switching the frame's `alignment:` —
+    // alignment is a discrete value SwiftUI can't interpolate mid-animation
+    // (it jumps instantly), while an offset is a CGFloat and animates smoothly.
+    private var centeringOffset: CGFloat {
+        guard centerWhenFits, !needsScrolling else { return 0 }
+        return max(0, (frameWidth - textSize.width) / 2)
     }
 
     // Measures the text's true natural width, independent of whichever of
@@ -201,40 +219,4 @@ struct MarqueeText: View {
             .background(backgroundColor)
     }
 
-    private var defaultBody: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                measurementProbe
-                if needsScrolling {
-                    scrollingPair
-                } else {
-                    restingText
-                }
-            }
-            .frame(width: frameWidth, alignment: .leading)
-            .clipped()
-        }
-        .frame(height: textSize.height * 1.3)
-    }
-
-    // Used only when centerWhenFits is on (currently just the closed-notch
-    // music sneak peek row) — everywhere else keeps defaultBody untouched.
-    private var centeringBody: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: needsScrolling ? .leading : .center) {
-                measurementProbe
-                // Text that fits doesn't need a second scrolling copy — showing
-                // just one lets the ZStack center it instead of centering the
-                // wider (mostly invisible) scrolling pair.
-                if needsScrolling {
-                    scrollingPair
-                } else {
-                    restingText
-                }
-            }
-            .frame(width: frameWidth, alignment: needsScrolling ? .leading : .center)
-            .clipped()
-        }
-        .frame(height: textSize.height * 1.3)
-    }
 }
