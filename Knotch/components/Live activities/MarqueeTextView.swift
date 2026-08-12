@@ -141,6 +141,17 @@ struct MarqueeText: View {
             .clipped()
         }
         .frame(height: textSize.height * 1.3)
+        // Forces every layout consequence of a text change — the
+        // measurement probe's textSize update, and everything that derives
+        // from it (this frame's height, centeringOffset, the scroll loop
+        // restarting) — to apply with zero interpolation, regardless of
+        // whatever ambient animation a caller has active around this view
+        // (e.g. BlurRevealText's own blur/opacity/scale pulse). Without this,
+        // that ambient animation can catch the internal resize/reflow too,
+        // which showed up as the text's glyphs visibly sliding into their
+        // new positions instead of the old text just cleanly disappearing
+        // and the new text appearing already laid out correctly.
+        .animation(nil, value: text)
     }
 
     // Slides resting text into a centered position within frameWidth via a
@@ -211,6 +222,14 @@ struct MarqueeText: View {
         }
     }
 
+    // No .contentTransition here (tried .opacity previously) — this Text is a
+    // concatenation of multiple runs (title + icon glued together, see
+    // styledText), and content-transitioning a concatenated Text while any
+    // animation is active anywhere in the render doesn't crossfade cleanly:
+    // it interpolates per glyph-run, which showed up as the text's letters
+    // visibly spreading/reflowing mid-transition. Icon appearance/
+    // disappearance now just rides whatever fade the caller wraps the whole
+    // MarqueeText in (see BlurRevealText) instead of animating on its own.
     private var restingText: some View {
         styledText(text)
             .font(font)

@@ -126,35 +126,39 @@ struct MusicLiveActivity: View {
                         if coordinator.expandingView.show
                             && coordinator.expandingView.type == .music
                         {
-                            MarqueeText(
-                                .constant(musicManager.songTitle),
-                                font: .body.weight(.semibold),
-                                textColor: playerColorTinting
-                                    ? Color(nsColor: musicManager.avgColor) : Color.gray,
-                                minDuration: 0.4,
-                                frameWidth: 100
-                            )
+                            BlurRevealText(musicManager.songTitle) { title in
+                                MarqueeText(
+                                    .constant(title),
+                                    font: .body.weight(.semibold),
+                                    textColor: playerColorTinting
+                                        ? Color(nsColor: musicManager.avgColor) : Color.gray,
+                                    minDuration: 0.4,
+                                    frameWidth: 100
+                                )
+                            }
                             .opacity(
                                 (coordinator.expandingView.show
                                     && sneakPeekStyles == .inline)
                                     ? 1 : 0
                             )
                             Spacer(minLength: vm.closedNotchSize.width)
-                            Text(musicManager.artistName)
-                                .fontWeight(.semibold)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .foregroundStyle(
-                                    playerColorTinting
-                                        ? Color(nsColor: musicManager.avgColor)
-                                        : Color.gray
-                                )
-                                .opacity(
-                                    (coordinator.expandingView.show
-                                        && coordinator.expandingView.type == .music
-                                        && sneakPeekStyles == .inline)
-                                        ? 1 : 0
-                                )
+                            BlurRevealText(musicManager.artistName, anchor: .trailing) { artist in
+                                Text(artist)
+                                    .fontWeight(.semibold)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .foregroundStyle(
+                                        playerColorTinting
+                                            ? Color(nsColor: musicManager.avgColor)
+                                            : Color.gray
+                                    )
+                            }
+                            .opacity(
+                                (coordinator.expandingView.show
+                                    && coordinator.expandingView.type == .music
+                                    && sneakPeekStyles == .inline)
+                                    ? 1 : 0
+                            )
                         }
                     }
                 )
@@ -817,7 +821,7 @@ struct ContentView: View {
             // to 22pt at all times) was from unconditionally returning 22
             // for the whole .music family instead of just the active reveal.
             return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
-                ? 22 : activeCornerRadiusInsets.closed.bottom
+                ? 26 : activeCornerRadiusInsets.closed.bottom
         case .battery:
             // Matches the original isExpandedBatteryBanner check — only the
             // low/full-battery takeover card (not the low-power-mode toggle

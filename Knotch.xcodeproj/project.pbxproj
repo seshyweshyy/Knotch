@@ -158,6 +158,7 @@
 		61046CADF84D25D99C7D6ACC /* UpdateWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C6C82DA4496807919285F4A /* UpdateWindowController.swift */; };
 		75FF4BB7709B852C140FCB65 /* StableHoverTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCBBC9A7CF6FA9D2F3E867D3 /* StableHoverTracker.swift */; };
 		795C06C612CFB7A1230BDE89 /* EdgeFade.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5B6E4AB9ABD4E301184DA4 /* EdgeFade.swift */; };
+		CBFEECA6B73ED32203261B07 /* BlurRevealModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CDD1EF7AC76C2F03C659688 /* BlurRevealModifier.swift */; };
 		918EC14E4D0078DECC7F2B08 /* ClosedNotchRowContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83450200472535F50BFB970C /* ClosedNotchRowContent.swift */; };
 		9A0887322C7A693000C160EA /* TabButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0887312C7A693000C160EA /* TabButton.swift */; };
 		9A0887352C7AFF8E00C160EA /* TabSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0887342C7AFF8E00C160EA /* TabSelectionView.swift */; };
@@ -436,6 +437,7 @@
 		FCBBC9A7CF6FA9D2F3E867D3 /* StableHoverTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableHoverTracker.swift; sourceTree = "<group>"; };
 		FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendDevicePickerWindowManager.swift; sourceTree = "<group>"; };
 		FF5B6E4AB9ABD4E301184DA4 /* EdgeFade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeFade.swift; sourceTree = "<group>"; };
+		0CDD1EF7AC76C2F03C659688 /* BlurRevealModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurRevealModifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -902,6 +904,7 @@
 				14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */,
 				B10348D82C74E56000475897 /* ConditionalModifier.swift */,
 				0B0CC491A0E83D8760E7CA95 /* BlurTransition.swift */,
+				0CDD1EF7AC76C2F03C659688 /* BlurRevealModifier.swift */,
 				FF5B6E4AB9ABD4E301184DA4 /* EdgeFade.swift */,
 				B1FEB4982C7686630066EBBC /* PanGesture.swift */,
 				14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */,
@@ -1283,6 +1286,7 @@
 				B10348D92C74E56000475897 /* ConditionalModifier.swift in Sources */,
 				A71C73B0A6CA88822B39BE51 /* BlurTransition.swift in Sources */,
 				795C06C612CFB7A1230BDE89 /* EdgeFade.swift in Sources */,
+				CBFEECA6B73ED32203261B07 /* BlurRevealModifier.swift in Sources */,
 				118D1FD12E98FF5F00A2FF63 /* SharingStateManager.swift in Sources */,
 				14D570C22C5EAFBF0011E668 /* EmptyState.swift in Sources */,
 				118EBE252E92DCCB00D54B5A /* AssociatedObject.swift in Sources */,
@@ -1353,7 +1357,7 @@
 				INFOPLIST_FILE = KnotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = KnotchXPCHelper;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch.KnotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1391,7 +1395,7 @@
 				INFOPLIST_FILE = KnotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = KnotchXPCHelper;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = seshyweshyy.Knotch.KnotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1464,7 +1468,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1527,7 +1531,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;

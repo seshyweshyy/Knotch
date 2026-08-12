@@ -94,22 +94,26 @@ struct CompactMusicPlayerView: View {
                     musicManager.openMusicApp()
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        MarqueeText(
-                            $musicManager.songTitle,
-                            font: .system(size: 13, weight: .semibold),
-                            nsFont: .subheadline,
-                            textColor: .white,
-                            frameWidth: max(0, textAreaWidth - textLeadingInset),
-                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                            trailingIconColor: Color(white: 0.55)
-                        )
-                        Text(musicManager.artistName)
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundColor(
-                                Defaults[.playerColorTinting]
-                                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                        BlurRevealText(musicManager.songTitle) { title in
+                            MarqueeText(
+                                .constant(title),
+                                font: .system(size: 13, weight: .semibold),
+                                nsFont: .subheadline,
+                                textColor: .white,
+                                frameWidth: max(0, textAreaWidth - textLeadingInset),
+                                trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                                trailingIconColor: Color(white: 0.55)
                             )
-                            .lineLimit(1)
+                        }
+                        BlurRevealText(musicManager.artistName) { artist in
+                            Text(artist)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundColor(
+                                    Defaults[.playerColorTinting]
+                                        ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                                )
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .buttonStyle(.plain)

@@ -320,24 +320,26 @@ struct ClosedNotchRowContent: View {
                         .hidden()
                         .frame(width: 0)
                     GeometryReader { geo in
-                        MarqueeText(
-                            .constant(musicManager.songTitle + " • " + musicManager.artistName),
-                            font: .body.weight(.semibold),
-                            textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray,
-                            minDuration: 1,
-                            frameWidth: geo.size.width,
-                            dimmedSubstring: "•",
-                            dimmedColor: Color.gray.opacity(0.6),
-                            scrollSpeed: 34,
-                            leadingIcon: "music.note",
-                            leadingIconColor: Color.gray.opacity(0.6),
-                            midIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                            midIconColor: Color(white: 0.55),
-                            centerWhenFits: true,
-                            needsScrollingBinding: $sneakPeekTitleScrolling
-                        )
-                        .conditionalModifier(sneakPeekTitleScrolling) { view in
-                            view.edgeFade(leading: 6)
+                        BlurRevealText(musicManager.songTitle + " • " + musicManager.artistName, anchor: .center) { combined in
+                            MarqueeText(
+                                .constant(combined),
+                                font: .body.weight(.semibold),
+                                textColor: Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray,
+                                minDuration: 1,
+                                frameWidth: geo.size.width,
+                                dimmedSubstring: "•",
+                                dimmedColor: Color.gray.opacity(0.6),
+                                scrollSpeed: 34,
+                                leadingIcon: "music.note",
+                                leadingIconColor: Color.gray.opacity(0.6),
+                                midIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                                midIconColor: Color(white: 0.55),
+                                centerWhenFits: true,
+                                needsScrollingBinding: $sneakPeekTitleScrolling
+                            )
+                            .conditionalModifier(sneakPeekTitleScrolling) { view in
+                                view.edgeFade(leading: 6)
+                            }
                         }
                     }
                 }

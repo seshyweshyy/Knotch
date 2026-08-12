@@ -80,41 +80,45 @@ struct LiquidGlassMusicWidget: View {
             HStack(alignment: .center, spacing: 12) {
                 if !isExpanded { albumArtThumbnail }
                 VStack(alignment: isExpanded ? .center : .leading, spacing: 3) {
-                    MarqueeText(
-                        .constant(musicManager.songTitle.isEmpty ? "Not Playing" : musicManager.songTitle),
-                        font: .headline,
-                        nsFont: .headline,
-                        textColor: .white,
-                        // Narrower than the row's own available space so the
-                        // box (and its trailing edge fade) clears the waveform
-                        // overlay instead of running under it.
-                        frameWidth: isExpanded ? 210 : 190,
-                        trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                        trailingIconColor: Color(white: 0.55),
-                        centerWhenFits: isExpanded
-                    )
-                    .fontWeight(.semibold)
-                    // MarqueeText's internal GeometryReader always fills whatever
-                    // width its parent proposes rather than clamping to
-                    // frameWidth itself — without this, the .frame(maxWidth:
-                    // .infinity) below hands it the full row width, and the
-                    // correctly-centered content inside ends up pinned to the
-                    // left edge of that (rather than actually centered in the row).
-                    .frame(width: isExpanded ? 210 : 190)
-                    .edgeFade(trailing: 6)
-                    MarqueeText(
-                        .constant(musicManager.artistName.isEmpty ? "—" : musicManager.artistName),
-                        font: .subheadline,
-                        nsFont: .subheadline,
-                        textColor: playerColorTinting
-                            ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
-                            : Color.white.opacity(0.65),
-                        frameWidth: isExpanded ? 210 : 190,
-                        centerWhenFits: isExpanded
-                    )
-                    .fontWeight(.medium)
-                    .frame(width: isExpanded ? 210 : 190)
-                    .edgeFade(trailing: 6)
+                    BlurRevealText(musicManager.songTitle, anchor: isExpanded ? .center : .leading) { title in
+                        MarqueeText(
+                            .constant(title.isEmpty ? "Not Playing" : title),
+                            font: .headline,
+                            nsFont: .headline,
+                            textColor: .white,
+                            // Narrower than the row's own available space so the
+                            // box (and its trailing edge fade) clears the waveform
+                            // overlay instead of running under it.
+                            frameWidth: isExpanded ? 210 : 190,
+                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                            trailingIconColor: Color(white: 0.55),
+                            centerWhenFits: isExpanded
+                        )
+                        .fontWeight(.semibold)
+                        // MarqueeText's internal GeometryReader always fills whatever
+                        // width its parent proposes rather than clamping to
+                        // frameWidth itself — without this, the .frame(maxWidth:
+                        // .infinity) below hands it the full row width, and the
+                        // correctly-centered content inside ends up pinned to the
+                        // left edge of that (rather than actually centered in the row).
+                        .frame(width: isExpanded ? 210 : 190)
+                        .edgeFade(trailing: 6)
+                    }
+                    BlurRevealText(musicManager.artistName, anchor: isExpanded ? .center : .leading) { artist in
+                        MarqueeText(
+                            .constant(artist.isEmpty ? "—" : artist),
+                            font: .subheadline,
+                            nsFont: .subheadline,
+                            textColor: playerColorTinting
+                                ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
+                                : Color.white.opacity(0.65),
+                            frameWidth: isExpanded ? 210 : 190,
+                            centerWhenFits: isExpanded
+                        )
+                        .fontWeight(.medium)
+                        .frame(width: isExpanded ? 210 : 190)
+                        .edgeFade(trailing: 6)
+                    }
                 }
                 // Alignment spelled out explicitly (rather than relying on
                 // default .center) so the text stays pinned leading in the

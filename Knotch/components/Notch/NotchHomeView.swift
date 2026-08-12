@@ -290,27 +290,31 @@ struct MusicControlsView: View {
                     musicManager.openMusicApp()
                 } label: {
                     VStack(alignment: .leading, spacing: 0) {
-                        MarqueeText(
-                            $musicManager.songTitle,
-                            font: .headline,
-                            nsFont: .headline,
-                            textColor: .white,
-                            frameWidth: width - trailingReserve,
-                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                            trailingIconColor: Color(white: 0.55)
-                        )
-                        .edgeFade()
-                        MarqueeText(
-                            $musicManager.artistName,
-                            font: .headline,
-                            nsFont: .headline,
-                            textColor: Defaults[.playerColorTinting]
-                                ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
-                                : .gray,
-                            frameWidth: width - trailingReserve
-                        )
-                        .fontWeight(.medium)
-                        .edgeFade()
+                        BlurRevealText(musicManager.songTitle) { title in
+                            MarqueeText(
+                                .constant(title),
+                                font: .headline,
+                                nsFont: .headline,
+                                textColor: .white,
+                                frameWidth: width - trailingReserve,
+                                trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                                trailingIconColor: Color(white: 0.55)
+                            )
+                            .edgeFade()
+                        }
+                        BlurRevealText(musicManager.artistName) { artist in
+                            MarqueeText(
+                                .constant(artist),
+                                font: .headline,
+                                nsFont: .headline,
+                                textColor: Defaults[.playerColorTinting]
+                                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
+                                    : .gray,
+                                frameWidth: width - trailingReserve
+                            )
+                            .fontWeight(.medium)
+                            .edgeFade()
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -391,8 +395,15 @@ struct FavoriteControlButton: View {
         .opacity(musicManager.canFavoriteTrack ? 1 : 0.35)
     }
 
+    // Apple Music's own "favorite" action is a star, not a heart (Spotify's
+    // is a heart) — matching each app's own iconography rather than always
+    // showing one shape.
     private var iconName: String {
-        musicManager.isFavoriteTrack ? "heart.fill" : "heart"
+        let isAppleMusic = musicManager.bundleIdentifier == MediaControllerType.appleMusic.bundleIdentifier
+        if isAppleMusic {
+            return musicManager.isFavoriteTrack ? "star.fill" : "star"
+        }
+        return musicManager.isFavoriteTrack ? "heart.fill" : "heart"
     }
 
     private var iconColor: Color {

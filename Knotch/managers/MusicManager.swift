@@ -362,6 +362,8 @@ class MusicManager: ObservableObject {
         let displayTitle = hasNoActiveSource ? "Not Playing" : state.title
         let displayArtist = hasNoActiveSource ? "Not Playing" : state.artist
 
+        let trackChanged = displayTitle != self.songTitle || displayArtist != self.artistName
+
         if displayTitle != self.songTitle {
             self.songTitle = displayTitle
         }
@@ -399,7 +401,17 @@ class MusicManager: ObservableObject {
         if repeatModeChanged {
             self.repeatMode = state.repeatMode
         }
-        if state.isFavorite != self.isFavoriteTrack {
+        if trackChanged {
+            // Forced to false rather than trusting state.isFavorite for this
+            // same update — each controller's favorite check is async (e.g.
+            // SpotifyController shells out to spotify_cli), so a `true`
+            // arriving in the very same update as the title/artist change is
+            // almost certainly a stale result left over from the track that
+            // just ended, not a real answer for the new one yet. Once the
+            // async check actually completes for the new track, that arrives
+            // as its own later update and flows through the branch below.
+            self.isFavoriteTrack = false
+        } else if state.isFavorite != self.isFavoriteTrack {
             self.isFavoriteTrack = state.isFavorite
         }
         if state.isExplicit != self.isExplicitTrack {
