@@ -18,6 +18,7 @@ struct MonthGridView: View {
 
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.compactCalendarShowEventIndicators) private var showEventIndicators
+    @Default(.compactShowAllDayEvents) private var showAllDayEvents
     @State private var monthEvents: [EventModel] = []
 
     private let calendar = Calendar.current
@@ -37,13 +38,15 @@ struct MonthGridView: View {
 
     // Caps each individual day at maxIndicatorColors distinct calendar
     // colors (first-seen order for that day); reminders are always
-    // excluded, no toggle for it. A multi-day event (e.g. a week-long
-    // all-day one) marks every day it spans, not just its start day —
-    // clamped to the visible month so a long-running event can't loop for
-    // longer than that.
+    // excluded, and all-day events follow the same compactShowAllDayEvents
+    // toggle as the event list. A multi-day event (e.g. a week-long all-day
+    // one) marks every day it spans, not just its start day — clamped to
+    // the visible month so a long-running event can't loop for longer.
     private var indicatorColorsByDay: [Date: [Color]] {
         guard showEventIndicators, !monthEvents.isEmpty else { return [:] }
-        let relevantEvents = monthEvents.filter { !$0.type.isReminder }
+        let relevantEvents = monthEvents.filter {
+            !$0.type.isReminder && (showAllDayEvents || !$0.isAllDay)
+        }
         guard let monthInterval = calendar.dateInterval(of: .month, for: displayedMonth) else { return [:] }
         let monthStart = monthInterval.start
         let monthEnd = calendar.startOfDay(for: monthInterval.end.addingTimeInterval(-1))
@@ -123,7 +126,7 @@ struct MonthGridView: View {
             // A plain Grid, not LazyVGrid — rows move as one block instead of
             // popping in independently during the panel's swap transition.
             // Indicators tighten row spacing so 6-row months still fit.
-            Grid(horizontalSpacing: 0, verticalSpacing: showEventIndicators ? 0 : 1.5) {
+            Grid(horizontalSpacing: 0, verticalSpacing: showEventIndicators ? 0.5 : 1.5) {
                 GridRow {
                     ForEach(weekdaySymbols, id: \.self) { symbol in
                         Text(symbol)
@@ -218,13 +221,13 @@ struct MonthGridView: View {
                         ForEach(Array(visibleIndicatorColors.enumerated()), id: \.offset) { _, color in
                             RoundedRectangle(cornerRadius: 1)
                                 .fill(color)
-                                .frame(width: 3, height: 2)
+                                .frame(width: 3.5, height: 2)
                         }
                     }
                     .frame(height: 2)
                     // Render-only shift into the circle's empty space below
                     // the centered digit — doesn't affect Grid row sizing.
-                    .offset(y: -3)
+                    .offset(y: -2.5)
                 }
             }
             // Without this, the tap target shrinks to just the visible glyph
