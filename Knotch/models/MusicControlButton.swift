@@ -23,11 +23,11 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
     var id: String { rawValue }
 
     static let defaultLayout: [MusicControlButton] = [
-        .none,
+        .shuffle,
         .previous,
         .playPause,
         .next,
-        .none
+        .audioOutput
     ]
 
     static let minSlotCount: Int = 3
