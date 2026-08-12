@@ -195,6 +195,18 @@ class CalendarManager: ObservableObject {
         await updateEvents()
     }
 
+    // Separate from `events`/`updateEvents()`, which only cover the single
+    // selected day — the compact calendar's event-dot indicators need every
+    // event across the displayed month instead.
+    func fetchMonthEvents(for date: Date) async -> [EventModel] {
+        guard let interval = Calendar.current.dateInterval(of: .month, for: date) else { return [] }
+        let calendarIDs = Array(selectedCalendarIDs)
+        let service = calendarService
+        return await eventFetchLimiter.run {
+            await service.events(from: interval.start, to: interval.end, calendars: calendarIDs)
+        }
+    }
+
     private func updateEvents() async {
         let calendarIDs = selectedCalendars.map { $0.id }
         let startDate = currentWeekStartDate

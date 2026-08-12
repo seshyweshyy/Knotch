@@ -133,6 +133,7 @@ extension Defaults.Keys {
     static let compactShowConverterSquare = Key<Bool>("compactShowConverterSquare", default: true)
     static let compactShowReminders = Key<Bool>("compactShowReminders", default: true)
     static let compactShowAllDayEvents = Key<Bool>("compactShowAllDayEvents", default: true)
+    static let compactCalendarShowEventIndicators = Key<Bool>("compactCalendarShowEventIndicators", default: false)
 
     // MARK: Behavior
     static let minimumHoverDuration = Key<TimeInterval>("minimumHoverDuration", default: 0.3)

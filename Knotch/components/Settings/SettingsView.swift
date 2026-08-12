@@ -1510,6 +1510,11 @@ struct Compact: View {
                 }
                 .disabled(!enableCompactUI || !compactShowCalendarView)
                 .settingsHighlight(id: "Compact-Show all-day events")
+                Defaults.Toggle(key: .compactCalendarShowEventIndicators) {
+                    Text("Show event indicators")
+                }
+                .disabled(!enableCompactUI || !compactShowCalendarView)
+                .settingsHighlight(id: "Compact-Show event indicators")
             } header: {
                 Text("Calendar")
             }
