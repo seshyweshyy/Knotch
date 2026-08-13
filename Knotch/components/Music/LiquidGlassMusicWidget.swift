@@ -103,8 +103,9 @@ struct LiquidGlassMusicWidget: View {
                             // box (and its trailing edge fade) clears the waveform
                             // overlay instead of running under it.
                             frameWidth: isExpanded ? 210 : 190,
-                            trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                            trailingIconColor: .white,
+                            trailingIcons: musicManager.trackBadges(
+                                explicitColor: .white, qualityColor: Color(white: 0.7)
+                            ),
                             centerWhenFits: isExpanded
                         )
                         .fontWeight(.semibold)

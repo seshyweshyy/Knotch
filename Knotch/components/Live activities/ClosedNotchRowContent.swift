@@ -332,7 +332,7 @@ struct ClosedNotchRowContent: View {
                                 scrollSpeed: 34,
                                 leadingIcon: "music.note",
                                 leadingIconColor: Color.gray.opacity(0.6),
-                                midIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
+                                midIcon: musicManager.isExplicitTrack && Defaults[.showExplicitBadge] ? "e.square.fill" : nil,
                                 midIconColor: Color(white: 0.55),
                                 centerWhenFits: true,
                                 needsScrollingBinding: $sneakPeekTitleScrolling

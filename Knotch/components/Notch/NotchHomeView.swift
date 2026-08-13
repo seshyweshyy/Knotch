@@ -398,8 +398,9 @@ struct MusicControlsView: View {
                                 nsFont: .headline,
                                 textColor: .white,
                                 frameWidth: width - trailingReserve,
-                                trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                                trailingIconColor: Color(white: 0.55)
+                                trailingIcons: musicManager.trackBadges(
+                                    explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
+                                )
                             )
                             .edgeFade()
                         }

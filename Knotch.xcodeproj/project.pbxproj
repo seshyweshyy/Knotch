@@ -84,6 +84,7 @@
 		147163982C5D35B70068B555 /* MusicVisualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147163972C5D35B70068B555 /* MusicVisualizer.swift */; };
 		1471639A2C5D35FF0068B555 /* MusicManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147163992C5D35FF0068B555 /* MusicManager.swift */; };
 		A3D40A2A126D7B347D9FC602 /* MotionArtResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB75C887FE9BE2115A78ED5 /* MotionArtResolver.swift */; };
+		79A93B0C4E88CF27E8AF653D /* AppleMusicAudioQualityResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E7766FAD377F9CCB3F4A6AC /* AppleMusicAudioQualityResolver.swift */; };
 		1471A8592C6281BD0058408D /* KnotchWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1471A8582C6281BD0058408D /* KnotchWindow.swift */; };
 		149E0B972C737D00006418B1 /* WebcamManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149E0B962C737D00006418B1 /* WebcamManager.swift */; };
 		149E0B9A2C737D40006418B1 /* WebcamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149E0B992C737D40006418B1 /* WebcamView.swift */; };
@@ -318,6 +319,7 @@
 		147163972C5D35B70068B555 /* MusicVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicVisualizer.swift; sourceTree = "<group>"; };
 		147163992C5D35FF0068B555 /* MusicManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicManager.swift; sourceTree = "<group>"; };
 		FFB75C887FE9BE2115A78ED5 /* MotionArtResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionArtResolver.swift; sourceTree = "<group>"; };
+		4E7766FAD377F9CCB3F4A6AC /* AppleMusicAudioQualityResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicAudioQualityResolver.swift; sourceTree = "<group>"; };
 		1471A8582C6281BD0058408D /* KnotchWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchWindow.swift; sourceTree = "<group>"; };
 		149E0B962C737D00006418B1 /* WebcamManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebcamManager.swift; sourceTree = "<group>"; };
 		149E0B992C737D40006418B1 /* WebcamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebcamView.swift; sourceTree = "<group>"; };
@@ -666,6 +668,7 @@
 				112FB7342CCF16F70015238C /* NotchSpaceManager.swift */,
 				147163992C5D35FF0068B555 /* MusicManager.swift */,
 				FFB75C887FE9BE2115A78ED5 /* MotionArtResolver.swift */,
+				4E7766FAD377F9CCB3F4A6AC /* AppleMusicAudioQualityResolver.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
 				14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */,
 				B1F0A0012E60000100000001 /* BrightnessManager.swift */,
@@ -1214,6 +1217,7 @@
 				149E0B9A2C737D40006418B1 /* WebcamView.swift in Sources */,
 				1471639A2C5D35FF0068B555 /* MusicManager.swift in Sources */,
 				A3D40A2A126D7B347D9FC602 /* MotionArtResolver.swift in Sources */,
+				79A93B0C4E88CF27E8AF653D /* AppleMusicAudioQualityResolver.swift in Sources */,
 				B1B112932C6A577E00093D8F /* MouseTracker.swift in Sources */,
 				75FF4BB7709B852C140FCB65 /* StableHoverTracker.swift in Sources */,
 				4329964F2F975EB300CBBC90 /* ImageConverter.swift in Sources */,

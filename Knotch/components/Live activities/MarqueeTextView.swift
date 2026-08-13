@@ -22,6 +22,33 @@ struct MeasureSizeModifier: ViewModifier {
     }
 }
 
+// A single inline icon glued to a MarqueeText's leading/mid/trailing position —
+// either an SF Symbol or a custom template image asset (e.g. the Lossless/
+// Dolby Atmos badges, which have no system symbol equivalent).
+struct MarqueeIcon: Equatable {
+    enum Source: Equatable {
+        case system(String)
+        case asset(String)
+    }
+    let source: Source
+    let color: Color
+
+    static func system(_ name: String, color: Color) -> MarqueeIcon {
+        MarqueeIcon(source: .system(name), color: color)
+    }
+
+    static func asset(_ name: String, color: Color) -> MarqueeIcon {
+        MarqueeIcon(source: .asset(name), color: color)
+    }
+
+    fileprivate var image: Image {
+        switch source {
+        case .system(let name): Image(systemName: name)
+        case .asset(let name): Image(name).renderingMode(.template)
+        }
+    }
+}
+
 struct MarqueeText: View {
     @Binding var text: String
     let font: Font
@@ -35,8 +62,9 @@ struct MarqueeText: View {
     let scrollSpeed: CGFloat
     let leadingIcon: String?
     let leadingIconColor: Color
-    let trailingIcon: String?
-    let trailingIconColor: Color
+    // Rendered in order, each separated by a space — e.g. explicit followed
+    // by Lossless/Dolby Atmos quality badges.
+    let trailingIcons: [MarqueeIcon]
     // Inserted right before dimmedSubstring's match — e.g. for a "Title • Artist"
     // marquee, this lands right after the title, not at the very end of the string.
     // Has no effect without a matching dimmedSubstring, since that match is its anchor.
@@ -58,7 +86,7 @@ struct MarqueeText: View {
     // recomputed fresh from this on every frame — see scrollingPair.
     @State private var scrollStartDate: Date? = nil
 
-    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, trailingIcon: String? = nil, trailingIconColor: Color = .secondary, midIcon: String? = nil, midIconColor: Color = .secondary, centerWhenFits: Bool = false, needsScrollingBinding: Binding<Bool>? = nil) {
+    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, trailingIcons: [MarqueeIcon] = [], midIcon: String? = nil, midIconColor: Color = .secondary, centerWhenFits: Bool = false, needsScrollingBinding: Binding<Bool>? = nil) {
         _text = text
         self.font = font
         self.nsFont = nsFont
@@ -71,8 +99,7 @@ struct MarqueeText: View {
         self.scrollSpeed = scrollSpeed
         self.leadingIcon = leadingIcon
         self.leadingIconColor = leadingIconColor
-        self.trailingIcon = trailingIcon
-        self.trailingIconColor = trailingIconColor
+        self.trailingIcons = trailingIcons
         self.midIcon = midIcon
         self.midIconColor = midIconColor
         self.centerWhenFits = centerWhenFits
@@ -108,7 +135,7 @@ struct MarqueeText: View {
         } else {
             body = Text(string)
         }
-        guard leadingIcon != nil || trailingIcon != nil || midIcon != nil else { return body }
+        guard leadingIcon != nil || !trailingIcons.isEmpty || midIcon != nil else { return body }
 
         // Inline SF Symbols in Text render a couple points low relative to
         // the surrounding baseline — nudge everything back up so it sits
@@ -119,8 +146,8 @@ struct MarqueeText: View {
             let icon = Text(Image(systemName: leadingIcon)).foregroundColor(leadingIconColor).baselineOffset(2)
             body = icon + Text(" ").baselineOffset(2) + body
         }
-        if let trailingIcon {
-            let icon = Text(Image(systemName: trailingIcon)).foregroundColor(trailingIconColor).baselineOffset(2)
+        for trailingIcon in trailingIcons {
+            let icon = Text(trailingIcon.image).foregroundColor(trailingIcon.color).baselineOffset(2)
             body = body + Text(" ").baselineOffset(2) + icon
         }
         return body

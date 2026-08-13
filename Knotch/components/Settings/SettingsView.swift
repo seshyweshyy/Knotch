@@ -568,6 +568,9 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "LockScreen", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "LockScreen-Show on lock screen"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
             SettingsSearchEntry(tabID: "Media", title: "Display Motion Art on media views", keywords: ["motion", "art", "animated", "album", "cover"], highlightID: "Media-Display Motion Art on media views"),
+            SettingsSearchEntry(tabID: "Media", title: "Show explicit badge", keywords: ["explicit", "badge", "content", "rating"], highlightID: "Media-Show explicit badge"),
+            // Disabled alongside the Lossless/Dolby Atmos card row below (needs MusicKit / a paid Apple Developer account).
+            // SettingsSearchEntry(tabID: "Media", title: "Lossless and Dolby Atmos badges", keywords: ["lossless", "dolby", "atmos", "spatial", "audio", "quality", "badge"], highlightID: "Media-Audio quality badges"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Display expanded Motion Art on lock screen", keywords: ["motion", "art", "animated", "album", "cover", "lock screen", "expanded"], highlightID: "LockScreen-Display expanded Motion Art"),
             // Calendar
             SettingsSearchEntry(tabID: "Calendar", title: "Show calendar", keywords: ["calendar", "notch"], highlightID: "Calendar-Show calendar in notch"),
@@ -1683,8 +1686,44 @@ struct Media: View {
                     }
                 }
                 .settingsHighlight(id: "Media-Display Motion Art on media views")
+
+                Defaults.Toggle(key: .showExplicitBadge) {
+                    HStack(spacing: 6) {
+                        Text("Show explicit badge")
+                        Image(systemName: "e.square.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .settingsHighlight(id: "Media-Show explicit badge")
+
+                // Disabled: needs the MusicKit capability, which needs a paid Apple
+                // Developer account (not available right now). See the matching
+                // comment on resolveAudioQuality() in MusicManager.swift — this card
+                // row is a single uncomment away once that's in place.
+                // HStack(spacing: 12) {
+                //     AudioQualityBadgeCard(
+                //         title: "Lossless",
+                //         subtitle: "For supported Apple Music tracks",
+                //         imageName: "LosslessBadge",
+                //         isOn: Binding(
+                //             get: { Defaults[.showLosslessBadge] },
+                //             set: { Defaults[.showLosslessBadge] = $0 }
+                //         )
+                //     )
+                //     AudioQualityBadgeCard(
+                //         title: "Dolby Atmos",
+                //         subtitle: "For supported Apple Music tracks",
+                //         imageName: "DolbyAtmosBadge",
+                //         isOn: Binding(
+                //             get: { Defaults[.showDolbyAtmosBadge] },
+                //             set: { Defaults[.showDolbyAtmosBadge] = $0 }
+                //         )
+                //     )
+                // }
+                // .padding(.vertical, 4)
+                // .settingsHighlight(id: "Media-Audio quality badges")
             } header: {
-                Text("Motion Art")
+                Text("Badges & Motion Art")
             }
 
             Section {
@@ -1777,6 +1816,45 @@ struct Media: View {
             guard let bundleID = controller.bundleIdentifier else { return true }
             return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
         }
+    }
+}
+
+// A single audio-quality badge toggle, rendered as its own small card rather
+// than a plain row — pairs side by side with its counterpart (Lossless/Dolby
+// Atmos) so the two read as a matched set instead of two more list rows.
+private struct AudioQualityBadgeCard: View {
+    let title: String
+    let subtitle: String
+    let imageName: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(imageName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 15)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Toggle("", isOn: $isOn)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingsGlassPanel(cornerRadius: 12)
     }
 }
 

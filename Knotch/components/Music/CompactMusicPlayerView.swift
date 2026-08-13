@@ -101,8 +101,9 @@ struct CompactMusicPlayerView: View {
                                 nsFont: .subheadline,
                                 textColor: .white,
                                 frameWidth: max(0, textAreaWidth - textLeadingInset),
-                                trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                                trailingIconColor: Color(white: 0.55)
+                                trailingIcons: musicManager.trackBadges(
+                                    explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
+                                )
                             )
                         }
                         BlurRevealText(musicManager.artistName) { artist in

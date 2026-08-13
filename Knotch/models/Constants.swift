@@ -207,6 +207,9 @@ extension Defaults.Keys {
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
     static let motionArtMedia = Key<Bool>("motionArtMedia", default: false)
+    static let showExplicitBadge = Key<Bool>("showExplicitBadge", default: true)
+    static let showLosslessBadge = Key<Bool>("showLosslessBadge", default: true)
+    static let showDolbyAtmosBadge = Key<Bool>("showDolbyAtmosBadge", default: true)
     static let musicControlSlots = Key<[MusicControlButton]>(
         "musicControlSlots",
         default: MusicControlButton.defaultLayout

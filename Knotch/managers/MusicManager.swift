@@ -122,6 +122,10 @@ class MusicManager: ObservableObject {
     @Published var canFavoriteTrack: Bool = false
     @Published var isFavoriteTrack: Bool = false
     @Published var isExplicitTrack: Bool = false
+    // Resolved via AppleMusicAudioQualityResolver from appleMusicTrackID —
+    // only ever true for Apple Music, since no other source here exposes it.
+    @Published var isLosslessTrack: Bool = false
+    @Published var isDolbyAtmosTrack: Bool = false
 
     private var artworkData: Data? = nil
 
@@ -188,6 +192,20 @@ class MusicManager: ObservableObject {
                 )
             }
             .store(in: &cancellables)
+
+        // Lossless/Dolby Atmos detection (AppleMusicAudioQualityResolver) needs the
+        // MusicKit capability, which needs a paid Apple Developer account — not
+        // available right now. Commented out rather than removed so it's a single
+        // uncomment away once that's in place. See resolveAudioQuality() below.
+        // Publishers.CombineLatest(
+        //     Defaults.publisher(.showLosslessBadge).map(\.newValue),
+        //     Defaults.publisher(.showDolbyAtmosBadge).map(\.newValue)
+        // )
+        // .sink { [weak self] _, _ in
+        //     guard let self else { return }
+        //     self.resolveAudioQuality(bundleIdentifier: self.bundleIdentifier, trackID: self.appleMusicTrackID)
+        // }
+        // .store(in: &cancellables)
     }
 
     deinit {
@@ -394,6 +412,7 @@ class MusicManager: ObservableObject {
 
         if state.appleMusicTrackID != self.appleMusicTrackID {
             self.appleMusicTrackID = state.appleMusicTrackID
+            // resolveAudioQuality(bundleIdentifier: state.bundleIdentifier, trackID: state.appleMusicTrackID)
         }
 
         if trackChanged {
@@ -514,6 +533,47 @@ class MusicManager: ObservableObject {
             guard self.songTitle == title, self.artistName == artist else { return }
             self.lockScreenMotionArtURL = resolved
         }
+    }
+
+    // MARK: - Audio Quality Badges
+    //
+    // Disabled: needs the MusicKit capability, which needs a paid Apple
+    // Developer account (not available right now). AppleMusicAudioQualityResolver
+    // is fully implemented and ready — this is commented out rather than removed
+    // so it's a single uncomment away (here and in init() above) once that's in place.
+    // private func resolveAudioQuality(bundleIdentifier: String?, trackID: Int?) {
+    //     let showLossless = Defaults[.showLosslessBadge]
+    //     let showDolbyAtmos = Defaults[.showDolbyAtmosBadge]
+    //     guard bundleIdentifier == "com.apple.Music", let trackID, showLossless || showDolbyAtmos else {
+    //         isLosslessTrack = false
+    //         isDolbyAtmosTrack = false
+    //         return
+    //     }
+    //     Task { @MainActor in
+    //         let quality = await AppleMusicAudioQualityResolver.shared.quality(forTrackID: trackID)
+    //         // Bail if the track moved on again while the lookup was in flight.
+    //         guard self.appleMusicTrackID == trackID else { return }
+    //         self.isLosslessTrack = showLossless && quality.isLossless
+    //         self.isDolbyAtmosTrack = showDolbyAtmos && quality.isDolbyAtmos
+    //     }
+    // }
+
+    // Composes the current track's inline marquee badges. Explicit is Spotify/
+    // MediaRemote-sourced and works today; Lossless/Dolby Atmos stay commented
+    // out alongside resolveAudioQuality() above since isLosslessTrack/
+    // isDolbyAtmosTrack never become true without it.
+    func trackBadges(explicitColor: Color, qualityColor: Color) -> [MarqueeIcon] {
+        var icons: [MarqueeIcon] = []
+        if isExplicitTrack && Defaults[.showExplicitBadge] {
+            icons.append(.system("e.square.fill", color: explicitColor))
+        }
+        // if isLosslessTrack && Defaults[.showLosslessBadge] {
+        //     icons.append(.asset("LosslessBadge", color: qualityColor))
+        // }
+        // if isDolbyAtmosTrack && Defaults[.showDolbyAtmosBadge] {
+        //     icons.append(.asset("DolbyAtmosBadge", color: qualityColor))
+        // }
+        return icons
     }
 
     // MARK: - Lyrics
