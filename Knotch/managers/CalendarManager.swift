@@ -207,6 +207,20 @@ class CalendarManager: ObservableObject {
         }
     }
 
+    // Used by the compact calendar's agenda column to fall back to
+    // tomorrow's events when today has nothing left to show on the right —
+    // separate from `events`/currentWeekStartDate, which stay pinned to
+    // whatever day is currently selected.
+    func fetchDayEvents(for date: Date) async -> [EventModel] {
+        let start = Calendar.current.startOfDay(for: date)
+        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return [] }
+        let calendarIDs = Array(selectedCalendarIDs)
+        let service = calendarService
+        return await eventFetchLimiter.run {
+            await service.events(from: start, to: end, calendars: calendarIDs)
+        }
+    }
+
     private func updateEvents() async {
         let calendarIDs = selectedCalendars.map { $0.id }
         let startDate = currentWeekStartDate

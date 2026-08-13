@@ -308,13 +308,12 @@ struct CompactCalendarView: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.compactCalendarShowMonthView) private var showMonthView
     @State private var selectedDate = Date()
+    // Only fetched/shown when today's own events don't fill the agenda
+    // column — see tomorrowColumn.
+    @State private var tomorrowEvents: [EventModel] = []
 
-    // The full-size calendar view keeps completed/ended events visible but
-    // faded (CalendarEventRow/ReminderRow's own opacity handling) — with only
-    // one event row's worth of room here, a faded-but-present item just wastes
-    // that slot, so this hides them outright instead.
-    private var filteredEvents: [EventModel] {
-        EventListView.filteredEvents(events: calendarManager.events).filter { event in
+    private func filterCompactEvents(_ events: [EventModel]) -> [EventModel] {
+        EventListView.filteredEvents(events: events).filter { event in
             if event.type.isReminder && !Defaults[.compactShowReminders] {
                 return false
             }
@@ -331,12 +330,36 @@ struct CompactCalendarView: View {
         }
     }
 
+    // The full-size calendar view keeps completed/ended events visible but
+    // faded (CalendarEventRow/ReminderRow's own opacity handling) — with only
+    // one event row's worth of room here, a faded-but-present item just wastes
+    // that slot, so this hides them outright instead.
+    private var filteredEvents: [EventModel] {
+        filterCompactEvents(calendarManager.events)
+    }
+
     private var allDayEvents: [EventModel] {
         filteredEvents.filter { $0.isAllDay }
     }
 
     private var timedEvents: [EventModel] {
         filteredEvents.filter { !$0.isAllDay }
+    }
+
+    private var tomorrowDate: Date {
+        Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+    }
+
+    private var tomorrowFilteredEvents: [EventModel] {
+        filterCompactEvents(tomorrowEvents)
+    }
+
+    private var tomorrowAllDayEvents: [EventModel] {
+        tomorrowFilteredEvents.filter { $0.isAllDay }
+    }
+
+    private var tomorrowTimedEvents: [EventModel] {
+        tomorrowFilteredEvents.filter { !$0.isAllDay }
     }
 
     // Same notch-hugging pull-up the music view uses for its album art —
@@ -374,6 +397,19 @@ struct CompactCalendarView: View {
                     MonthGridView(selectedDate: $selectedDate)
                         .offset(y: -gridPullUp)
                         .padding(.bottom, -gridPullUp)
+                } else if needsTomorrowFallback {
+                    // Today's own events don't fill this column — same
+                    // weekday-line-height slot as the other branch below,
+                    // but with an actual "TMRW" label in it (right-aligned,
+                    // to read as a small callout rather than a real header)
+                    // instead of reserving it invisibly.
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text("TMRW")
+                            .font(.system(size: 12, weight: .bold, design: .default))
+                            .foregroundColor(Color(white: 0.45))
+                        tomorrowColumn
+                    }
+                    .offset(y: -14)
                 } else {
                     // Reserves an invisible copy of just the header's
                     // weekday line (not the day number below it), so the
@@ -408,6 +444,14 @@ struct CompactCalendarView: View {
         .onAppear {
             selectedDate = Date.now
             calendarManager.scheduleUpdate(for: Date.now)
+        }
+        // Fetched independently of today's own `calendarManager.events` —
+        // only actually shown once needsTomorrowFallback is true, but
+        // fetched ahead of that so it's already on hand rather than
+        // flashing empty while the request is in flight.
+        .task(id: "\(selectedDate.timeIntervalSince1970)|\(showMonthView)") {
+            guard !showMonthView else { return }
+            tomorrowEvents = await calendarManager.fetchDayEvents(for: tomorrowDate)
         }
     }
 
@@ -493,6 +537,31 @@ struct CompactCalendarView: View {
     private var hiddenEvents: [EventModel] {
         Array(showAllDaySummary ? [] : allDayEvents.dropFirst(min(allDayEvents.count, maxAllDayPills)))
             + Array(timedEvents.dropFirst(visibleTimedEvents.count + agendaEvents.count))
+    }
+
+    // Whether today has nothing left over for the agenda column, meaning
+    // it should fall back to showing tomorrow's events instead of sitting
+    // empty. maxAgendaEvents is never 0 in practice, so agendaEvents being
+    // empty already implies there's no overflow left either.
+    private var needsTomorrowFallback: Bool {
+        !showMonthView && agendaEvents.isEmpty
+    }
+
+    private var tomorrowShowAllDaySummary: Bool { tomorrowAllDayEvents.count > maxAllDayPills }
+
+    // Mirrors visibleTimedEventCount/visibleTimedEvents, but the tomorrow
+    // column has no separate left/right split to share the budget with —
+    // an all-day pill/summary here claims one of its own rows directly.
+    private var tomorrowVisibleTimedCount: Int {
+        max(0, maxAgendaEvents - (tomorrowAllDayEvents.isEmpty ? 0 : 1))
+    }
+    private var tomorrowVisibleTimedEvents: [EventModel] {
+        Array(tomorrowTimedEvents.prefix(tomorrowVisibleTimedCount))
+    }
+
+    private var tomorrowHiddenEvents: [EventModel] {
+        Array(tomorrowShowAllDaySummary ? [] : tomorrowAllDayEvents.dropFirst(min(tomorrowAllDayEvents.count, maxAllDayPills)))
+            + Array(tomorrowTimedEvents.dropFirst(tomorrowVisibleTimedEvents.count))
     }
 
     // All-day events are pinned above the timed list, rendered small as
@@ -600,6 +669,51 @@ struct CompactCalendarView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.4), value: calendarManager.events)
+        }
+    }
+
+    // Shown in the agenda column's slot instead of agendaColumn once
+    // today's own events run out — same all-day-pill-then-compact-rows
+    // shape as the left column's eventsArea, just sourced from
+    // tomorrowFilteredEvents instead of today's.
+    @ViewBuilder
+    private var tomorrowColumn: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if tomorrowShowAllDaySummary {
+                Button {
+                    if let firstAllDay = tomorrowAllDayEvents.first, let url = firstAllDay.calendarAppURL() {
+                        openURL(url)
+                    }
+                } label: {
+                    CompactAllDaySummaryRow(events: tomorrowAllDayEvents)
+                }
+                .buttonStyle(OpacityReactiveButtonStyle())
+            } else {
+                ForEach(tomorrowAllDayEvents.prefix(maxAllDayPills)) { event in
+                    Button {
+                        if let url = event.calendarAppURL() { openURL(url) }
+                    } label: {
+                        CompactAllDayPill(event: event)
+                    }
+                    .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color), isCapsule: true))
+                }
+            }
+            ForEach(tomorrowVisibleTimedEvents) { event in
+                Button {
+                    if let url = event.calendarAppURL() { openURL(url) }
+                } label: {
+                    if case .reminder(let completed) = event.type {
+                        ReminderRow(event: event, isCompleted: completed, showFullTitle: false, compactSizing: true)
+                    } else {
+                        CalendarEventRow(event: event, showFullTitle: false, compactSizing: true)
+                    }
+                }
+                .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color)))
+                .id(event.id)
+            }
+            if !tomorrowHiddenEvents.isEmpty {
+                CompactMoreEventsRow(events: tomorrowHiddenEvents)
+            }
         }
     }
 
