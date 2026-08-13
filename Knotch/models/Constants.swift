@@ -206,7 +206,7 @@ extension Defaults.Keys {
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
-    static let motionArtMedia = Key<Bool>("motionArtMedia", default: true)
+    static let motionArtMedia = Key<Bool>("motionArtMedia", default: false)
     static let musicControlSlots = Key<[MusicControlButton]>(
         "musicControlSlots",
         default: MusicControlButton.defaultLayout
@@ -217,11 +217,12 @@ extension Defaults.Keys {
     )
     static let lockScreenMusicWidget = Key<Bool>("lockScreenMusicWidget", default: true)
     static let lockScreenExpandedAlbumArt = Key<Bool>("lockScreenExpandedAlbumArt", default: true)
-    static let motionArtLockScreen = Key<Bool>("motionArtLockScreen", default: true)
+    static let motionArtLockScreen = Key<Bool>("motionArtLockScreen", default: false)
     static let keepAwakeOnExpandedArt = Key<Bool>("keepAwakeOnExpandedArt", default: true)
     static let lockScreenTimerWidget = Key<Bool>("lockScreenTimerWidget", default: true)
 
     // MARK: Lock Screen Mini-Widgets
+    static let lockScreenMiniWidgetsEnabled = Key<Bool>("lockScreenMiniWidgetsEnabled", default: true)
     static let lockScreenMiniWidgetAppearance = Key<MiniWidgetAppearanceStyle>(
         "lockScreenMiniWidgetAppearance",
         default: .glassCapsules

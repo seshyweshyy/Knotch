@@ -242,6 +242,7 @@ struct MiniWidgetWeatherMetricCard: View {
 }
 
 struct LockScreenMiniWidgetsSection: View {
+    @Default(.lockScreenMiniWidgetsEnabled) private var miniWidgetsEnabled
     @Default(.lockScreenMiniWidgetAppearance) private var appearance
     @Default(.lockScreenBatteryMiniWidget) private var batteryEnabled
     @Default(.lockScreenMiniWidgetBatteryMetric) private var batteryMetric
@@ -252,6 +253,13 @@ struct LockScreenMiniWidgetsSection: View {
         Text("Mini-Widgets")
             .font(.system(size: 15, weight: .bold))
             .padding(.leading, 4)
+
+        Section {
+            Defaults.Toggle(key: .lockScreenMiniWidgetsEnabled) {
+                Text("Show mini-widgets on lock screen")
+            }
+            .settingsHighlight(id: "LockScreen-Show mini-widgets")
+        }
 
         Section {
             HStack(spacing: 12) {
@@ -266,6 +274,8 @@ struct LockScreenMiniWidgetsSection: View {
             .padding(.vertical, 4)
             .settingsHighlight(id: "LockScreen-Mini-widget appearance")
         }
+        .disabled(!miniWidgetsEnabled)
+        .opacity(miniWidgetsEnabled ? 1 : 0.4)
 
         Section {
             LockScreenMiniWidgetToggleRow(
@@ -353,5 +363,7 @@ struct LockScreenMiniWidgetsSection: View {
         } footer: {
             Text("Shows a row of small widgets under the clock while your Mac is locked.")
         }
+        .disabled(!miniWidgetsEnabled)
+        .opacity(miniWidgetsEnabled ? 1 : 0.4)
     }
 }

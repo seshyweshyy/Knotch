@@ -801,6 +801,37 @@ struct SettingsView: View {
                 .environmentObject(highlightCoordinator)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Rendered here — above every tab's Form — rather than inline
+            // where the hover is detected, so it isn't clipped by that row's
+            // section bounds. See HoverTooltipPreferenceKey.
+            .overlayPreferenceValue(HoverTooltipPreferenceKey.self) { request in
+                GeometryReader { proxy in
+                    if let request {
+                        let anchor = proxy[request.anchor]
+                        // .position places the view's *center*, not an edge —
+                        // the old .overlay(alignment: .top) + .offset(y: -37)
+                        // put the bubble's top edge 37pt above the icon, which
+                        // for this bubble's ~39pt height puts its center about
+                        // 18pt above the icon. Approximate rather than exact
+                        // (no measured height here), but close to how it read
+                        // before.
+                        TooltipCallout(text: request.text)
+                            .fixedSize()
+                            .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .bottom)))
+                            .allowsHitTesting(false)
+                            .position(x: anchor.x, y: anchor.y - 18)
+                    }
+                }
+                // .transition only actually animates if something here wraps
+                // the state change in an animation — HoverTooltip's own
+                // .animation(value: isHovering) is scoped to its own subtree
+                // and doesn't reach across the preference-key boundary to
+                // this consuming view, so without this the bubble just
+                // popped in/out instantly. Spring rather than easeInOut so
+                // the scale reads as a deliberate pop on hover-in and
+                // shrink on hover-out, not just a plain cross-fade.
+                .animation(.spring(response: 0.28, dampingFraction: 0.62), value: request?.text)
+            }
         }
         .frame(width: 700, height: 620)
         .background(Color.clear)
@@ -1902,6 +1933,14 @@ private struct IconMenuPickerOptionRow: View {
 // MARK: - Lock Screen
 
 struct LockScreen: View {
+    // Plain `Defaults[key]` reads inside body don't establish SwiftUI
+    // observation — without these, toggling "Enable expanded album art"
+    // never re-renders the sibling rows below, so their .disabled()/.opacity()
+    // conditions stayed stuck at whatever they were on the last unrelated
+    // re-render instead of updating live.
+    @Default(.lockScreenMusicWidget) private var lockScreenMusicWidget
+    @Default(.lockScreenExpandedAlbumArt) private var lockScreenExpandedAlbumArt
+
     var body: some View {
         Form {
             Section {
@@ -1925,7 +1964,7 @@ struct LockScreen: View {
                 Defaults.Toggle(key: .lockScreenExpandedAlbumArt) {
                         Text("Enable expanded album art")
                 }
-                .disabled(!Defaults[.lockScreenMusicWidget])
+                .disabled(!lockScreenMusicWidget)
                 .settingsHighlight(id: "LockScreen-Expanded album art")
 
                 Defaults.Toggle(key: .motionArtLockScreen) {
@@ -1935,7 +1974,11 @@ struct LockScreen: View {
                             .modifier(HoverTooltip(text: "For supported album covers"))
                     }
                 }
-                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
+                .disabled(!lockScreenMusicWidget || !lockScreenExpandedAlbumArt)
+                // .disabled() alone stops interaction but Defaults.Toggle's
+                // switch keeps its full color when isOn — opacity is what
+                // actually reads as "disabled" here.
+                .opacity(lockScreenMusicWidget && lockScreenExpandedAlbumArt ? 1 : 0.4)
                 .settingsHighlight(id: "LockScreen-Display expanded Motion Art")
 
                 Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
@@ -1945,7 +1988,8 @@ struct LockScreen: View {
                             .modifier(HoverTooltip(text: "May increase battery usage"))
                     }
                 }
-                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
+                .disabled(!lockScreenMusicWidget || !lockScreenExpandedAlbumArt)
+                .opacity(lockScreenMusicWidget && lockScreenExpandedAlbumArt ? 1 : 0.4)
                 .settingsHighlight(id: "LockScreen-Keep awake expanded art")
             } header: {
                 Text("Widgets")
@@ -2261,6 +2305,25 @@ struct Appearance: View {
 
 // MARK: - Hover Tooltip
 
+// Rows inside .formStyle(.grouped) sections clip their own content to the
+// row/section bounds, so a plain .overlay positioned above the icon (the
+// original approach) got visibly cut off whenever the row sat near the top
+// of its section — there was no headroom above it before the clip boundary.
+// Preferences aren't rendering, they're a data channel, so they propagate
+// past that clipping; the anchor captured here gets read back out and
+// rendered by .overlayPreferenceValue attached higher up (on the Detail
+// column in SettingsView's body), above any Form/Section clipping.
+struct HoverTooltipPreferenceKey: PreferenceKey {
+    struct Request {
+        let text: String
+        let anchor: Anchor<CGPoint>
+    }
+    static var defaultValue: Request? = nil
+    static func reduce(value: inout Request?, nextValue: () -> Request?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
 struct HoverTooltip: ViewModifier {
     let text: String
     @State private var isHovering = false
@@ -2269,15 +2332,8 @@ struct HoverTooltip: ViewModifier {
         content
             .foregroundStyle(isHovering ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary))
             .onHover { isHovering = $0 }
-            .overlay(alignment: .top) {
-                if isHovering {
-                    TooltipCallout(text: text)
-                        .offset(y: -37)
-                        .fixedSize()
-                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottom)))
-                        .zIndex(999)
-                        .allowsHitTesting(false)
-                }
+            .anchorPreference(key: HoverTooltipPreferenceKey.self, value: .top) { anchor in
+                isHovering ? HoverTooltipPreferenceKey.Request(text: text, anchor: anchor) : nil
             }
             .animation(.easeInOut(duration: 0.15), value: isHovering)
     }

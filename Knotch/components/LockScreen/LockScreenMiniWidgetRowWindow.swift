@@ -343,11 +343,13 @@ final class LockScreenMiniWidgetRowWindowController {
     }
 
     private func refresh(preferredScreen: NSScreen? = nil) {
-        let anyWidgetEnabled = Defaults[.lockScreenBatteryMiniWidget]
+        let anyWidgetEnabled = Defaults[.lockScreenMiniWidgetsEnabled] && (
+            Defaults[.lockScreenBatteryMiniWidget]
             || Defaults[.lockScreenConnectivityMiniWidget]
             || Defaults[.lockScreenFocusMiniWidget]
             || Defaults[.lockScreenCalendarMiniWidget]
             || Defaults[.lockScreenWeatherMiniWidget]
+        )
 
         guard isScreenLocked, anyWidgetEnabled, !isAlbumArtExpanded else {
             hide()
