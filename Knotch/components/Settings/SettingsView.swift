@@ -1449,6 +1449,7 @@ struct Compact: View {
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.compactShowMusicView) var compactShowMusicView
     @Default(.compactShowCalendarView) var compactShowCalendarView
+    @Default(.compactCalendarShowMonthView) var compactCalendarShowMonthView
     @Default(.compactShowFileDropView) var compactShowFileDropView
     @Default(.compactShowQuickShareSquare) var compactShowQuickShareSquare
     @Default(.quickShareProvider) var quickShareProvider
@@ -1510,13 +1511,20 @@ struct Compact: View {
                 }
                 .disabled(!enableCompactUI || !compactShowCalendarView)
                 .settingsHighlight(id: "Compact-Show all-day events")
+                Defaults.Toggle(key: .compactCalendarShowMonthView) {
+                    Text("Month view")
+                }
+                .disabled(!enableCompactUI || !compactShowCalendarView)
+                .settingsHighlight(id: "Compact-Month view")
                 Defaults.Toggle(key: .compactCalendarShowEventIndicators) {
                     Text("Show event indicators")
                 }
-                .disabled(!enableCompactUI || !compactShowCalendarView)
+                .disabled(!enableCompactUI || !compactShowCalendarView || !compactCalendarShowMonthView)
                 .settingsHighlight(id: "Compact-Show event indicators")
             } header: {
                 Text("Calendar")
+            } footer: {
+                Text("With month view off, the space next to the day's events is used to show more of them instead of a calendar grid.")
             }
 
             Section {

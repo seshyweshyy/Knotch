@@ -306,6 +306,7 @@ struct CompactCalendarView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @Environment(\.openURL) private var openURL
     @ObservedObject private var calendarManager = CalendarManager.shared
+    @Default(.compactCalendarShowMonthView) private var showMonthView
     @State private var selectedDate = Date()
 
     // The full-size calendar view keeps completed/ended events visible but
@@ -364,13 +365,30 @@ struct CompactCalendarView: View {
                     .offset(y: -headerPullUp)
                     .padding(.bottom, -headerPullUp)
                 eventsArea
+                    .offset(y: showMonthView ? 0 : -7)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            MonthGridView(selectedDate: $selectedDate)
-                .frame(width: 148)
-                .offset(y: -gridPullUp)
-                .padding(.bottom, -gridPullUp)
+            Group {
+                if showMonthView {
+                    MonthGridView(selectedDate: $selectedDate)
+                        .offset(y: -gridPullUp)
+                        .padding(.bottom, -gridPullUp)
+                } else {
+                    // Reserves an invisible copy of just the header's
+                    // weekday line (not the day number below it), so the
+                    // agenda's first event lands level with the date
+                    // number itself rather than guessing a pixel offset.
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                            .font(.system(size: 12, weight: .bold, design: .default))
+                            .hidden()
+                        agendaColumn
+                    }
+                    .offset(y: -14)
+                }
+            }
+            .frame(width: 148)
         }
         .padding(.horizontal, 20)
         .padding(.top, 1)
@@ -433,6 +451,50 @@ struct CompactCalendarView: View {
     private let maxAllDayPills = 1
     private let maxVisibleTimedEvents = 2
 
+    // The agenda column (right side, month view off) doesn't use a flat
+    // cap like the two above — its rows are a fixed height, so instead this
+    // fills as much of its own vertical budget as actually fits. Tune
+    // agendaColumnBudget if it over/undershoots visually — CalendarEventRow
+    // and the VStack spacing in agendaColumn are what agendaRowHeight/
+    // agendaRowSpacing need to keep matching.
+    private let agendaColumnBudget: CGFloat = 100
+    private let agendaRowHeight: CGFloat = 30
+    private let agendaRowSpacing: CGFloat = 4
+    private var maxAgendaEvents: Int {
+        max(0, Int((agendaColumnBudget + agendaRowSpacing) / (agendaRowHeight + agendaRowSpacing)))
+    }
+
+    // With more than one all-day event, a single pill can only ever show one
+    // of them — swap to the icon-stack summary row instead so nothing is
+    // silently hidden, and none of the all-day events then need to fall
+    // through to the generic overflow row below.
+    private var showAllDaySummary: Bool { allDayEvents.count > maxAllDayPills }
+
+    // With the month grid on the right, an all-day pill/summary row already
+    // claims one of the budgeted rows above the timed list, so only 1 timed
+    // event (not the usual 2) fits underneath it without clipping — the
+    // grid's own height sets that budget. The agenda column doesn't share
+    // that constraint, so the left side keeps its full budget regardless of
+    // an all-day pill.
+    private var visibleTimedEventCount: Int {
+        guard showMonthView, !allDayEvents.isEmpty else { return maxVisibleTimedEvents }
+        return 1
+    }
+    private var visibleTimedEvents: [EventModel] { Array(timedEvents.prefix(visibleTimedEventCount)) }
+
+    // Only populated with month view off — the events that would otherwise
+    // sit behind the "N more" overflow row, shown instead as full rows in
+    // the space the month grid isn't using.
+    private var agendaEvents: [EventModel] {
+        guard !showMonthView else { return [] }
+        return Array(timedEvents.dropFirst(visibleTimedEvents.count).prefix(maxAgendaEvents))
+    }
+
+    private var hiddenEvents: [EventModel] {
+        Array(showAllDaySummary ? [] : allDayEvents.dropFirst(min(allDayEvents.count, maxAllDayPills)))
+            + Array(timedEvents.dropFirst(visibleTimedEvents.count + agendaEvents.count))
+    }
+
     // All-day events are pinned above the timed list, rendered small as
     // pills rather than full event rows.
     private var pillTransition: AnyTransition {
@@ -444,18 +506,6 @@ struct CompactCalendarView: View {
         if allDayEvents.isEmpty && timedEvents.isEmpty {
             emptyState
         } else {
-            // With more than one all-day event, a single pill can only ever
-            // show one of them — swap to the icon-stack summary row instead
-            // so nothing is silently hidden, and none of the all-day events
-            // then need to fall through to the generic overflow row below.
-            let showAllDaySummary = allDayEvents.count > maxAllDayPills
-            // An all-day pill/summary row already claims one of the budgeted
-            // rows above the timed list, so only 1 timed event (not the
-            // usual 2) fits underneath it without clipping.
-            let visibleTimedEventCount = allDayEvents.isEmpty ? maxVisibleTimedEvents : 1
-            let visibleTimedEvents = Array(timedEvents.prefix(visibleTimedEventCount))
-            let hiddenEvents = (showAllDaySummary ? [] : allDayEvents.dropFirst(min(allDayEvents.count, maxAllDayPills)))
-                + timedEvents.dropFirst(visibleTimedEvents.count)
             VStack(alignment: .leading, spacing: 4) {
                 if showAllDaySummary {
                     Button {
@@ -497,7 +547,11 @@ struct CompactCalendarView: View {
                     .id(event.id)
                     .transition(pillTransition)
                 }
-                if !hiddenEvents.isEmpty {
+                // In agenda mode this instead renders at the end of the
+                // agenda column, after the continuation events on the
+                // right, rather than here right after the left column's own
+                // — see agendaColumn.
+                if !hiddenEvents.isEmpty && showMonthView {
                     CompactMoreEventsRow(events: Array(hiddenEvents))
                         .id(selectedDate)
                         .transition(pillTransition)
@@ -509,6 +563,42 @@ struct CompactCalendarView: View {
             // the pills' insert/remove transitions above never had an active
             // animation to run inside. This re-wraps that later, unrelated
             // update in its own animation.
+            .animation(.easeInOut(duration: 0.4), value: calendarManager.events)
+        }
+    }
+
+    // Stands in for MonthGridView when month view is off — fills the same
+    // slot with more of the day's events, in the exact same fixed-height
+    // compactSizing rows as the left column, so this column's height is
+    // just as predictable and never grows the overall view regardless of
+    // event count.
+    @ViewBuilder
+    private var agendaColumn: some View {
+        if !agendaEvents.isEmpty || !hiddenEvents.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(agendaEvents) { event in
+                    Button {
+                        if let url = event.calendarAppURL() { openURL(url) }
+                    } label: {
+                        if case .reminder(let completed) = event.type {
+                            ReminderRow(event: event, isCompleted: completed, showFullTitle: false, compactSizing: true)
+                        } else {
+                            CalendarEventRow(event: event, showFullTitle: false, compactSizing: true)
+                        }
+                    }
+                    .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color)))
+                    .id(event.id)
+                    .transition(pillTransition)
+                }
+                // The continuation's own overflow indicator — sits after
+                // the last event shown on either side, not the left
+                // column's own (see eventsArea).
+                if !hiddenEvents.isEmpty {
+                    CompactMoreEventsRow(events: Array(hiddenEvents))
+                        .id(selectedDate)
+                        .transition(pillTransition)
+                }
+            }
             .animation(.easeInOut(duration: 0.4), value: calendarManager.events)
         }
     }
