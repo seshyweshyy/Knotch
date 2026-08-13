@@ -29,6 +29,10 @@ struct PlaybackState {
     var volume: Double = 0.5
     var isFavorite: Bool = false
     var isExplicit: Bool = false
+    // Apple Music's public catalog track ID (MediaRemote's "uniqueIdentifier"),
+    // only trusted when bundleIdentifier is com.apple.Music — used to look up
+    // motion artwork without a fuzzy title/artist search.
+    var appleMusicTrackID: Int?
 }
 
 extension PlaybackState: Equatable {

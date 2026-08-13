@@ -142,7 +142,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }.eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
-        AlbumArtBackgroundWindowController.shared.prepare(on: screen, colorPublisher: colorPublisher)
+        let motionArtPublisher = MusicManager.shared.$lockScreenMotionArtURL.eraseToAnyPublisher()
+        AlbumArtBackgroundWindowController.shared.prepare(on: screen, colorPublisher: colorPublisher, motionArtPublisher: motionArtPublisher)
         AlbumArtBackgroundWindowController.shared.setSharingType(
             Defaults[.hideFromScreenRecording] ? .none : .readOnly
         )

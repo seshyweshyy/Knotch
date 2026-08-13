@@ -567,6 +567,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "LockScreen", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "LockScreen-Keep awake expanded art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "LockScreen-Show on lock screen"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
+            SettingsSearchEntry(tabID: "Media", title: "Display Motion Art on media views", keywords: ["motion", "art", "animated", "album", "cover"], highlightID: "Media-Display Motion Art on media views"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Display expanded Motion Art on lock screen", keywords: ["motion", "art", "animated", "album", "cover", "lock screen", "expanded"], highlightID: "LockScreen-Display expanded Motion Art"),
             // Calendar
             SettingsSearchEntry(tabID: "Calendar", title: "Show calendar", keywords: ["calendar", "notch"], highlightID: "Calendar-Show calendar in notch"),
             SettingsSearchEntry(tabID: "Calendar", title: "Hide completed reminders", keywords: ["reminders", "completed", "hide"], highlightID: "Calendar-Hide completed reminders"),
@@ -1254,17 +1256,18 @@ private final class ClickThroughView: NSView {
 
 struct LoopingVideoView: NSViewRepresentable {
     let url: URL
+    // Capping decode output near the rendered size keeps the hardware
+    // decoder from doing full-source-resolution work for a thumbnail;
+    // callers rendering larger (e.g. a fullscreen background) pass a
+    // bigger cap. Harmless no-op for sources already at/under this size.
+    var maxResolution = CGSize(width: 200, height: 200)
 
     func makeNSView(context: Context) -> NSView {
         let view = ClickThroughView()
         view.wantsLayer = true
 
         let item = AVPlayerItem(url: url)
-        // These clips render at 45x45pt (168x168px source) — capping decode
-        // output to roughly that size keeps the hardware decoder from doing
-        // full-source-resolution work for a thumbnail. Harmless no-op for
-        // sources already at/under this size.
-        item.preferredMaximumResolution = CGSize(width: 200, height: 200)
+        item.preferredMaximumResolution = maxResolution
 
         let player = AVQueuePlayer()
         player.isMuted = true
@@ -1641,6 +1644,19 @@ struct Media: View {
             }
 
             Section {
+                Defaults.Toggle(key: .motionArtMedia) {
+                    HStack(spacing: 6) {
+                        Text("Display Motion Art on media views")
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .modifier(HoverTooltip(text: "For supported album covers"))
+                    }
+                }
+                .settingsHighlight(id: "Media-Display Motion Art on media views")
+            } header: {
+                Text("Motion Art")
+            }
+
+            Section {
                 Toggle("Show music live activity", isOn: $coordinator.musicLiveActivityEnabled.animation())
                     .settingsHighlight(id: "Media-Enable media player")
                 Toggle("Show sneak peek on track change", isOn: $sneakPeekOnTrackChange)
@@ -1911,6 +1927,16 @@ struct LockScreen: View {
                 }
                 .disabled(!Defaults[.lockScreenMusicWidget])
                 .settingsHighlight(id: "LockScreen-Expanded album art")
+
+                Defaults.Toggle(key: .motionArtLockScreen) {
+                    HStack(spacing: 6) {
+                        Text("Display expanded Motion Art on lock screen")
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .modifier(HoverTooltip(text: "For supported album covers"))
+                    }
+                }
+                .disabled(!Defaults[.lockScreenMusicWidget] || !Defaults[.lockScreenExpandedAlbumArt])
+                .settingsHighlight(id: "LockScreen-Display expanded Motion Art")
 
                 Defaults.Toggle(key: .keepAwakeOnExpandedArt) {
                     HStack(spacing: 6) {

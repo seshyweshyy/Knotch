@@ -324,6 +324,12 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         newPlaybackState.artist = payload.artist ?? (diff ? self.playbackState.artist : "")
         newPlaybackState.album = payload.album ?? (diff ? self.playbackState.album : "")
         newPlaybackState.duration = payload.duration ?? (diff ? self.playbackState.duration : 0)
+
+        // Only Apple Music's uniqueIdentifier is a real public catalog track ID —
+        // the same field from another app's now-playing info means something else.
+        newPlaybackState.appleMusicTrackID = resolvedBundleIdentifier == "com.apple.Music"
+            ? payload.uniqueIdentifier ?? (diff ? self.playbackState.appleMusicTrackID : nil)
+            : nil
         
         if let elapsedTime = payload.elapsedTime {
             newPlaybackState.currentTime = elapsedTime
@@ -538,6 +544,7 @@ struct NowPlayingPayload: Codable {
     let parentApplicationBundleIdentifier: String?
     let bundleIdentifier: String?
     let volume: Double?
+    let uniqueIdentifier: Int?
 }
 
 actor JSONLinesPipeHandler {

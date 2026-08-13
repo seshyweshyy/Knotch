@@ -36,6 +36,19 @@ struct LiquidGlassMusicWidget: View {
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
 
+    // Follows the Media tab's toggle (same surface as the notch popover's own
+    // small album art), independent of the Lock Screen tab's toggle that
+    // governs the expanded background/tile.
+    @Default(.motionArtMedia) private var motionArtEnabled
+    @State private var motionArtURL: URL? = nil
+    @State private var motionArtOpacity: Double = 0
+
+    private struct MotionArtTrackKey: Equatable {
+        let title: String
+        let artist: String
+        let album: String
+    }
+
     var body: some View {
         if #available(macOS 26.0, *) {
             // style: 0 (.regular) instead of the main notch's .clear — a
@@ -91,7 +104,7 @@ struct LiquidGlassMusicWidget: View {
                             // overlay instead of running under it.
                             frameWidth: isExpanded ? 210 : 190,
                             trailingIcon: musicManager.isExplicitTrack ? "e.square.fill" : nil,
-                            trailingIconColor: Color(white: 0.55),
+                            trailingIconColor: .white,
                             centerWhenFits: isExpanded
                         )
                         .fontWeight(.semibold)
@@ -242,41 +255,133 @@ struct LiquidGlassMusicWidget: View {
     }
 
     private var albumArtThumbnail: some View {
-        Image(nsImage: displayedArt)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-            .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
-            .blur(radius: flipBlur)
-            .brightness(flipBrightness)
-            .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
-            // Shrinks + fades in place on expand, rather than morphing into the
-            // expanded position — the expanded view fades/scales in separately
-            // (LiquidGlassWidgetRoot), so these are two independent transitions.
-            // Both scale and opacity get their own fast, explicit animation
-            // rather than riding the ambient spring — the card itself also
-            // slides down as part of that same spring (the root's bottom
-            // Spacer shrinks on expand), and letting the thumbnail's shrink
-            // stretch across that whole slower transaction was what made it
-            // look like the art was drifting downward as it shrank; finishing
-            // quickly, before the card has moved far, avoids that.
-            .transition(.scale(scale: 0.35, anchor: .center).animation(.easeOut(duration: 0.22)).combined(with: .opacity.animation(.easeOut(duration: 0.22))))
-            .allowsHitTesting(false)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear {
-                            onArtFrameChange(isExpanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
-                        }
-                        .onChange(of: proxy.frame(in: .named("widgetRootSpace"))) { _, newFrame in
-                            onArtFrameChange(isExpanded ? .zero : newFrame)
-                        }
-                        .onChange(of: isExpanded) { _, expanded in
-                            onArtFrameChange(expanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
-                        }
-                }
-            )
+        ZStack {
+            Image(nsImage: displayedArt)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .rotation3DEffect(.degrees(rotationDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+                .blur(radius: flipBlur)
+                .brightness(flipBrightness)
+
+            // Overlaid rather than swapped in — same frame/shape as the static
+            // art above, click-through (LoopingVideoView's hitTest returns nil
+            // at the AppKit level), and never part of the GeometryReader below,
+            // so it can't affect the reported hit-region frame the click
+            // monitor uses to detect taps on this thumbnail.
+            // Unmounted (not just faded) while paused — that actually stops
+            // the AVPlayer via LoopingVideoView's dismantleNSView, rather
+            // than leaving a still frame of video sitting on top of the art.
+            if let motionArtURL, musicManager.isPlaying {
+                LoopingVideoView(url: motionArtURL, maxResolution: CGSize(width: 168, height: 168))
+                    .id(motionArtURL)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .opacity(motionArtOpacity)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: musicManager.isPlaying)
+        .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+        // Shrinks + fades in place on expand, rather than morphing into the
+        // expanded position — the expanded view fades/scales in separately
+        // (LiquidGlassWidgetRoot), so these are two independent transitions.
+        // Both scale and opacity get their own fast, explicit animation
+        // rather than riding the ambient spring — the card itself also
+        // slides down as part of that same spring (the root's bottom
+        // Spacer shrinks on expand), and letting the thumbnail's shrink
+        // stretch across that whole slower transaction was what made it
+        // look like the art was drifting downward as it shrank; finishing
+        // quickly, before the card has moved far, avoids that.
+        .transition(.scale(scale: 0.35, anchor: .center).animation(.easeOut(duration: 0.22)).combined(with: .opacity.animation(.easeOut(duration: 0.22))))
+        .allowsHitTesting(false)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        onArtFrameChange(isExpanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
+                    }
+                    .onChange(of: proxy.frame(in: .named("widgetRootSpace"))) { _, newFrame in
+                        onArtFrameChange(isExpanded ? .zero : newFrame)
+                    }
+                    .onChange(of: isExpanded) { _, expanded in
+                        onArtFrameChange(expanded ? .zero : proxy.frame(in: .named("widgetRootSpace")))
+                    }
+            }
+        )
+        // onChange fires synchronously as part of the same state update that
+        // changes the track — unlike .task(id:), whose closure body only
+        // starts once the task gets scheduled, which lands a beat later than
+        // artFlipSignal's own (synchronous) .onChange-driven flip animation.
+        // That gap was enough for the outgoing track's video to still be
+        // visible mid-flip. Keying this on the track fields directly (not
+        // artFlipSignal, which can fire on its own schedule when artwork
+        // arrives separately from the title/artist) also avoids the earlier
+        // bug where a late flip signal cleared a video that had already
+        // resolved and shown for the new track.
+        .onChange(of: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album)) { _, _ in
+            motionArtOpacity = 0
+            motionArtURL = nil
+        }
+        .task(id: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album)) {
+            await resolveMotionArt()
+        }
+        .onChange(of: motionArtEnabled) { _, enabled in
+            if enabled {
+                Task { await resolveMotionArt() }
+            } else {
+                fadeOutMotionArt()
+            }
+        }
+    }
+
+    private func resolveMotionArt() async {
+        guard motionArtEnabled else {
+            fadeOutMotionArt()
+            return
+        }
+        let title = musicManager.songTitle
+        let artist = musicManager.artistName
+        let album = musicManager.album
+        let trackID = musicManager.appleMusicTrackID
+
+        let resolved = await MotionArtResolver.shared.motionArtURL(
+            trackID: trackID, title: title, artist: artist, album: album
+        )
+        guard !Task.isCancelled else { return }
+        guard title == musicManager.songTitle, artist == musicManager.artistName, album == musicManager.album else { return }
+
+        guard let resolved else {
+            fadeOutMotionArt()
+            return
+        }
+
+        // Don't reveal mid-flip — a fast (e.g. cached) resolution can finish
+        // while the static art's flip animation is still rotating, and the
+        // video would pop in on top of that instead of after it settles.
+        while musicManager.isFlipping {
+            try? await Task.sleep(for: .milliseconds(50))
+            if Task.isCancelled { return }
+        }
+        guard title == musicManager.songTitle, artist == musicManager.artistName, album == musicManager.album else { return }
+
+        motionArtURL = resolved
+        withAnimation(.easeInOut(duration: 0.5)) {
+            motionArtOpacity = 1
+        }
+    }
+
+    private func fadeOutMotionArt() {
+        guard motionArtURL != nil else { return }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            motionArtOpacity = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            motionArtURL = nil
+        }
     }
 }

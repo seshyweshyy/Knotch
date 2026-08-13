@@ -98,6 +98,11 @@ class MusicManager: ObservableObject {
     @Published var albumArt: NSImage = noArtworkPlaceholderImage
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
+    @Published var appleMusicTrackID: Int? = nil
+    // Resolved independently from the media view's own motion art (see
+    // AlbumArtView) so the lock screen background/expanded-art toggle can be
+    // flipped on its own without affecting the notch popover, and vice versa.
+    @Published var lockScreenMotionArtURL: URL? = nil
     @Published var isPlayerIdle: Bool = true
     @Published var animations: KnotchAnimations = .init()
     @Published var avgColor: NSColor = .white
@@ -172,6 +177,17 @@ class MusicManager: ObservableObject {
                 }
                 .store(in: &cancellables)
         }
+
+        // Re-resolve immediately when the toggle flips, rather than waiting
+        // for the next track change to pick it up.
+        Defaults.publisher(.motionArtLockScreen)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.resolveLockScreenMotionArt(
+                    title: self.songTitle, artist: self.artistName, album: self.album, trackID: self.appleMusicTrackID
+                )
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -376,6 +392,14 @@ class MusicManager: ObservableObject {
             self.album = state.album
         }
 
+        if state.appleMusicTrackID != self.appleMusicTrackID {
+            self.appleMusicTrackID = state.appleMusicTrackID
+        }
+
+        if trackChanged {
+            resolveLockScreenMotionArt(title: displayTitle, artist: displayArtist, album: state.album, trackID: state.appleMusicTrackID)
+        }
+
         if timeChanged {
             self.elapsedTime = state.currentTime
         }
@@ -472,6 +496,24 @@ class MusicManager: ObservableObject {
     /// Placeholder dislike function
     func dislikeCurrentTrack() {
         setFavorite(false)
+    }
+
+    // MARK: - Motion Art
+    private func resolveLockScreenMotionArt(title: String, artist: String, album: String, trackID: Int?) {
+        // Clear synchronously first so a track change never briefly shows the
+        // previous track's video while the new lookup is still in flight.
+        lockScreenMotionArtURL = nil
+        guard Defaults[.motionArtLockScreen], !title.isEmpty, !artist.isEmpty else {
+            return
+        }
+        Task { @MainActor in
+            let resolved = await MotionArtResolver.shared.motionArtURL(
+                trackID: trackID, title: title, artist: artist, album: album
+            )
+            // Bail if the track moved on again while the lookup was in flight.
+            guard self.songTitle == title, self.artistName == artist else { return }
+            self.lockScreenMotionArtURL = resolved
+        }
     }
 
     // MARK: - Lyrics

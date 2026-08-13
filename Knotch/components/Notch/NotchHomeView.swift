@@ -119,6 +119,16 @@ struct AlbumArtView: View {
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
 
+    @Default(.motionArtMedia) private var motionArtEnabled
+    @State private var motionArtURL: URL? = nil
+    @State private var motionArtOpacity: Double = 0
+
+    private struct MotionArtTrackKey: Equatable {
+        let title: String
+        let artist: String
+        let album: String
+    }
+
     // The placeholder icon has no "playing"/"paused" state of its own to
     // reflect — shrinking/dimming it in step with isPlaying would just read
     // as the icon itself flickering for no reason.
@@ -176,12 +186,103 @@ struct AlbumArtView: View {
         } label: {
             ZStack(alignment:.bottomTrailing) {
                 albumArtImage
+                // Unmounted (not just faded) while paused — that actually
+                // stops the AVPlayer via LoopingVideoView's dismantleNSView,
+                // and reveals the static art underneath with its existing
+                // paused dim rather than a still frame of video sitting on
+                // top of it.
+                if let motionArtURL, musicManager.isPlaying {
+                    LoopingVideoView(url: motionArtURL, maxResolution: CGSize(width: size * 3, height: size * 3))
+                        .id(motionArtURL)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size, height: size)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: activeCornerRadius))
+                        .opacity(motionArtOpacity)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
                 appIconOverlay
                     .allowsHitTesting(false)
             }
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(showsPausedLook ? 0.90 : 1)
+        // onChange fires synchronously as part of the same state update that
+        // changes the track — unlike .task(id:), whose closure body only
+        // starts once the task gets scheduled, which lands a beat later than
+        // artFlipSignal's own (synchronous) .onChange-driven flip animation.
+        // That gap was enough for the outgoing track's video to still be
+        // visible mid-flip. Keying this on the track fields directly (not
+        // artFlipSignal, which can fire on its own schedule when artwork
+        // arrives separately from the title/artist) also avoids the earlier
+        // bug where a late flip signal cleared a video that had already
+        // resolved and shown for the new track.
+        .onChange(of: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album)) { _, _ in
+            motionArtOpacity = 0
+            motionArtURL = nil
+        }
+        .task(id: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album)) {
+            await resolveMotionArt()
+        }
+        .onChange(of: motionArtEnabled) { _, enabled in
+            if enabled {
+                Task { await resolveMotionArt() }
+            } else {
+                fadeOutMotionArt()
+            }
+        }
+    }
+
+    private func resolveMotionArt() async {
+        guard motionArtEnabled else {
+            fadeOutMotionArt()
+            return
+        }
+        let title = musicManager.songTitle
+        let artist = musicManager.artistName
+        let album = musicManager.album
+        let trackID = musicManager.appleMusicTrackID
+
+        let resolved = await MotionArtResolver.shared.motionArtURL(
+            trackID: trackID, title: title, artist: artist, album: album
+        )
+        guard !Task.isCancelled else { return }
+        // The track may have changed again while the lookup was in flight.
+        guard title == musicManager.songTitle, artist == musicManager.artistName, album == musicManager.album else { return }
+
+        guard let resolved else {
+            fadeOutMotionArt()
+            return
+        }
+
+        // Don't reveal mid-flip — a fast (e.g. cached) resolution can finish
+        // while the static art's flip animation is still rotating, and the
+        // video would pop in on top of that instead of after it settles.
+        while musicManager.isFlipping {
+            try? await Task.sleep(for: .milliseconds(50))
+            if Task.isCancelled { return }
+        }
+        guard title == musicManager.songTitle, artist == musicManager.artistName, album == musicManager.album else { return }
+
+        motionArtURL = resolved
+        withAnimation(.easeInOut(duration: 0.5)) {
+            motionArtOpacity = 1
+        }
+    }
+
+    // Fades the video out before clearing the URL, rather than cutting it
+    // away instantly — the URL swap (via .id(motionArtURL)) tears down and
+    // recreates the underlying AVPlayer, so it has to happen after the fade
+    // finishes, not underneath it.
+    private func fadeOutMotionArt() {
+        guard motionArtURL != nil else { return }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            motionArtOpacity = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            motionArtURL = nil
+        }
     }
 
     private var albumArtImage: some View {

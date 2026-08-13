@@ -116,8 +116,10 @@ private struct LiquidGlassWidgetRoot: View {
                 }
                 .frame(width: geo.size.width)
 
-                // Layer 2: expanded album art
-                if isExpanded {
+                // Layer 2: expanded album art — hidden while motion art is
+                // filling the background, since that replaces this tile
+                // rather than sitting behind it.
+                if isExpanded && musicManager.lockScreenMotionArtURL == nil {
                     let artSize = min(geo.size.width, geo.size.height) * 0.42
                     ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
                         .frame(width: artSize, height: artSize)
@@ -139,6 +141,7 @@ private struct LiquidGlassWidgetRoot: View {
                 }
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.82), value: isExpanded)
+            .animation(.spring(response: 0.4, dampingFraction: 0.82), value: musicManager.lockScreenMotionArtURL)
             .onChange(of: isExpanded) { _, expanded in
                 if expanded {
                     AlbumArtBackgroundWindowController.shared.show()
