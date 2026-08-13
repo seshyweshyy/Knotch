@@ -289,13 +289,20 @@ struct CalendarView: View {
         .onChange(of: selectedDate) {
             calendarManager.scheduleUpdate(for: selectedDate)
         }
-        .onChange(of: vm.notchState) { _, _ in
-            selectedDate = Date.now
-            calendarManager.scheduleUpdate(for: Date.now)
-        }
         .onAppear {
+            // CalendarView only ever mounts while the notch is open
+            // (ContentView's `if vm.notchState == .open` gate) — there used
+            // to be a separate .onChange(of: vm.notchState) here too, but
+            // since the view can't already be mounted when the notch opens,
+            // that handler only ever fired on *close* (the view stays
+            // mounted through its own removal transition), re-running the
+            // full EventKit + reminders fetch for content about to
+            // disappear. onAppear alone covers "just opened". Setting
+            // selectedDate here is enough on its own to trigger the fetch —
+            // it differs from the @State default, so the onChange above
+            // picks it up; calling scheduleUpdate directly here too just
+            // kicked off a second, immediately-superseded fetch.
             selectedDate = Date.now
-            calendarManager.scheduleUpdate(for: Date.now)
         }
     }
 }
@@ -442,8 +449,13 @@ struct CompactCalendarView: View {
             calendarManager.scheduleUpdate(for: selectedDate)
         }
         .onAppear {
+            // Setting selectedDate is enough on its own — it differs from
+            // the @State default, so the onChange above already fires the
+            // fetch. Calling scheduleUpdate directly here too just kicked
+            // off a second, duplicate EventKit + reminders fetch on every
+            // appear (every swipe onto this compact page), with the first
+            // result thrown away once the second landed a moment later.
             selectedDate = Date.now
-            calendarManager.scheduleUpdate(for: Date.now)
         }
         // Fetched independently of today's own `calendarManager.events` —
         // only actually shown once needsTomorrowFallback is true, but

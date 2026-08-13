@@ -109,13 +109,6 @@ struct KnotchLiquidGlass: NSViewRepresentable {
         applyProperties(to: nsView)
         context.coordinator.shape = shape
         context.coordinator.applyPath()
-        #if DEBUG
-        // Checking whether an instance that read back _adaptiveAppearance=0
-        // in makeNSView (despite adaptiveAppearance being passed true)
-        // self-corrects on a later SwiftUI-triggered update, since
-        // applyProperties reapplies the value on every call here too.
-        print("KnotchGlassDebug: updateNSView shape=\(shape) _adaptiveAppearance=\(nsView.value(forKey: "_adaptiveAppearance") ?? "nil")")
-        #endif
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
