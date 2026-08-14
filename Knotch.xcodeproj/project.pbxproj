@@ -146,6 +146,7 @@
 		43A454143002A66E00B9ABC3 /* SystemTimerProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* SystemTimerProvider.swift */; };
 		43ADED322F99E14300060F82 /* AlbumArtBackgroundWindow in Frameworks */ = {isa = PBXBuildFile; productRef = 43ADED312F99E14300060F82 /* AlbumArtBackgroundWindow */; };
 		43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */; };
+		720E8815DC7771D7C5F4E033 /* AirPodsProximityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE50A15B22C66938725BFEC /* AirPodsProximityMonitor.swift */; };
 		43B1966B2F96DF4B00D97335 /* Knotch.icon in Resources */ = {isa = PBXBuildFile; fileRef = 43B1966A2F96DF4B00D97335 /* Knotch.icon */; };
 		43B21FA42F9DAF070057E099 /* DisplaySleepPreventer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B21FA32F9DAF050057E099 /* DisplaySleepPreventer.swift */; };
 		43D11EA92F978592007FECCE /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 43D11EA82F978592007FECCE /* ZIPFoundation */; };
@@ -381,6 +382,7 @@
 		43A141952FA2D8D4007AF2AE /* volume_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = volume_animation.json; sourceTree = "<group>"; };
 		43A141972FA2FC61007AF2AE /* display_animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = display_animation.json; sourceTree = "<group>"; };
 		43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothAudioManager.swift; sourceTree = "<group>"; };
+		2CE50A15B22C66938725BFEC /* AirPodsProximityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPodsProximityMonitor.swift; sourceTree = "<group>"; };
 		43B1966A2F96DF4B00D97335 /* Knotch.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Knotch.icon; sourceTree = "<group>"; };
 		43B21FA32F9DAF050057E099 /* DisplaySleepPreventer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySleepPreventer.swift; sourceTree = "<group>"; };
 		43B648042F93EF4A0017C00A /* Knotch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Knotch.entitlements; sourceTree = "<group>"; };
@@ -659,6 +661,7 @@
 				FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */,
 				64C6A694BD484FC791FE3647 /* MediaOutputPopoverWindowManager.swift */,
 				43ADED332F9A160400060F82 /* BluetoothAudioManager.swift */,
+				2CE50A15B22C66938725BFEC /* AirPodsProximityMonitor.swift */,
 				F033F9AC62494E578B2143F2 /* WeatherManager.swift */,
 				DF5470AA8DF5E71AD8C8CFAA /* AirDropReceiveManager.swift */,
 				FA717D92AE2348EE8A2217E0 /* FocusModeManager.swift */,
@@ -1275,6 +1278,7 @@
 				43A1418F2FA2B0DE007AF2AE /* HUDLottieView.swift in Sources */,
 				1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */,
 				43ADED342F9A160500060F82 /* BluetoothAudioManager.swift in Sources */,
+				720E8815DC7771D7C5F4E033 /* AirPodsProximityMonitor.swift in Sources */,
 				C5E19B3E46657CFA91A6F11C /* AirDropReceiveManager.swift in Sources */,
 				BEC97ABCBC8DE8C84B68B843 /* KnotchUpdateUserDriver.swift in Sources */,
 				08AFF8DBC768D09C4087E7DF /* UpdateFlowState.swift in Sources */,

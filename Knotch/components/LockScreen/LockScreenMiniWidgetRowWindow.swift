@@ -37,6 +37,7 @@ enum MiniWidgetAppearanceStyle: String, CaseIterable, Identifiable, Defaults.Ser
 private struct LockScreenMiniWidgetRowRoot: View {
     @ObservedObject var battery = BatteryStatusViewModel.shared
     @ObservedObject var bluetooth = BluetoothAudioManager.shared
+    @ObservedObject var airpodsProximity = AirPodsProximityMonitor.shared
     @ObservedObject var focus = FocusModeManager.shared
     @ObservedObject var calendarManager = CalendarManager.shared
     @ObservedObject var weather = WeatherManager.shared
@@ -76,10 +77,17 @@ private struct LockScreenMiniWidgetRowRoot: View {
                             )
                         }
                         if connectivityEnabled, let device = bluetooth.connectedDevice {
-                            LockScreenMiniWidgetPill(
-                                systemImage: device.icon,
-                                text: connectivityText(for: device)
-                            )
+                            if let activeBud = airpodsProximity.activeBud {
+                                LockScreenMiniWidgetPill(
+                                    systemImage: activeBud.iconName,
+                                    text: activeBud.batteryLevel.map { "\($0)%" } ?? device.name
+                                )
+                            } else {
+                                LockScreenMiniWidgetPill(
+                                    systemImage: device.icon,
+                                    text: connectivityText(for: device, fallbackLevel: airpodsProximity.combinedBatteryLevel)
+                                )
+                            }
                         }
                         if focusEnabled, focus.isActive {
                             LockScreenMiniWidgetPill(
@@ -166,9 +174,14 @@ private struct LockScreenMiniWidgetRowRoot: View {
         }
     }
 
-    private func connectivityText(for device: ConnectedBluetoothDevice) -> String {
-        guard let level = device.batteryLevel else { return device.name }
-        return "\(device.name) \(level)%"
+    /// Prefers a bare percentage over the device name — the icon already
+    /// says which device this is, so the name is redundant once a battery
+    /// level is known. `fallbackLevel` is AirPodsProximityMonitor's live BLE
+    /// reading, tried when BluetoothAudioManager's paired-device tiers
+    /// (registry/cache/system_profiler/pmset) all came up empty.
+    private func connectivityText(for device: ConnectedBluetoothDevice, fallbackLevel: Int?) -> String {
+        guard let level = device.batteryLevel ?? fallbackLevel else { return device.name }
+        return "\(level)%"
     }
 
     private func calendarText(for event: EventModel) -> String {
@@ -320,6 +333,9 @@ final class LockScreenMiniWidgetRowWindowController {
 
     func screenDidLock(on screen: NSScreen) {
         isScreenLocked = true
+        if Defaults[.lockScreenConnectivityMiniWidget] {
+            AirPodsProximityMonitor.shared.startScanning()
+        }
         WeatherManager.shared.refreshIfNeeded()
         // CalendarManager.events only ever gets fetched when the notch's own
         // calendar view or the Settings Calendar tab has appeared — neither
@@ -335,6 +351,7 @@ final class LockScreenMiniWidgetRowWindowController {
 
     func screenDidUnlock() {
         isScreenLocked = false
+        AirPodsProximityMonitor.shared.stopScanning()
         refresh()
     }
 
