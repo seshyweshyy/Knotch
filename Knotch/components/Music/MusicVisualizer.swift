@@ -19,7 +19,7 @@ import SwiftUI
 enum AudioSpectrum {
     static let scale: CGFloat = 1.15
     private static let baseBarWidth: CGFloat = 2.1
-    private static let baseSpacing: CGFloat = 0.9
+    private static let baseSpacing: CGFloat = 1.5
     private static let baseTotalHeight: CGFloat = 16
 
     // Rounded to whole points so every bar's edges land on the same pixel
@@ -28,7 +28,7 @@ enum AudioSpectrum {
     // depending on subpixel position, making bars look inconsistently thick.
     static var barWidth: CGFloat { (baseBarWidth * scale).rounded() }
     static let barCount = 6
-    static var spacing: CGFloat { (baseSpacing * scale).rounded() }
+    static var spacing: CGFloat { (baseSpacing * scale * 2).rounded() / 2 }
     static var totalHeight: CGFloat { baseTotalHeight * scale }
 
     // Per-bar sensitivity exponent applied at render time, separate from
