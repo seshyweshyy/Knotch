@@ -1691,7 +1691,7 @@ struct Media: View {
                     HStack(spacing: 6) {
                         Text("Show explicit badge")
                         Image(systemName: "e.square.fill")
-                            .foregroundStyle(.secondary)
+                            .modifier(HoverTooltip(text: "For explicit language songs"))
                     }
                 }
                 .settingsHighlight(id: "Media-Show explicit badge")
