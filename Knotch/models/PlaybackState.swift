@@ -29,6 +29,12 @@ struct PlaybackState {
     var volume: Double = 0.5
     var isFavorite: Bool = false
     var isExplicit: Bool = false
+    // True for a podcast/audiobook episode rather than a music track — drives
+    // whether speed control is enabled and which sneak-peek icon shows.
+    // Only ever set true by SpotifyController (spotify:episode: URI) and
+    // NowPlayingController (bundleIdentifier == com.apple.podcasts); every
+    // other controller only ever serves music, so it defaults correctly.
+    var isPodcastContent: Bool = false
     // Apple Music's public catalog track ID (MediaRemote's "uniqueIdentifier"),
     // only trusted when bundleIdentifier is com.apple.Music — used to look up
     // motion artwork and audio quality (lossless/Dolby Atmos) without a fuzzy

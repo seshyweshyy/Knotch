@@ -27,6 +27,7 @@ class SpotifyController: MediaControllerProtocol {
     // reflect that dynamically rather than hardcoding true, so older installs
     // fall back to no favorite support instead of silently no-oping.
     var supportsFavorite: Bool { spotifyCLIURL != nil }
+    var supportsSpeedControl: Bool { spotifyCLIURL != nil }
 
     private var notificationTask: Task<Void, Never>?
 
@@ -47,6 +48,12 @@ class SpotifyController: MediaControllerProtocol {
     // directly in Spotify's own UI (not through Knotch), this falls back to
     // guessing .all, same as before spotify_cli existed.
     private var lastKnownRepeatMode: RepeatMode = .off
+
+    // spotify_cli's "speed" isn't reflected anywhere in AppleScript either, so
+    // this is fully authoritative once set, same as lastKnownRepeatMode — there's
+    // no external source to reconcile against on a fresh launch.
+    private var lastKnownSpeed: Double = 1.0
+    private static let speedCycle: [Double] = [1.0, 1.3, 1.5, 1.8, 2.0, 0.8]
 
     private var currentTrackURI: String = ""
     private var lastFavoriteCheckedURI: String = ""
@@ -143,6 +150,18 @@ class SpotifyController: MediaControllerProtocol {
         _ = await runSpotifyCLI(cliURL, ["library", favorite ? "add" : "remove", currentTrackURI])
     }
 
+    func cycleSpeed() async {
+        guard let cliURL = spotifyCLIURL else { return }
+
+        let currentIndex = Self.speedCycle.firstIndex(of: lastKnownSpeed) ?? 0
+        let nextSpeed = Self.speedCycle[(currentIndex + 1) % Self.speedCycle.count]
+
+        lastKnownSpeed = nextSpeed
+        playbackState.playbackRate = nextSpeed
+
+        _ = await runSpotifyCLI(cliURL, ["speed", String(format: "%.1f", nextSpeed)])
+    }
+
     func setVolume(_ level: Double) async {
         let clampedLevel = max(0.0, min(1.0, level))
         let volumePercentage = Int(clampedLevel * 100)
@@ -197,14 +216,15 @@ class SpotifyController: MediaControllerProtocol {
             album: currentTrackAlbum,
             currentTime: currentTime,
             duration: duration,
-            playbackRate: 1,
+            playbackRate: lastKnownSpeed,
             isShuffled: isShuffled,
             repeatMode: resolvedRepeatMode,
             lastUpdated: Date(),
             artwork: nil,
             volume: Double(volumePercentage) / 100.0,
             isFavorite: playbackState.isFavorite,
-            isExplicit: playbackState.isExplicit
+            isExplicit: playbackState.isExplicit,
+            isPodcastContent: trackURI.hasPrefix("spotify:episode:")
         )
 
         if artworkURL == lastArtworkURL, let existingArtwork = self.playbackState.artwork {

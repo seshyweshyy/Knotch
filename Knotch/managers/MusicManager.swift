@@ -138,6 +138,8 @@ class MusicManager: ObservableObject {
     @Published var canFavoriteTrack: Bool = false
     @Published var isFavoriteTrack: Bool = false
     @Published var isExplicitTrack: Bool = false
+    @Published var canControlSpeed: Bool = false
+    @Published var isPodcastContent: Bool = false
     // Resolved via AppleMusicAudioQualityResolver from appleMusicTrackID —
     // only ever true for Apple Music, since no other source here exposes it.
     @Published var isLosslessTrack: Bool = false
@@ -306,6 +308,7 @@ class MusicManager: ObservableObject {
         activeController = controller
         
         self.canFavoriteTrack = controller.supportsFavorite
+        self.canControlSpeed = controller.supportsSpeedControl
 
         // Get current state from active controller
         forceUpdate()
@@ -483,7 +486,10 @@ class MusicManager: ObservableObject {
         if state.isExplicit != self.isExplicitTrack {
             self.isExplicitTrack = state.isExplicit
         }
-        
+        if state.isPodcastContent != self.isPodcastContent {
+            self.isPodcastContent = state.isPodcastContent
+        }
+
         if volumeChanged {
             self.volume = state.volume
         }
@@ -910,7 +916,14 @@ class MusicManager: ObservableObject {
             await activeController?.toggleRepeat()
         }
     }
-    
+
+    func cycleSpeed() {
+        guard canControlSpeed else { return }
+        Task {
+            await activeController?.cycleSpeed()
+        }
+    }
+
     func togglePlay() {
         guard let controller = activeController else { return }
         let targetState = !isPlaying

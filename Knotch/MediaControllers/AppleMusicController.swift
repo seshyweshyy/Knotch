@@ -28,6 +28,10 @@ class AppleMusicController: MediaControllerProtocol {
         return true
     }
 
+    // Apple Music.app only ever serves music, never podcast/audiobook content
+    // (that's Podcasts.app, a separate app handled via NowPlayingController).
+    var supportsSpeedControl: Bool { false }
+
     private var notificationTask: Task<Void, Never>?
     
     // MARK: - Initialization
@@ -109,7 +113,9 @@ class AppleMusicController: MediaControllerProtocol {
         try? await Task.sleep(for: .milliseconds(150))
         await updatePlaybackInfo()
     }
-    
+
+    func cycleSpeed() async {}
+
     func isActive() -> Bool {
         let runningApps = NSWorkspace.shared.runningApplications
         return runningApps.contains { $0.bundleIdentifier == "com.apple.Music" }

@@ -18,6 +18,7 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
     case goBackward
     case goForward
     case audioOutput
+    case speed
     case none
 
     var id: String { rawValue }
@@ -43,7 +44,8 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         .volume,
         .goBackward,
         .goForward,
-        .audioOutput
+        .audioOutput,
+        .speed
     ]
 
     var label: String {
@@ -68,6 +70,8 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
             return "Forward 15s"
         case .audioOutput:
             return "Audio Output"
+        case .speed:
+            return "Speed"
         case .none:
             return "Empty slot"
         }
@@ -95,6 +99,8 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
             return "goforward.15"
         case .audioOutput:
             return "hifispeaker.fill"   // fallback; dynamic icon used in slotView
+        case .speed:
+            return "gauge.with.dots.needle.67percent"   // fallback; live control shows a text label instead
         case .none:
             return ""
         }

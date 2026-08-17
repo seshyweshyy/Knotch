@@ -513,6 +513,72 @@ struct FavoriteControlButton: View {
     }
 }
 
+// MARK: - Speed Control Button
+
+// Shows the current multiplier as text rather than a fixed icon — no HoverButton
+// reuse, since that's built around a single SF Symbol. Matches HoverButton's own
+// 40x40 / cornerRadius 11 hover-highlight box for visual consistency with its siblings.
+struct SpeedControlButton: View {
+    @ObservedObject var musicManager = MusicManager.shared
+    @State private var isHovering = false
+
+    private var isEnabled: Bool {
+        musicManager.canControlSpeed && musicManager.isPodcastContent
+    }
+
+    private var isNonDefault: Bool {
+        abs(musicManager.playbackRate - 1.0) > 0.001
+    }
+
+    // Deliberately not tinted by playerColorTinting/avgColor like the other
+    // controls — a glow reads better as a fixed white than shifting with
+    // every track's album art.
+    private var tintColor: Color { .white }
+
+    private var speedLabel: String {
+        let rate = musicManager.playbackRate
+        // playbackRate reports 0 while paused (confirmed live against Apple
+        // Podcasts — it's literally "not currently advancing", not "0x
+        // speed"), and speed control isn't meaningful at all when disabled.
+        // Both cases fall back to a plain 1x rather than a misleading rate.
+        guard isEnabled, rate > 0 else { return "1x" }
+        // Trims the trailing ".0" so 1x/2x don't read as 1.0x/2.0x, while
+        // fractional presets like 1.3/1.8 keep their one decimal place.
+        if rate == rate.rounded() {
+            return "\(Int(rate))x"
+        }
+        return String(format: "%.1fx", rate)
+    }
+
+    var body: some View {
+        Button {
+            MusicManager.shared.cycleSpeed()
+        } label: {
+            Rectangle()
+                .fill(.clear)
+                .contentShape(Rectangle())
+                .frame(width: 40, height: 40)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11)
+                        .fill(isHovering ? Color.gray.opacity(0.2) : .clear)
+                        .frame(width: 40, height: 40)
+                        .overlay {
+                            Text(speedLabel)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundColor(isNonDefault ? tintColor : .primary)
+                                .shadow(color: isNonDefault ? tintColor.opacity(0.8) : .clear, radius: isNonDefault ? 5 : 0)
+                                .contentTransition(.numericText())
+                                .animation(.smooth(duration: 0.25), value: musicManager.playbackRate)
+                        }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.35)
+        .onHover { hovering in isHovering = hovering }
+    }
+}
+
 private extension Array where Element == MusicControlButton {
     func padded(to length: Int, filler: MusicControlButton) -> [MusicControlButton] {
         if count >= length { return self }
@@ -917,6 +983,8 @@ struct MusicSlotToolbar: View {
                 } else {
                     AudioOutputButton()
                 }
+            case .speed:
+                SpeedControlButton()
             case .none:
                 Color.clear.frame(width: 40, height: 1)
             }

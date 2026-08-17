@@ -27,6 +27,9 @@ final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable
     }
 
     var supportsFavorite: Bool { true }
+    var supportsSpeedControl: Bool { false }
+
+    func cycleSpeed() async {}
 
     func setFavorite(_ favorite: Bool) async {
         do {

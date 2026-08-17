@@ -331,7 +331,7 @@ struct ClosedNotchRowContent: View {
                                 dimmedSubstring: "•",
                                 dimmedColor: Color.gray.opacity(0.6),
                                 scrollSpeed: 34,
-                                leadingIcon: "music.note",
+                                leadingIcon: musicManager.isPodcastContent ? "microphone.dynamic.on.stand" : "music.note",
                                 leadingIconColor: Color.gray.opacity(0.6),
                                 midIcon: musicManager.isExplicitTrack && Defaults[.showExplicitBadge] ? "e.square.fill" : nil,
                                 midIconColor: Color(white: 0.55),

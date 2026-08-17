@@ -39,6 +39,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         return bundleID == "com.apple.Music"
     }
 
+    var supportsSpeedControl: Bool { true }
+
     func setFavorite(_ favorite: Bool) async {
         let bundleID = playbackState.bundleIdentifier
         
@@ -70,6 +72,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private let MRMediaRemoteSetElapsedTimeFunction: @convention(c) (Double) -> Void
     private let MRMediaRemoteSetShuffleModeFunction: @convention(c) (Int) -> Void
     private let MRMediaRemoteSetRepeatModeFunction: @convention(c) (Int) -> Void
+    private let MRMediaRemoteSetPlaybackSpeedFunction: @convention(c) (Int) -> Void
 
     private var process: Process?
     private var pipeHandler: JSONLinesPipeHandler?
@@ -90,8 +93,10 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             let MRMediaRemoteSetShuffleModePointer = CFBundleGetFunctionPointerForName(
                 bundle, "MRMediaRemoteSetShuffleMode" as CFString),
             let MRMediaRemoteSetRepeatModePointer = CFBundleGetFunctionPointerForName(
-                bundle, "MRMediaRemoteSetRepeatMode" as CFString)
-            
+                bundle, "MRMediaRemoteSetRepeatMode" as CFString),
+            let MRMediaRemoteSetPlaybackSpeedPointer = CFBundleGetFunctionPointerForName(
+                bundle, "MRMediaRemoteSetPlaybackSpeed" as CFString)
+
         else { return nil }
 
         mediaRemoteBundle = bundle
@@ -103,6 +108,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             MRMediaRemoteSetShuffleModePointer, to: (@convention(c) (Int) -> Void).self)
         MRMediaRemoteSetRepeatModeFunction = unsafeBitCast(
             MRMediaRemoteSetRepeatModePointer, to: (@convention(c) (Int) -> Void).self)
+        MRMediaRemoteSetPlaybackSpeedFunction = unsafeBitCast(
+            MRMediaRemoteSetPlaybackSpeedPointer, to: (@convention(c) (Int) -> Void).self)
 
         Task { await setupNowPlayingObserver() }
         setupShuffleSyncObservers()
@@ -219,6 +226,31 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
     }
     
+    // Confirmed live against Apple Podcasts: MRMediaRemoteSetPlaybackSpeed is
+    // not an absolute setter — 1 steps to the next preset, 2 to the previous,
+    // through a fixed ladder (0.8, 1.0, 1.3, 1.5, 1.8, 2.0), clamping rather
+    // than wrapping at either end. To reproduce the 1x -> 1.3x -> 1.5x -> 1.8x
+    // -> 2x -> 0.8x -> 1x cycle used elsewhere, every step here is a single
+    // forward call except unwinding from the ceiling back to the floor, which
+    // needs repeated backward calls since a forward call there just clamps.
+    private static let speedCycle: [Double] = [1.0, 1.3, 1.5, 1.8, 2.0, 0.8]
+
+    func cycleSpeed() async {
+        let current = playbackState.playbackRate
+        let currentIndex = Self.speedCycle.indices.min(by: {
+            abs(Self.speedCycle[$0] - current) < abs(Self.speedCycle[$1] - current)
+        }) ?? 0
+
+        if currentIndex == Self.speedCycle.count - 2 {
+            for _ in 0..<(Self.speedCycle.count - 1) {
+                MRMediaRemoteSetPlaybackSpeedFunction(2)
+                try? await Task.sleep(for: .milliseconds(80))
+            }
+        } else {
+            MRMediaRemoteSetPlaybackSpeedFunction(1)
+        }
+    }
+
     func setVolume(_ level: Double) async {
         // MediaRemote framework doesn't provide direct volume control for the active audio session
         // As a workaround, try to control the currently active music app directly
@@ -391,6 +423,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         newPlaybackState.playbackRate = payload.playbackRate ?? (diff ? self.playbackState.playbackRate : 1.0)
         newPlaybackState.isPlaying = payload.playing ?? (diff ? self.playbackState.isPlaying : false)
         newPlaybackState.bundleIdentifier = resolvedBundleIdentifier
+        // Only confirmed source of podcast content on this generic path —
+        // see the matching field on PlaybackState.
+        newPlaybackState.isPodcastContent = resolvedBundleIdentifier == "com.apple.podcasts"
 
         newPlaybackState.volume = payload.volume ?? (diff ? self.playbackState.volume : 0.5)
 
