@@ -28,6 +28,9 @@ DerivedData/
 
 # Build output
 build/
+
+# Claude Code project-scoped skills (local tooling, not part of the app)
+.claude/skills/
 *.app
 *.dSYM
 

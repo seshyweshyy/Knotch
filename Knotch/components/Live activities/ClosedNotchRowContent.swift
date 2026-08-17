@@ -171,13 +171,14 @@ struct ClosedNotchRowContent: View {
         )
     }
 
-    // Continuously blends from restingWidth down to bareWidth as morph goes
-    // 1 -> 0 — this is the row's *actual* layout width (not just a visual
-    // scaleEffect), so the collapse genuinely narrows down to the real notch
-    // width instead of snapping straight from one family's width to another's
-    // hidden behind the blur/fade.
+    // Blends restingWidth -> bareWidth as morph goes 1 -> 0. Pinned to
+    // restingWidth (no shrink) while open though — that collapse is just the
+    // row having nothing left to show, not a family handoff that needs the
+    // squeeze motion, and the x-scaleEffect below (anchored .center) was
+    // pulling the left-edge album art rightward as it shrank otherwise.
     private var rowWidth: CGFloat {
-        bareWidth + (restingWidth - bareWidth) * morph
+        if vm.notchState == .open { return restingWidth }
+        return bareWidth + (restingWidth - bareWidth) * morph
     }
 
     var body: some View {

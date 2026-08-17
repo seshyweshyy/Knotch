@@ -26,10 +26,10 @@ let liquidPullClamp: CGFloat = 70
 // Bouncy release used everywhere the liquid pull snaps back to zero.
 let liquidReleaseSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
 
-// Drives the open transition, kept independent of liquidReleaseSpring
-// (which stays bouncier, for the gesture release feel) but matches its
-// dampingFraction for a consistent bounce strength.
-let notchOpenSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
+// Drives the open transition. Critically damped (no overshoot) — compact
+// mode's content reveal rides this same spring for its own scale/blur, so
+// an overshoot here would show as a visible mismatch between the two.
+let notchOpenSpring = Animation.spring(response: 0.40, dampingFraction: 1.0, blendDuration: 0)
 
 // Release used when the HUD edge overshoot (volume/brightness hitting 0%/100%)
 // snaps back to zero. Kept independent from liquidReleaseSpring so it can be
@@ -37,7 +37,7 @@ let notchOpenSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, bl
 let hudLimitBounceSpring = Animation.spring(response: 0.8, dampingFraction: 0.95, blendDuration: 0)
 
 // No overshoot on close — critically damped regardless of the open spring.
-let notchCloseSpring = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
+let notchCloseSpring = Animation.spring(response: 0.35, dampingFraction: 1.0, blendDuration: 0)
 
 // Drives the closed-notch row's collapse-to-notch/expand-back-out choreography
 // (ClosedNotchRowContent's rowMorph) whenever a HUD and a live activity (music/
@@ -50,6 +50,10 @@ let rowMorphSpring = Animation.spring(response: 0.42, dampingFraction: 0.82, ble
 // else (including their own collapse-in, and every other HUD/live-activity
 // swap).
 let rowMorphFastSpring = Animation.spring(response: 0.26, dampingFraction: 0.82, blendDuration: 0)
+
+// Row's own collapse when the notch opens (not a family swap) — quicker
+// than rowMorphSpring since the open panel is already fading in on top.
+let rowFadeOutOnOpenSpring = Animation.spring(response: 0.1, dampingFraction: 1.0, blendDuration: 0)
 
 // How long to wait after starting the collapse (rowMorph -> 0) before actually
 // swapping displayedRowFamily's content — timed to land once the collapsing
@@ -76,15 +80,19 @@ let windowSize: CGSize = .init(
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 39), closed: (top: 6, bottom: 14))
 let compactCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 35, bottom: 35), closed: cornerRadiusInsets.closed)
 
-// Fixed panel size for Compact UI mode — unlike the standard home view, this
-// doesn't grow/shrink with which widgets are enabled.
-let compactOpenNotchSize: CGSize = .init(width: 420, height: 160)
+// Min horizontal padding for compact pages to clear the shape's rounded
+// corners (35pt radius) — the old 20pt was less than that, so content near
+// either edge got clipped regardless of compactOpenNotchSize's width.
+let compactContentSafeInset: CGFloat = compactCornerRadiusInsets.opened.top + 15
 
-// Shared content height for both compact views (music player and calendar),
-// so switching between them never changes the panel's apparent size — each
-// naturally sizes differently on its own, so both need to opt into this
-// same fixed value rather than reporting their own intrinsic height.
-let compactContentHeight: CGFloat = 120
+// Fixed panel size for Compact UI mode, unlike the standard home view.
+// User-set at 400x170 after earlier 350/380 attempts — keep as-is.
+let compactOpenNotchSize: CGSize = .init(width: 400, height: 170)
+
+// Shared content height across compact pages, so switching between them
+// never changes the panel size. Raised in step with compactOpenNotchSize's
+// own height bump, so pages actually use the box's extra room.
+let compactContentHeight: CGFloat = 140
 
 enum MusicPlayerImageSizes {
     static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 4.0)

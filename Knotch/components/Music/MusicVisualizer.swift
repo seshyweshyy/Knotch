@@ -19,7 +19,7 @@ import SwiftUI
 enum AudioSpectrum {
     static let scale: CGFloat = 1.15
     private static let baseBarWidth: CGFloat = 2.1
-    private static let baseSpacing: CGFloat = 1.5
+    private static let baseSpacing: CGFloat = 1
     private static let baseTotalHeight: CGFloat = 16
 
     // Rounded to whole points so every bar's edges land on the same pixel

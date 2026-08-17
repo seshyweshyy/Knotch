@@ -569,6 +569,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
             SettingsSearchEntry(tabID: "Media", title: "Display Motion Art on media views", keywords: ["motion", "art", "animated", "album", "cover"], highlightID: "Media-Display Motion Art on media views"),
             SettingsSearchEntry(tabID: "Media", title: "Show explicit badge", keywords: ["explicit", "badge", "content", "rating"], highlightID: "Media-Show explicit badge"),
+            SettingsSearchEntry(tabID: "Media", title: "Hide media title extras", keywords: ["title", "from", "soundtrack", "extras", "hide", "song"], highlightID: "Media-Hide media title extras"),
             // Disabled alongside the Lossless/Dolby Atmos card row below (needs MusicKit / a paid Apple Developer account).
             // SettingsSearchEntry(tabID: "Media", title: "Lossless and Dolby Atmos badges", keywords: ["lossless", "dolby", "atmos", "spatial", "audio", "quality", "badge"], highlightID: "Media-Audio quality badges"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Display expanded Motion Art on lock screen", keywords: ["motion", "art", "animated", "album", "cover", "lock screen", "expanded"], highlightID: "LockScreen-Display expanded Motion Art"),
@@ -1696,6 +1697,15 @@ struct Media: View {
                 }
                 .settingsHighlight(id: "Media-Show explicit badge")
 
+                Defaults.Toggle(key: .hideMediaTitleExtras) {
+                    HStack(spacing: 6) {
+                        Text("Hide media title extras")
+                        Image(systemName: "text.badge.minus")
+                            .modifier(HoverTooltip(text: "Hides \"(From \u{201C}___\u{201D})\" and \"- From ___\" suffixes in song titles"))
+                    }
+                }
+                .settingsHighlight(id: "Media-Hide media title extras")
+
                 // Disabled: needs the MusicKit capability, which needs a paid Apple
                 // Developer account (not available right now). See the matching
                 // comment on resolveAudioQuality() in MusicManager.swift — this card
@@ -1723,7 +1733,7 @@ struct Media: View {
                 // .padding(.vertical, 4)
                 // .settingsHighlight(id: "Media-Audio quality badges")
             } header: {
-                Text("Badges & Motion Art")
+                Text("Media Views")
             }
 
             Section {

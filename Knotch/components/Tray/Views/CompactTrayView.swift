@@ -182,6 +182,12 @@ struct CompactTrayDropZoneView: View {
         .padding(.vertical, CompactDropZoneMetrics.verticalPadding)
         .frame(height: compactContentHeight, alignment: .center)
         .frame(maxWidth: .infinity)
+        // Same top-clearance fix already applied to CompactMusicPlayerView/
+        // CompactCalendarView/the persistent CompactTrayView body — this view
+        // never got it, so its own verticalPadding (10pt) was the only thing
+        // separating the drop-zone squares from the top of the panel, far
+        // less than the room the other three reserve for the notch cutout.
+        .padding(.top, vm.effectiveClosedNotchHeight)
     }
 
     // Dock-magnification-style layout: the targeted box claims a larger share
@@ -225,12 +231,14 @@ struct CompactTrayDropZoneView: View {
     }
 }
 
-// Metrics for the three drop-zone squares — horizontal/vertical padding
-// scaled down for Compact mode's much narrower fixed panel (420pt wide).
+// Metrics for the three drop-zone squares.
 enum CompactDropZoneMetrics {
     static let cornerRadius: CGFloat = 18
     static let spacing: CGFloat = 8
-    static let horizontalPadding: CGFloat = 12
+    // Matches compactContentSafeInset — the old 12pt was less than
+    // compactCornerRadiusInsets.opened's 35pt radius, same class of bug as
+    // the other three compact pages' own horizontal padding.
+    static let horizontalPadding: CGFloat = compactContentSafeInset
     static let verticalPadding: CGFloat = 10
 }
 
@@ -301,6 +309,10 @@ struct CompactTrayView: View {
     }
 
     var body: some View {
+        // Pinned to compactOpenNotchSize.width (the fixed target), same fix
+        // as CompactMusicPlayerView/CompactCalendarView — a plain
+        // .frame(maxWidth: .infinity) doesn't cap reported width, so it
+        // could silently inflate to match header/itemsScrollView's own size.
         VStack(spacing: 0) {
             header
             itemsScrollView
@@ -311,6 +323,10 @@ struct CompactTrayView: View {
                 // selection outline at the bottom edge.
                 .offset(y: -8)
         }
+        .padding(.horizontal, compactContentSafeInset)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
+        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
         }
@@ -324,11 +340,11 @@ struct CompactTrayView: View {
             }
         }
         .quickLookPresenter(using: quickLookService)
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 4)
-        .frame(height: compactContentHeight, alignment: .top)
-        .frame(maxWidth: .infinity)
+        // Outside the shared frame so compactContentHeight stays untouched —
+        // same fix as CompactMusicPlayerView/CompactCalendarView, reserving
+        // room for the header to pull up instead of sitting flush against
+        // this view's own top edge.
+        .padding(.top, vm.effectiveClosedNotchHeight)
     }
 
     // Tray icon + item count on the leading edge, a trash "All" button on

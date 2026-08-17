@@ -65,6 +65,22 @@ class MusicManager: ObservableObject {
         return isLiveStreamingService(title: title, artist: artist, album: album)
     }
 
+    // Strips trailing "(From "Movie")"/"[From Movie]" and "- From Movie" suffixes that
+    // some catalogs (mostly soundtrack releases) append to the track title.
+    private static let mediaTitleExtrasRegexes: [NSRegularExpression] = [
+        #"\s*[\(\[]\s*[Ff]rom\b[^\)\]]*[\)\]]\s*$"#,
+        #"\s*-\s*[Ff]rom\b.*$"#
+    ].compactMap { try? NSRegularExpression(pattern: $0) }
+
+    static func stripMediaTitleExtras(_ title: String) -> String {
+        var result = title
+        for regex in mediaTitleExtrasRegexes {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+        }
+        return result.trimmingCharacters(in: .whitespaces)
+    }
+
     /// True when the current source is a browser tab for a known streaming service with no
     /// known duration — the case where the progress bar has nothing real to show and should
     /// read as a live stream instead.
@@ -393,8 +409,15 @@ class MusicManager: ObservableObject {
         // way, show "Not Playing" on both lines rather than whatever raw
         // per-controller idle values (e.g. artist "Unknown") leak through.
         let hasNoActiveSource = state.bundleIdentifier.isEmpty || state.title == "Not Playing"
-        let displayTitle = hasNoActiveSource ? "Not Playing" : state.title
+        var displayTitle = hasNoActiveSource ? "Not Playing" : state.title
         let displayArtist = hasNoActiveSource ? "Not Playing" : state.artist
+
+        if !hasNoActiveSource, Defaults[.hideMediaTitleExtras] {
+            let stripped = Self.stripMediaTitleExtras(displayTitle)
+            if !stripped.isEmpty {
+                displayTitle = stripped
+            }
+        }
 
         let trackChanged = displayTitle != self.songTitle || displayArtist != self.artistName
 

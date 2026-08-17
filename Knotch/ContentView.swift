@@ -86,8 +86,22 @@ struct MusicLiveActivity: View {
                 // padding above only applies during that state) — nudged in
                 // a little so it doesn't anchor right at the corner.
                 .padding(.leading, 5)
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
+                // No longer matchedGeometryEffect'd with the open panel's own
+                // art — needs its own appear/disappear now. Removal gets a
+                // heavier blur + explicit .move(edge: .bottom) (strictly
+                // vertical, unlike the diagonal drift from two differently-
+                // positioned tiles overlapping) on notchOpenSpring, matching
+                // the box's own reveal timing instead of racing it.
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity.combined(with: .blur(radius: 8)),
+                        removal: .move(edge: .bottom)
+                            .combined(with: .opacity)
+                            .combined(with: .blur(radius: 30))
+                            .animation(notchOpenSpring)
+                    )
+                )
                 .rotation3DEffect(
                     .degrees(rotationDegrees),
                     axis: (x: 0, y: 1, z: 0),
@@ -554,6 +568,12 @@ struct ContentView: View {
 
     @State private var hasTriggeredSwipe = false
     @State private var hasTriggeredHorizontalSwipe = false
+    // Guards vm.cycleCompactPage() against re-triggering before the prior
+    // page-switch transition finished — hasTriggeredSwipe alone only blocks
+    // a second trigger *within* one gesture, so a quick run of separate
+    // swipes could interrupt an in-flight transition mid-flight, which is
+    // what caused the page switch to sometimes visibly slide the wrong way.
+    @State private var lastCompactPageSwitchDate: Date = .distantPast
     // Real glass background size from the GeometryReader below — drives mask
     // selection off actual geometry instead of a guessed close-spring delay.
     @State private var measuredGlassSize: CGSize = .zero
@@ -617,7 +637,14 @@ struct ContentView: View {
     // volume key) cancels the older, now-stale swap instead of both firing.
     @State private var rowTransitionGeneration = 0
 
+    // Now used only by MusicLiveActivity — the open panels below get their
+    // own separate namespaces instead of sharing this one, so the closed
+    // pill's art isn't matchedGeometryEffect'd as one tile "flying" to the
+    // open panel's position, which produced a diagonal drift since the
+    // surrounding box is also growing/moving during that same animation.
     @Namespace var albumArtNamespace
+    @Namespace var standardAlbumArtNamespace
+    @Namespace var compactAlbumArtNamespace
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
 
@@ -931,7 +958,12 @@ struct ContentView: View {
                     .padding(
                         .horizontal,
                         vm.notchState == .open
-                        ? cornerRadiusInsets.opened.top
+                        // Compact mode already sizes to vm.notchSize (see
+                        // its minWidth/minHeight floor) — this standard-only
+                        // slack was inflating the visible glass card past
+                        // what compactContentOverlay's own clip used, two
+                        // different rects for what should be one shape.
+                        ? (Defaults[.enableCompactUI] ? 0 : cornerRadiusInsets.opened.top)
                         // NotchShape's straight side walls sit inset by exactly
                         // `topCornerRadius` from this padded box's own edge (see
                         // NotchShape.path — the vertical edges are at minX+top /
@@ -944,7 +976,7 @@ struct ContentView: View {
                         // tighter — every time the concave radius grows.
                         : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
                     )
-                    .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+                    .padding([.horizontal, .bottom], (vm.notchState == .open && !Defaults[.enableCompactUI]) ? 12 : 0)
                     .background {
                         ZStack {
                             let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || lockActivityShowing
@@ -1057,9 +1089,17 @@ struct ContentView: View {
                         width: vm.notchState == .open ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
                         height: coordinator.helloAnimationRunning
                             ? 150
-                            : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.4 : nil),
+                            : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.2 : nil),
                         alignment: .top
                     )
+                    // Compact mode's whole open-content reveal — see
+                    // compactContentOverlay's own comment for why this has
+                    // to be a plain .overlay() here, on mainLayout's own
+                    // already-resolved bounds, rather than living inside
+                    // NotchLayout()'s normal child flow the way it used to.
+                    .overlay(alignment: .top) {
+                        compactContentOverlay
+                    }
                     .offset(x: vm.liquidPullHorizontal * 0.25)
                     // No ambient .animation(_:value:) for vm.notchState —
                     // KnotchViewModel.open()/close() wrap their own state
@@ -1112,6 +1152,14 @@ struct ContentView: View {
                             withAnimation {
                                 isHovering = false
                             }
+                        }
+                        // desiredRowFamily's own .onChange (on
+                        // ClosedNotchRowContent) doesn't reliably fire here —
+                        // that view gets removed the same instant notchState
+                        // flips, before its handler can run. This lives on
+                        // mainLayout, which stays mounted, so it reliably fires.
+                        if newState == .open {
+                            handleRowFamilyChange(to: .none)
                         }
                     }
                     .onChange(of: vm.isBatteryPopoverActive) {
@@ -1360,29 +1408,27 @@ struct ContentView: View {
               }
               .animation(.easeInOut(duration: 0.25), value: timerLiveActivityShowing)
               .zIndex(2)
-            if vm.notchState == .open {
+            // Compact's own content lives in compactContentOverlay instead —
+            // a conditionally-mounted `if` + `.transition()` here doesn't
+            // reliably re-track a live-animating ancestor, no matter how its
+            // frame/transition is expressed. Standard mode isn't broken, so
+            // it keeps this original mechanism, scoped explicitly below.
+            if !Defaults[.enableCompactUI], vm.notchState == .open {
                 VStack {
                     switch coordinator.currentView {
                     case .home:
                         // NotchHomeView applies one stretch across its whole content
                         // group (standard or compact), so nothing drifts relative
                         // to its neighbors.
-                        NotchHomeView(albumArtNamespace: albumArtNamespace)
+                        NotchHomeView(albumArtNamespace: standardAlbumArtNamespace)
                     case .tray:
-                        // The tray ("tray") is unreachable in Compact mode — fall
-                        // back to the home content instead of ever showing it,
-                        // regardless of how currentView got set.
-                        if Defaults[.enableCompactUI] {
-                            NotchHomeView(albumArtNamespace: albumArtNamespace)
-                        } else {
-                            TrayView()
-                                .liquidStretch(vm)
-                                // Drop-zone outlines are actual drag targets — keep
-                                // their x-position fixed even though the shared
-                                // header+content group leans sideways on a
-                                // horizontal pull (liquidHorizontalGroup below).
-                                .liquidHorizontalGroupExempt(vm)
-                        }
+                        TrayView()
+                            .liquidStretch(vm)
+                            // Drop-zone outlines are actual drag targets — keep
+                            // their x-position fixed even though the shared
+                            // header+content group leans sideways on a
+                            // horizontal pull (liquidHorizontalGroup below).
+                            .liquidHorizontalGroupExempt(vm)
                     }
                 }
                 // Pin content to the un-stretched target height so the liquid pull only
@@ -1410,6 +1456,58 @@ struct ContentView: View {
         // independently bulging from its own edge (which the per-widget
         // vertical stretch below is fine doing, since nothing overlaps there).
         .liquidHorizontalGroup(vm)
+        // Compact mode's real content lives in compactContentOverlay, not
+        // here — while open this function's own natural size would fall
+        // back to the tiny closed placeholder without this floor, since
+        // mainLayout's clipShape bakes from this function's own bounds
+        // before the outer .frame() applies. Matches the same liquidPull
+        // growth terms the outer frame uses, so the bezel keeps growing
+        // during a pull instead of staying pinned to the plain notchSize.
+        .frame(
+            minWidth: (vm.notchState == .open && Defaults[.enableCompactUI]) ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
+            minHeight: (vm.notchState == .open && Defaults[.enableCompactUI]) ? vm.notchSize.height + vm.liquidPull * 0.2 : nil
+        )
+    }
+
+    // Compact mode's entire open-content reveal — an .overlay() on
+    // mainLayout, not inside NotchLayout()'s normal child flow. Two reasons:
+    // (1) an overlay's content doesn't feed back into the base view's
+    // reported size, so mounting this at full size can't force the *closed*
+    // pill bigger; (2) always mounted (no `if .open` around it) means every
+    // property below is an ordinary modifier on a persistent view, not a
+    // transition racing a freshly-inserted view's own layout.
+    @ViewBuilder
+    private var compactContentOverlay: some View {
+        if Defaults[.enableCompactUI] {
+            // GeometryReader, not .frame(maxWidth: .infinity, maxHeight:
+            // .infinity) — that has no upper bound, so it grows to match a
+            // bigger child's natural size instead of what's actually
+            // proposed, which let the clipShape below clip against an
+            // already-full-size rect instead of tracking the box's growth.
+            GeometryReader { geo in
+                NotchHomeView(albumArtNamespace: compactAlbumArtNamespace)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                    // Same shape mainLayout's background uses, on the same
+                    // bounds this overlay already fills — .overlay() doesn't
+                    // clip by default, so content taller than notchSize.height
+                    // would render past the box's edges otherwise.
+                    .clipShape(currentNotchShape)
+                    // Must follow clipShape, before any blur — without
+                    // sealing the clip into a flat layer first, .blur() below
+                    // samples pixels outside the clip and bleeds past the edge.
+                    .compositingGroup()
+                    .scaleEffect(
+                        x: vm.notchState == .open ? 1 : 0.6,
+                        y: vm.notchState == .open ? 1 : 0.6,
+                        anchor: .top
+                    )
+                    .blur(radius: vm.notchState == .open ? 0 : 30)
+                    .opacity(vm.notchState == .open ? 1 : 0)
+                    .allowsHitTesting(vm.notchState == .open)
+                    .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                    .blur(radius: closeSwipeBlur)
+            }
+        }
     }
 
     @ViewBuilder
@@ -1465,7 +1563,15 @@ struct ContentView: View {
         // when one side is .none (nothing showing) — a HUD ending with no
         // live activity to fall back to should still collapse into the
         // notch, not just crossfade/fade out in place the old way.
-        withAnimation(rowMorphSpring) { rowMorph = 0 }
+        //
+        // Collapsing specifically because the notch just opened rides
+        // rowFadeOutOnOpenSpring — quicker than rowMorphSpring, since the
+        // open panel's own content is already fading/scaling in right on
+        // top of this, so lingering here any longer than necessary just
+        // reads as a stall.
+        withAnimation(newFamily == .none && vm.notchState == .open ? rowFadeOutOnOpenSpring : rowMorphSpring) {
+            rowMorph = 0
+        }
         // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
         // works around — this collapse resizes the panel same as an
         // open/close does (see KnotchSkyLightWindow.knotchWillOpen).
@@ -1588,8 +1694,11 @@ struct ContentView: View {
                 // more than one compact page is reachable — music/calendar
                 // per their own settings, plus tray once the tray actually
                 // has items in it.
-                if vm.availableCompactPages.count > 1 {
+                if vm.availableCompactPages.count > 1,
+                   Date().timeIntervalSince(lastCompactPageSwitchDate) > 0.35
+                {
                     hasTriggeredSwipe = true
+                    lastCompactPageSwitchDate = Date()
                     if Defaults[.enableHaptics] { haptics.toggle() }
                     withAnimation(animationSpring) {
                         vm.cycleCompactPage()

@@ -26,6 +26,11 @@ struct CompactMusicPlayerView: View {
     }
 
     var body: some View {
+        // Pinned to compactOpenNotchSize.width (the fixed target), not a
+        // live-proposed GeometryReader value — otherwise content that
+        // recomputes its own layout from that width (CustomSlider) visibly
+        // redraws/grows with the box instead of appearing already at full
+        // size, with only the outer clip's reveal changing during the animation.
         VStack(spacing: 0) {
             notchHuggingHeader
 
@@ -36,15 +41,18 @@ struct CompactMusicPlayerView: View {
                 .scaleEffect(1.12)
                 .padding(.top, 10)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, compactContentSafeInset)
         .padding(.top, 10)
         .padding(.bottom, 10)
-        // Shared with CompactCalendarView so the panel is exactly the same
-        // size switching between the two — this view's natural height is
-        // otherwise shorter than the calendar's, which let the whole panel
-        // shrink and grow between the two.
-        .frame(height: compactContentHeight, alignment: .top)
-        .frame(maxWidth: .infinity)
+        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        // Added *outside* the shared frame above, so compactContentHeight
+        // itself (and therefore CompactCalendarView, which also uses it to
+        // keep the panel the same size across tabs) is untouched. Reserves
+        // room for notchHuggingHeader's album art to pull up into — without
+        // it, the art's own upward offset just pushes everything flush
+        // against this view's own top edge instead of hugging the physical
+        // notch cutout with real breathing room above it.
+        .padding(.top, vm.effectiveClosedNotchHeight + 4)
     }
 
     // The album art overlaps upward alongside the physical notch cutout instead
@@ -103,7 +111,11 @@ struct CompactMusicPlayerView: View {
                                 frameWidth: max(0, textAreaWidth - textLeadingInset),
                                 trailingIcons: musicManager.trackBadges(
                                     explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
-                                )
+                                ),
+                                // This view stays mounted and fades out on
+                                // close, so without this it'd keep scrolling
+                                // invisibly and be mid-cycle on reopen.
+                                isPaused: vm.notchState == .closed
                             )
                         }
                         BlurRevealText(musicManager.artistName) { artist in
@@ -138,6 +150,9 @@ struct CompactMusicPlayerView: View {
     // Same style as the lock screen widget (LiquidGlassMusicWidget): inline
     // time labels beside the track, remaining time on the trailing side.
     private var progressBar: some View {
+        // Fixed width pin, same reasoning as body's outer frame — without it
+        // the two .fixedSize() timestamp labels + flexible CustomSlider
+        // sized off their own ideal width, cutting labels off at the clip.
         TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
@@ -156,7 +171,7 @@ struct CompactMusicPlayerView: View {
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }
-            .frame(height: 24)
+            .frame(width: compactOpenNotchSize.width - 2 * compactContentSafeInset, height: 24)
         }
     }
 }

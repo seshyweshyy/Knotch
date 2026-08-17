@@ -3280,9 +3280,6 @@
         }
       }
     },
-    "Badges & Motion Art" : {
-
-    },
     "Battery" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -10829,6 +10826,9 @@
         }
       }
     },
+    "Hide media title extras" : {
+
+    },
     "Hide title bar" : {
       "localizations" : {
         "ar" : {
@@ -13393,6 +13393,9 @@
           }
         }
       }
+    },
+    "Media Views" : {
+
     },
     "Medium" : {
       "extractionState" : "stale",

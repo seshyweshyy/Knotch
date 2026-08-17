@@ -1012,42 +1012,63 @@ struct NotchHomeView: View {
     }
 
     private var compactContent: some View {
-        Group {
-            if vm.isCompactDragOverlayActive {
-                // Transient live-activity overlay — morphs whatever page was
-                // showing into a drop target for the duration of the drag,
-                // using a "squish and blur" pop instead of the plain slide
-                // the page swaps below use.
-                CompactTrayDropZoneView()
-                    .transition(.liveActivityPop)
-            } else {
-                switch vm.resolvedCompactPage {
-                case .tray:
-                    CompactTrayView()
-                        .transition(compactViewTransition)
-                case .converter:
-                    // Reveals straight out of the drop-zone overlay, whose own
-                    // exit already uses .liveActivityPop — matching it here
-                    // instead of compactViewTransition's move-based swap keeps
-                    // that handoff one continuous blur/scale instead of a
-                    // squish-then-slide mismatch.
-                    CompactFileConverterView()
+        // GeometryReader, so both clipShape calls below use the *live* size
+        // proposed (matching compactContentOverlay's exact frame) instead of
+        // a Group's bottom-up natural size — pages are now pinned to fixed
+        // size constants, so the clip would otherwise decouple from the
+        // live, pull-grown bezel during rapid pulls.
+        GeometryReader { geo in
+            Group {
+                if vm.isCompactDragOverlayActive {
+                    // Transient live-activity overlay — morphs whatever page was
+                    // showing into a drop target for the duration of the drag,
+                    // using a "squish and blur" pop instead of the plain slide
+                    // the page swaps below use.
+                    CompactTrayDropZoneView()
                         .transition(.liveActivityPop)
-                case .calendar:
-                    CompactCalendarView()
-                        .transition(compactViewTransition)
-                case .music:
-                    CompactMusicPlayerView(albumArtNamespace: albumArtNamespace)
-                        .transition(compactViewTransition)
+                } else {
+                    switch vm.resolvedCompactPage {
+                    case .tray:
+                        CompactTrayView()
+                            .transition(compactViewTransition)
+                    case .converter:
+                        // Reveals straight out of the drop-zone overlay, whose own
+                        // exit already uses .liveActivityPop — matching it here
+                        // instead of compactViewTransition's move-based swap keeps
+                        // that handoff one continuous blur/scale instead of a
+                        // squish-then-slide mismatch.
+                        CompactFileConverterView()
+                            .transition(.liveActivityPop)
+                    case .calendar:
+                        CompactCalendarView()
+                            .transition(compactViewTransition)
+                    case .music:
+                        CompactMusicPlayerView(albumArtNamespace: albumArtNamespace)
+                            .transition(compactViewTransition)
+                    }
                 }
             }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            // Clip-then-compositingGroup, same fix as compactContentOverlay's
+            // outer clip — compactViewTransition/.liveActivityPop both carry
+            // their own blur, which bleeds past the shape mid-swap without
+            // sealing it into a flat layer first. Fixed radii since page
+            // switching only happens once compact mode is open and settled.
+            .clipShape(NotchShape(topCornerRadius: compactCornerRadiusInsets.opened.top, bottomCornerRadius: compactCornerRadiusInsets.opened.bottom))
+            .compositingGroup()
+            .animation(liveActivityPopSpring, value: vm.isCompactDragOverlayActive)
+            .animation(.smooth(duration: 0.35), value: vm.resolvedCompactPage)
+            // Same liquid stretch standard widgets get, toned down here since
+            // compact mode clamps liquidPull to 0.4x during the gesture.
+            .liquidStretch(vm)
+            // liquidStretch's cosmetic overflow relies on the far outer clip
+            // in ContentView.swift — but page switches always coincide with
+            // liquidPull peaking (same withAnimation block), so the
+            // transitioning page's extra scale could escape before that
+            // outer clip catches up. Re-clip immediately to contain it here.
+            .clipShape(NotchShape(topCornerRadius: compactCornerRadiusInsets.opened.top, bottomCornerRadius: compactCornerRadiusInsets.opened.bottom))
+            .compositingGroup()
         }
-        .animation(liveActivityPopSpring, value: vm.isCompactDragOverlayActive)
-        .animation(.smooth(duration: 0.35), value: vm.resolvedCompactPage)
-        // Same liquid stretch the standard widgets get, riding the drag before
-        // the swap commits — already comes out toned down here since compact
-        // mode clamps liquidPull itself to 0.4x during the gesture.
-        .liquidStretch(vm)
     }
 
     // Old content slides up and out while new content slides up into place —

@@ -79,6 +79,10 @@ struct MarqueeText: View {
     // callers that mask on an edge fade (sized for scrolling/truncated text)
     // can skip that fade when the text fits and is just centered instead.
     var needsScrollingBinding: Binding<Bool>? = nil
+    // Freezes at the resting (leading-edge) position and stops scrolling —
+    // for callers whose content stays mounted after the surface closes, so
+    // it's back at the start rather than mid-scroll next time it's shown.
+    var isPaused: Bool = false
 
     @State private var textSize: CGSize = .zero
     // Wall-clock time the current scroll cycle started, or nil while at rest
@@ -86,7 +90,7 @@ struct MarqueeText: View {
     // recomputed fresh from this on every frame — see scrollingPair.
     @State private var scrollStartDate: Date? = nil
 
-    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, trailingIcons: [MarqueeIcon] = [], midIcon: String? = nil, midIconColor: Color = .secondary, centerWhenFits: Bool = false, needsScrollingBinding: Binding<Bool>? = nil) {
+    init(_ text: Binding<String>, font: Font = .body, nsFont: NSFont.TextStyle = .body, textColor: Color = .primary, backgroundColor: Color = .clear, minDuration: Double = 3.0, frameWidth: CGFloat = 200, dimmedSubstring: String? = nil, dimmedColor: Color = .secondary, scrollSpeed: CGFloat = 30, leadingIcon: String? = nil, leadingIconColor: Color = .secondary, trailingIcons: [MarqueeIcon] = [], midIcon: String? = nil, midIconColor: Color = .secondary, centerWhenFits: Bool = false, needsScrollingBinding: Binding<Bool>? = nil, isPaused: Bool = false) {
         _text = text
         self.font = font
         self.nsFont = nsFont
@@ -104,10 +108,11 @@ struct MarqueeText: View {
         self.midIconColor = midIconColor
         self.centerWhenFits = centerWhenFits
         self.needsScrollingBinding = needsScrollingBinding
+        self.isPaused = isPaused
     }
 
     private var needsScrolling: Bool {
-        textSize.width > frameWidth
+        !isPaused && textSize.width > frameWidth
     }
 
     // Prepending/appending the icon here (rather than as a sibling view outside
@@ -179,6 +184,13 @@ struct MarqueeText: View {
         // new positions instead of the old text just cleanly disappearing
         // and the new text appearing already laid out correctly.
         .animation(nil, value: text)
+        // Starts the next cycle fresh on un-pause, instead of resuming from
+        // a stale scrollStartDate that would jump the cycle-position math.
+        .onChange(of: isPaused) { _, paused in
+            if !paused, needsScrolling {
+                scrollStartDate = Date()
+            }
+        }
     }
 
     // Slides resting text into a centered position within frameWidth via a

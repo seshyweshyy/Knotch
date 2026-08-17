@@ -389,6 +389,11 @@ struct CompactCalendarView: View {
     }
 
     var body: some View {
+        // Pinned to compactOpenNotchSize.width (the fixed target), same fix
+        // as CompactMusicPlayerView — otherwise MonthGridView's day grid
+        // visibly redraws with the growing box, and the left column's
+        // .frame(maxWidth: .infinity) doesn't actually cap its width, so it
+        // could silently report wider than this fixed width allows for.
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 6) {
                 header
@@ -433,7 +438,7 @@ struct CompactCalendarView: View {
             }
             .frame(width: 148)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, compactContentSafeInset)
         .padding(.top, 1)
         .padding(.bottom, 10)
         // A hard height, not maxHeight — otherwise a day with more events
@@ -443,8 +448,13 @@ struct CompactCalendarView: View {
         // size switching between the two, regardless of either's own content.
         // No .clipped() here (matching CompactMusicPlayerView) since the
         // pull-up above deliberately overflows above this frame's top edge.
-        .frame(height: compactContentHeight, alignment: .top)
-        .frame(maxWidth: .infinity)
+        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        // Added *outside* the shared frame above, so compactContentHeight
+        // itself (and therefore CompactMusicPlayerView, which also uses it
+        // to keep the panel the same size across tabs) is untouched.
+        // Reserves room for header/MonthGridView's own pull-up — matches
+        // CompactMusicPlayerView's identical fix for the same reasoning.
+        .padding(.top, vm.effectiveClosedNotchHeight)
         .onChange(of: selectedDate) {
             calendarManager.scheduleUpdate(for: selectedDate)
         }

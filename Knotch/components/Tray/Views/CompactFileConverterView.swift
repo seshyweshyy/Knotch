@@ -16,6 +16,10 @@ struct CompactFileConverterView: View {
     @ObservedObject var converter = FileConverterViewModel.shared
 
     var body: some View {
+        // Same fixes as the other compact pages: pinned to
+        // compactOpenNotchSize.width + compactContentSafeInset padding, plus
+        // the top-clearance padding this one was missing (content sat flush
+        // against the top edge instead of clearing the notch cutout).
         Group {
             if let item = converter.item {
                 VStack(spacing: 8) {
@@ -24,11 +28,11 @@ struct CompactFileConverterView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, compactContentSafeInset)
         .padding(.top, 10)
         .padding(.bottom, 10)
-        .frame(height: compactContentHeight, alignment: .top)
-        .frame(maxWidth: .infinity)
+        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        .padding(.top, vm.effectiveClosedNotchHeight)
     }
 
     private func selectedFileRow(for item: FileConverterItem) -> some View {
