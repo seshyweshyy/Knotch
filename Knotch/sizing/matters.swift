@@ -78,7 +78,7 @@ let windowSize: CGSize = .init(
     height: openNotchHomeSize.height + shadowPadding + liquidPullMaxStretch
 )
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 39), closed: (top: 6, bottom: 14))
-let compactCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 35, bottom: 35), closed: cornerRadiusInsets.closed)
+let compactCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 35, bottom: 40), closed: cornerRadiusInsets.closed)
 
 // Min horizontal padding for compact pages to clear the shape's rounded
 // corners (35pt radius) — the old 20pt was less than that, so content near

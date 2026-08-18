@@ -396,7 +396,7 @@ struct MusicControlsView: View {
                                 .constant(title),
                                 font: .headline,
                                 nsFont: .headline,
-                                textColor: .white,
+                                textColor: musicManager.hasActiveSession ? .white : Color.white.opacity(0.65),
                                 frameWidth: width - trailingReserve,
                                 trailingIcons: musicManager.trackBadges(
                                     explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
@@ -404,18 +404,20 @@ struct MusicControlsView: View {
                             )
                             .edgeFade()
                         }
-                        BlurRevealText(musicManager.artistName) { artist in
-                            MarqueeText(
-                                .constant(artist),
-                                font: .headline,
-                                nsFont: .headline,
-                                textColor: Defaults[.playerColorTinting]
-                                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
-                                    : .gray,
-                                frameWidth: width - trailingReserve
-                            )
-                            .fontWeight(.medium)
-                            .edgeFade()
+                        if musicManager.hasActiveSession {
+                            BlurRevealText(musicManager.artistName) { artist in
+                                MarqueeText(
+                                    .constant(artist),
+                                    font: .headline,
+                                    nsFont: .headline,
+                                    textColor: Defaults[.playerColorTinting]
+                                        ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
+                                        : .gray,
+                                    frameWidth: width - trailingReserve
+                                )
+                                .fontWeight(.medium)
+                                .edgeFade()
+                            }
                         }
                     }
                 }
@@ -1288,7 +1290,7 @@ struct MusicSliderView: View {
                 )
                 .frame(height: 10, alignment: .center)
 
-                Text(showRemainingTime
+                Text(showRemainingTime && duration.isFinite && duration > 0
                      ? "-" + timeString(from: max(0, duration - sliderValue))
                      : timeString(from: duration))
                     .fontWeight(.medium)
@@ -1325,7 +1327,7 @@ struct MusicSliderView: View {
                 HStack {
                     Text(timeString(from: sliderValue))
                     Spacer()
-                    if showRemainingTime {
+                    if showRemainingTime && duration.isFinite && duration > 0 {
                         Text("-" + timeString(from: max(0, duration - sliderValue)))
                     } else {
                         Text(timeString(from: duration))
@@ -1387,6 +1389,7 @@ struct MusicSliderView: View {
     }
 
     func timeString(from seconds: Double) -> String {
+        guard duration.isFinite, duration > 0 else { return "--:--" }
         let totalMinutes = Int(seconds) / 60
         let remainingSeconds = Int(seconds) % 60
         let hours = totalMinutes / 60

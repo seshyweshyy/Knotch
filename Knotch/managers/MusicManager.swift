@@ -109,8 +109,13 @@ class MusicManager: ObservableObject {
     @Published var artFlipSignal: ArtFlipSignal = ArtFlipSignal(art: noArtworkPlaceholderImage, direction: .forward)
 
     // Published properties for UI
-    @Published var songTitle: String = "I'm Handsome"
-    @Published var artistName: String = "Me"
+    @Published var songTitle: String = "Not Playing"
+    @Published var artistName: String = "Not Playing"
+    // Mirrors the "Not Playing" placeholder set in updateState(from:) when
+    // there's no active media source — lets views distinguish "genuinely
+    // nothing loaded" from "loaded but paused" without duplicating that
+    // string check themselves.
+    var hasActiveSession: Bool { songTitle != "Not Playing" }
     @Published var albumArt: NSImage = noArtworkPlaceholderImage
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
@@ -148,8 +153,8 @@ class MusicManager: ObservableObject {
     private var artworkData: Data? = nil
 
     // Store last values at the time artwork was changed
-    private var lastArtworkTitle: String = "I'm Handsome"
-    private var lastArtworkArtist: String = "Me"
+    private var lastArtworkTitle: String = "Not Playing"
+    private var lastArtworkArtist: String = "Not Playing"
     private var lastArtworkAlbum: String = "Self Love"
     private var lastArtworkBundleIdentifier: String? = nil
 

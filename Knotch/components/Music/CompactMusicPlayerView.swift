@@ -101,13 +101,13 @@ struct CompactMusicPlayerView: View {
                 Button {
                     musicManager.openMusicApp()
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 1) {
                         BlurRevealText(musicManager.songTitle) { title in
                             MarqueeText(
                                 .constant(title),
                                 font: .system(size: 13, weight: .semibold),
-                                nsFont: .subheadline,
-                                textColor: .white,
+                                nsFont: .body,
+                                textColor: musicManager.hasActiveSession ? .white : Color.white.opacity(0.65),
                                 frameWidth: max(0, textAreaWidth - textLeadingInset),
                                 trailingIcons: musicManager.trackBadges(
                                     explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
@@ -118,14 +118,16 @@ struct CompactMusicPlayerView: View {
                                 isPaused: vm.notchState == .closed
                             )
                         }
-                        BlurRevealText(musicManager.artistName) { artist in
-                            Text(artist)
-                                .font(.system(size: 11.5, weight: .medium))
-                                .foregroundColor(
-                                    Defaults[.playerColorTinting]
-                                        ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
-                                )
-                                .lineLimit(1)
+                        if musicManager.hasActiveSession {
+                            BlurRevealText(musicManager.artistName) { artist in
+                                Text(artist)
+                                    .font(.system(size: 11.5, weight: .medium))
+                                    .foregroundColor(
+                                        Defaults[.playerColorTinting]
+                                            ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                                    )
+                                    .lineLimit(1)
+                            }
                         }
                     }
                 }
