@@ -133,6 +133,11 @@ struct HoverButton: View {
     @State private var tapTransitionProgress: CGFloat = 0
     @State private var isTapTransitionActive = false
     @State private var activeDotHaptic = false
+    /// Gates the settle haptic to state changes caused by this button's own tap, so
+    /// external resyncs (e.g. shuffle briefly resetting when a browser tab steals
+    /// "Now Playing", then restoring once it hands back) don't also buzz.
+    @State private var awaitingOwnTapConfirmation = false
+    @State private var tapConfirmationToken = 0
 
     private var isSkipIcon: Bool { icon == "forward.fill" || icon == "backward.fill" }
 
@@ -153,6 +158,16 @@ struct HoverButton: View {
         Button {
             if useSkipGlyph {
                 runSkipAnimation(slideAnimation: slideAnimation, slideDuration: slideDuration)
+            }
+            if activeDot != nil {
+                awaitingOwnTapConfirmation = true
+                tapConfirmationToken += 1
+                let expectedToken = tapConfirmationToken
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    if tapConfirmationToken == expectedToken {
+                        awaitingOwnTapConfirmation = false
+                    }
+                }
             }
             action()
         } label: {
@@ -213,7 +228,9 @@ struct HoverButton: View {
         }
         .sensoryFeedback(.alignment, trigger: activeDotHaptic)
         .onChange(of: hapticWatchKey) { _, _ in
-            guard activeDot == true, Defaults[.enableHaptics] else { return }
+            let shouldFire = activeDot == true && Defaults[.enableHaptics] && awaitingOwnTapConfirmation
+            awaitingOwnTapConfirmation = false
+            guard shouldFire else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + activeDotSettleDuration) {
                 activeDotHaptic.toggle()
             }
