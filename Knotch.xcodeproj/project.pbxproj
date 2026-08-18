@@ -93,6 +93,7 @@
 		14C08BB62C8DE42D000F8AA0 /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */; };
 		14C08BB92C8DE4B1000F8AA0 /* KnotchCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C08BB82C8DE4B1000F8AA0 /* KnotchCalendar.swift */; };
 		14C08BC12C8E03AD000F8AA0 /* NSImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C08BC02C8E03AD000F8AA0 /* NSImage+Extensions.swift */; };
+		A1B2C3D4E5F607182930A1B3 /* AppKitMenuHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607182930A1B2 /* AppKitMenuHelpers.swift */; };
 		14CEF4162C5CAED300855D72 /* KnotchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14CEF4152C5CAED300855D72 /* KnotchApp.swift */; };
 		14CEF4182C5CAED300855D72 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14CEF4172C5CAED300855D72 /* ContentView.swift */; };
 		14CEF41A2C5CAED400855D72 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14CEF4192C5CAED400855D72 /* Assets.xcassets */; };
@@ -329,6 +330,7 @@
 		14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		14C08BB82C8DE4B1000F8AA0 /* KnotchCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchCalendar.swift; sourceTree = "<group>"; };
 		14C08BC02C8E03AD000F8AA0 /* NSImage+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "NSImage+Extensions.swift"; sourceTree = "<group>"; };
+		A1B2C3D4E5F607182930A1B2 /* AppKitMenuHelpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppKitMenuHelpers.swift; sourceTree = "<group>"; };
 		14CEF4122C5CAED300855D72 /* Knotch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Knotch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		14CEF4152C5CAED300855D72 /* KnotchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchApp.swift; sourceTree = "<group>"; };
 		14CEF4172C5CAED300855D72 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -918,6 +920,7 @@
 				B1FEB4982C7686630066EBBC /* PanGesture.swift */,
 				14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */,
 				B1C448952C9712C4001F0858 /* ActionBar.swift */,
+				A1B2C3D4E5F607182930A1B2 /* AppKitMenuHelpers.swift */,
 			);
 			path = extensions;
 			sourceTree = "<group>";
@@ -1217,6 +1220,7 @@
 				1160F8D82DD98230006FBB94 /* NotchShape.swift in Sources */,
 				5917FD112E57891600E87F1C /* MediaKeyInterceptor.swift in Sources */,
 				14C08BC12C8E03AD000F8AA0 /* NSImage+Extensions.swift in Sources */,
+				A1B2C3D4E5F607182930A1B3 /* AppKitMenuHelpers.swift in Sources */,
 				149E0B9A2C737D40006418B1 /* WebcamView.swift in Sources */,
 				1471639A2C5D35FF0068B555 /* MusicManager.swift in Sources */,
 				A3D40A2A126D7B347D9FC602 /* MotionArtResolver.swift in Sources */,

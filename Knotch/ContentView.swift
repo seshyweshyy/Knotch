@@ -937,6 +937,24 @@ struct ContentView: View {
         return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
     }
 
+    private var notchContextMenu: NSMenu {
+        let menu = NSMenu()
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            menu.addItem(.disabledInfo("Version \(version)", fontSize: 10))
+        }
+        menu.addItem(.withIcon(
+            "Settings", systemImage: "gearshape.fill",
+            action: #selector(AppDelegate.openSettingsFromMenu),
+            target: NSApp.delegate as? AppDelegate
+        ))
+        menu.addItem(.separator())
+        menu.addItem(.withIcon(
+            "Quit Knotch", systemImage: "xmark.rectangle",
+            action: #selector(NSApplication.terminate(_:))
+        ))
+        return menu
+    }
+
     var body: some View {
         // Calculate scale based on gesture progress only
         let gestureScaleY: CGFloat = {
@@ -1234,28 +1252,7 @@ struct ContentView: View {
                         }
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
-                    .contextMenu {
-                        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-                            Text("Version \(version)")
-                                .font(.footnote)
-                        }
-                        
-                        Button {
-                            DispatchQueue.main.async {
-                                SettingsWindowController.shared.showWindow()
-                            }
-                        } label: {
-                            Label("Settings", systemImage: "gearshape.fill")
-                        }
-                        
-                        Divider()
-                        
-                        Button {
-                            NSApp.terminate(nil)
-                        } label: {
-                            Label("Quit Knotch", systemImage: "xmark.rectangle")
-                        }
-                    }
+                    .overlay(NativeContextMenu(menu: notchContextMenu))
                     // Explicitly centered within the full (fixed) window width, rather
                     // than relying on the ambient VStack/ZStack alignment above — the
                     // notch was drifting off-center slightly as its width animated

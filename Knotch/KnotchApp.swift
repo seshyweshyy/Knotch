@@ -17,7 +17,6 @@ import os
 @main
 struct KnotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
 
     let updater: SPUUpdater
@@ -36,42 +35,25 @@ struct KnotchApp: App {
 
         // Initialize the settings window controller with the updater
         SettingsWindowController.shared.setUpdater(updater)
+
+        // The status-bar menu is built natively in AppDelegate (not as a
+        // SwiftUI MenuBarExtra) — see setupStatusItem() for why.
+        appDelegate.updater = updater
     }
 
     var body: some Scene {
-        MenuBarExtra("Knotch", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
-            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-                Text("Version \(version)")
-                    .foregroundStyle(.secondary)
-            }
-            Divider()
-            Button {
-                DispatchQueue.main.async {
-                    SettingsWindowController.shared.showWindow()
-                }
-            } label: {
-                Label("Settings", systemImage: "gearshape.fill")
-            }
-            .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            CheckForUpdatesView(updater: updater)
-            Divider()
-            Button {
-                ApplicationRelauncher.restart()
-            } label: {
-                Label("Restart Knotch", systemImage: "arrow.counterclockwise")
-            }
-            Button(role: .destructive) {
-                NSApplication.shared.terminate(self)
-            } label: {
-                Label("Quit", systemImage: "power")
-            }
-            .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
+        // No SwiftUI scene actually needed (LSUIElement app; the notch window
+        // and status item are both managed imperatively by AppDelegate), but
+        // an App requires at least one Scene.
+        Settings {
+            EmptyView()
         }
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
+    var updater: SPUUpdater?
     var windows: [String: NSWindow] = [:] // UUID -> NSWindow
     var viewModels: [String: KnotchViewModel] = [:] // UUID -> KnotchViewModel
     var window: NSWindow?
@@ -483,6 +465,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 
+        setupStatusItem()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screenConfigurationDidChange),
@@ -811,6 +795,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(self)
     }
 
+    // Built with raw NSMenuItem rather than a SwiftUI MenuBarExtra so each
+    // item can opt into NSMenuItem.preferredImageVisibility on macOS 27+,
+    // where AppKit hides menu item images by default and SwiftUI has no API
+    // to override that.
+    private func setupStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(named: "MenuBarIcon")
+        item.menu = buildStatusMenu()
+        item.isVisible = Defaults[.menubarIcon]
+        statusItem = item
+
+        Defaults.publisher(.menubarIcon)
+            .sink { [weak self] change in
+                self?.statusItem?.isVisible = change.newValue
+            }
+            .store(in: &cancellables)
+    }
+
+    private func buildStatusMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            menu.addItem(.disabledInfo("Version \(version)"))
+        }
+        menu.addItem(.separator())
+
+        menu.addItem(.withIcon("Settings", systemImage: "gearshape.fill", action: #selector(openSettingsFromMenu), keyEquivalent: ",", target: self))
+        menu.addItem(.withIcon("Check for Updates…", systemImage: "arrow.down.circle", action: #selector(checkForUpdatesFromMenu), target: self))
+        menu.addItem(.separator())
+        menu.addItem(.withIcon("Restart", systemImage: "arrow.counterclockwise", action: #selector(restartFromMenu), target: self))
+        menu.addItem(.withIcon("Quit Knotch", systemImage: "xmark.rectangle", action: #selector(quitAction), keyEquivalent: "q", target: self))
+
+        return menu
+    }
+
+    @objc func openSettingsFromMenu() {
+        DispatchQueue.main.async {
+            SettingsWindowController.shared.showWindow()
+        }
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        updater?.checkForUpdates()
+    }
+
+    @objc private func restartFromMenu() {
+        ApplicationRelauncher.restart()
+    }
+
     // Always rebuilds rather than reusing onboardingWindowController, since a
     // prior window may have already been closed (and thus released) by
     // onFinish — reusing it would show a stale/dead window.
@@ -855,6 +888,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         onboardingWindowController?.window?.makeKeyAndOrderFront(nil)
         onboardingWindowController?.window?.orderFrontRegardless()
+    }
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdatesFromMenu) {
+            return updater?.canCheckForUpdates ?? false
+        }
+        return true
     }
 }
 
