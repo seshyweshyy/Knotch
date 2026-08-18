@@ -35,12 +35,23 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RELEASE_TAG="${{ steps.fetch_release.outputs.tag_name }}"
             RELEASE_URL="${{ steps.fetch_release.outputs.html_url }}"
-            RELEASE_BODY=$(echo "${{ steps.fetch_release.outputs.body }}" | jq -Rs .)
+            RAW_BODY="${{ steps.fetch_release.outputs.body }}"
           else
             RELEASE_TAG="${{ github.event.release.tag_name }}"
             RELEASE_URL="${{ github.event.release.html_url }}"
-            RELEASE_BODY=$(echo "${{ github.event.release.body }}" | jq -Rs .)
+            RAW_BODY="${{ github.event.release.body }}"
           fi
+
+          # Release notes use <img> tags to show section icons (rendered by GitHub and the
+          # Sparkle update popup), but Discord's markdown doesn't parse raw HTML — it would
+          # print the tags as literal text. Swap them back to the emoji headers used before
+          # the icon change, which Discord renders natively.
+          FORMATTED_BODY=$(echo "$RAW_BODY" | perl -pe '
+            s{<img[^>]*/macbook\.svg[^>]*>}{💻}g;
+            s{<img[^>]*/sparkles\.svg[^>]*>}{✨}g;
+            s{<img[^>]*/wrench-fixes\.svg[^>]*>}{🔧}g;
+          ')
+          RELEASE_BODY=$(echo "$FORMATTED_BODY" | jq -Rs .)
 
           SEND_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -H "Content-Type: application/json" \

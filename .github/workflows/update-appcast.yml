@@ -55,7 +55,9 @@ jobs:
           BASENAME="${ZIP%.zip}"
           gh release view "$TAG" --repo ${{ github.repository }} --json body -q .body | tr -d '\r' > /tmp/release-notes.md
           if [ -s /tmp/release-notes.md ]; then
-            pandoc -f gfm -t html /tmp/release-notes.md -o "$BASENAME.html"
+            # --wrap=none keeps each tag on one line so the heading-stripping sed below
+            # (which only inspects line 1) can't cut a tag in half and leave stray text.
+            pandoc -f gfm -t html --wrap=none /tmp/release-notes.md -o "$BASENAME.html"
             # Drop the redundant "# Knotch vX.Y.Z" heading and its divider — the version is already shown in the update dialog title.
             sed -i '' '1{/<h1/d;}' "$BASENAME.html"
             sed -i '' '1{/<hr/d;}' "$BASENAME.html"
