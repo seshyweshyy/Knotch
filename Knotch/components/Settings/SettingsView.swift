@@ -1372,14 +1372,27 @@ struct HUD: View {
                 .settingsHighlight(id: "HUD-Replace system HUD")
                 if !accessibilityAuthorized {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Accessibility access is required to replace the system HUD.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        if #available(macOS 27.0, *) {
+                            Text("Device Control and Data Access permission is required to replace the system HUD.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Accessibility access is required to replace the system HUD.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                         HStack(spacing: 12) {
-                            Button("Request Accessibility") {
-                                XPCHelperClient.shared.requestAccessibilityAuthorization()
+                            if #available(macOS 27.0, *) {
+                                Button("Request Device Control and Data Access") {
+                                    XPCHelperClient.shared.requestAccessibilityAuthorization()
+                                }
+                                .settingsProminentGlassButton()
+                            } else {
+                                Button("Request Accessibility") {
+                                    XPCHelperClient.shared.requestAccessibilityAuthorization()
+                                }
+                                .settingsProminentGlassButton()
                             }
-                            .settingsProminentGlassButton()
                         }
                     }
                     .padding(.top, 6)

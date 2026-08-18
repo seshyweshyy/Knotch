@@ -13,6 +13,7 @@ struct PermissionRequestView: View {
     let description: String
     let privacyNote: String?
     var iconColor: Color = .effectiveAccent
+    var titleFont: Font = .title
     let onAllow: () -> Void
     let onSkip: () -> Void
 
@@ -27,7 +28,7 @@ struct PermissionRequestView: View {
                 .staggeredEntrance(4)
 
             Text(title)
-                .font(.title)
+                .font(titleFont)
                 .fontWeight(.semibold)
                 .staggeredEntrance(3)
 

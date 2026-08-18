@@ -123,10 +123,35 @@ struct OnboardingView: View {
             case .accessibilityPermission:
                 PermissionRequestView(
                     icon: Image(systemName: "hand.raised.fill"),
-                    title: "Enable Accessibility Access",
-                    description: "Accessibility access is required to replace system notifications with the Knotch HUD. This allows the app to intercept media and brightness events to display custom HUD overlays.",
-                    privacyNote: "Accessibility access is used only to improve media and brightness notifications. No data is collected or shared.",
+                    title: {
+                        if #available(macOS 27.0, *) {
+                            "Enable Device Control and Data Access"
+                        } else {
+                            "Enable Accessibility Access"
+                        }
+                    }(),
+                    description: {
+                        if #available(macOS 27.0, *) {
+                            "Device Control and Data Access permission is required to replace system notifications with the Knotch HUD. This allows the app to intercept media and brightness events to display custom HUD overlays."
+                        } else {
+                            "Accessibility access is required to replace system notifications with the Knotch HUD. This allows the app to intercept media and brightness events to display custom HUD overlays."
+                        }
+                    }(),
+                    privacyNote: {
+                        if #available(macOS 27.0, *) {
+                            "Device Control and Data Access permission is used only to improve media and brightness notifications. No data is collected or shared."
+                        } else {
+                            "Accessibility access is used only to improve media and brightness notifications. No data is collected or shared."
+                        }
+                    }(),
                     iconColor: .blue,
+                    titleFont: {
+                        if #available(macOS 27.0, *) {
+                            .title2
+                        } else {
+                            .title
+                        }
+                    }(),
                     onAllow: {
                         Task {
                             await requestAccessibilityPermission()
