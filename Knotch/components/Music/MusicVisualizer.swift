@@ -17,7 +17,7 @@ import SwiftUI
 /// width/spacing/height together instead of hand-balancing them separately.
 /// `barCount` is discrete and stays untouched by scale.
 enum AudioSpectrum {
-    static let scale: CGFloat = 0.9
+    static let scale: CGFloat = 1
     private static let baseTotalHeight: CGFloat = 18
 
     static let barWidth: CGFloat = 2
@@ -167,6 +167,7 @@ struct AudioSpectrumView: View {
             }
         }
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)
+        .scaleEffect(0.98)
         .modifier(LiveAmplitudesSubscriber(amplitudes: $amplitudes))
         // Timer.publish, not TimelineView — see the note on LiveAmplitudesSubscriber's
         // sibling mechanism above for why: TimelineView's clock doesn't fire
