@@ -31,15 +31,24 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          MANUAL_TAG: ${{ steps.fetch_release.outputs.tag_name }}
+          MANUAL_URL: ${{ steps.fetch_release.outputs.html_url }}
+          MANUAL_BODY: ${{ steps.fetch_release.outputs.body }}
+          AUTO_TAG: ${{ github.event.release.tag_name }}
+          AUTO_URL: ${{ github.event.release.html_url }}
+          AUTO_BODY: ${{ github.event.release.body }}
         run: |
+          # Pass release text through env vars (above), never splice it into the script
+          # directly — a release note containing a `"` (e.g. a quoted phrase) would
+          # otherwise break out of the quoted string and be parsed as shell syntax.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RELEASE_TAG="${{ steps.fetch_release.outputs.tag_name }}"
-            RELEASE_URL="${{ steps.fetch_release.outputs.html_url }}"
-            RAW_BODY="${{ steps.fetch_release.outputs.body }}"
+            RELEASE_TAG="$MANUAL_TAG"
+            RELEASE_URL="$MANUAL_URL"
+            RAW_BODY="$MANUAL_BODY"
           else
-            RELEASE_TAG="${{ github.event.release.tag_name }}"
-            RELEASE_URL="${{ github.event.release.html_url }}"
-            RAW_BODY="${{ github.event.release.body }}"
+            RELEASE_TAG="$AUTO_TAG"
+            RELEASE_URL="$AUTO_URL"
+            RAW_BODY="$AUTO_BODY"
           fi
 
           # Release notes use <img> tags to show section icons (rendered by GitHub and the
