@@ -17,18 +17,12 @@ import SwiftUI
 /// width/spacing/height together instead of hand-balancing them separately.
 /// `barCount` is discrete and stays untouched by scale.
 enum AudioSpectrum {
-    static let scale: CGFloat = 1.15
-    private static let baseBarWidth: CGFloat = 2.1
-    private static let baseSpacing: CGFloat = 1
-    private static let baseTotalHeight: CGFloat = 16
+    static let scale: CGFloat = 0.9
+    private static let baseTotalHeight: CGFloat = 18
 
-    // Rounded to whole points so every bar's edges land on the same pixel
-    // grid regardless of its x position in the HStack — a fractional width
-    // (e.g. 2.205pt) can round to a different physical pixel count per bar
-    // depending on subpixel position, making bars look inconsistently thick.
-    static var barWidth: CGFloat { (baseBarWidth * scale).rounded() }
+    static let barWidth: CGFloat = 2
     static let barCount = 6
-    static var spacing: CGFloat { (baseSpacing * scale * 2).rounded() / 2 }
+    static let spacing: CGFloat = 1.5
     static var totalHeight: CGFloat { baseTotalHeight * scale }
 
     // Per-bar sensitivity exponent applied at render time, separate from
