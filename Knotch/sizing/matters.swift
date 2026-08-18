@@ -26,10 +26,12 @@ let liquidPullClamp: CGFloat = 70
 // Bouncy release used everywhere the liquid pull snaps back to zero.
 let liquidReleaseSpring = Animation.spring(response: 0.45, dampingFraction: 0.55, blendDuration: 0)
 
-// Drives the open transition. Critically damped (no overshoot) — compact
-// mode's content reveal rides this same spring for its own scale/blur, so
-// an overshoot here would show as a visible mismatch between the two.
-let notchOpenSpring = Animation.spring(response: 0.40, dampingFraction: 1.0, blendDuration: 0)
+// Drives the open transition. Slightly underdamped for a subtle iOS-style
+// overshoot (shape grows a touch past its resting size, then settles back)
+// — compact mode's content reveal rides this same spring for its own
+// scale/blur, so keeping it a single shared spring is what keeps the two in
+// sync.
+let notchOpenSpring = Animation.spring(response: 0.40, dampingFraction: 0.625, blendDuration: 0)
 
 // Release used when the HUD edge overshoot (volume/brightness hitting 0%/100%)
 // snaps back to zero. Kept independent from liquidReleaseSpring so it can be
