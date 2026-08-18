@@ -349,13 +349,13 @@ struct BatteryNotchBanner: View {
                         .foregroundColor(.yellow)
                         .font(.system(size: 10, weight: .medium))
                     +
-                    Text(verbatim: "\nit is recommended to charge it.")
+                    Text(verbatim: "\nplug in soon to recharge.")
                         .foregroundColor(.gray.opacity(0.6))
                         .font(.system(size: 10, weight: .medium))
                 )
                 .lineLimit(2)
             } else {
-                Text(verbatim: "Turn on Low Power Mode or it\nis recommended to charge it.")
+                Text(verbatim: "Turn on Low Power Mode or plug\nin soon to recharge.")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.gray.opacity(0.6))
                     .lineLimit(2)
