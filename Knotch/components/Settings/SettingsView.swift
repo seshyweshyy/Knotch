@@ -563,6 +563,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek style", keywords: ["sneak peek", "style"], highlightID: "Media-Sneak peek style"),
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek duration", keywords: ["sneak peek", "duration", "timing"], highlightID: "Media-Sneak peek duration"),
             SettingsSearchEntry(tabID: "Media", title: "Media inactivity timeout", keywords: ["timeout", "inactivity", "media"], highlightID: "Media-Media inactivity timeout"),
+            SettingsSearchEntry(tabID: "Media", title: "Media controls layout", keywords: ["layout", "preview", "slots", "rearrange", "drag", "buttons", "controls"], highlightID: "Media-Media controls layout"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "LockScreen-Show album art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show timer widget on lock screen", keywords: ["lock screen", "timer", "widget"], highlightID: "LockScreen-Show timer widget"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "LockScreen-Expanded album art"),
@@ -1851,6 +1852,7 @@ struct Media: View {
 
             Section {
                 MusicSlotConfigurationView()
+                    .settingsHighlight(id: "Media-Media controls layout")
                 Defaults.Toggle(key: .enableLyrics) {
                     HStack {
                         Text("Show lyrics below artist name")
