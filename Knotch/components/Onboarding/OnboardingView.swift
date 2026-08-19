@@ -7,19 +7,24 @@
 
 import SwiftUI
 import AVFoundation
+import Defaults
+import EventKit
 
 enum OnboardingStep {
     case welcome
-    case cameraPermission
     case calendarPermission
     case remindersPermission
     case accessibilityPermission
+    case cameraPermission
+    case bluetoothPermission
+    case airDropPermission
     case musicPermission
+    case liveWaveformPermission
     case uiModeSelection
     case finished
 }
 
-private let calendarService = CalendarService()
+private let calendarService = CalendarService.shared
 
 private let onboardingStepAnimation: Animation = .spring(response: 0.45, dampingFraction: 0.86)
 
@@ -46,32 +51,9 @@ struct OnboardingView: View {
             case .welcome:
                 WelcomeView {
                     withAnimation(onboardingStepAnimation) {
-                        step = .cameraPermission
+                        step = .calendarPermission
                     }
                 }
-                .transition(.onboardingPush)
-
-            case .cameraPermission:
-                PermissionRequestView(
-                    icon: Image(systemName: "camera.fill"),
-                    title: "Enable Camera Access",
-                    description: "Knotch includes a mirror feature that lets you quickly check your appearance using your camera, right from the notch. Camera access is required only to show this live preview. You can turn the mirror feature on or off at any time in the app.",
-                    privacyNote: "Your camera is never used without your consent, and nothing is recorded or stored.",
-                    iconColor: .gray,
-                    onAllow: {
-                        Task {
-                            await requestCameraPermission()
-                            withAnimation(onboardingStepAnimation) {
-                                step = .calendarPermission
-                            }
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(onboardingStepAnimation) {
-                            step = .calendarPermission
-                        }
-                    }
-                )
                 .transition(.onboardingPush)
 
             case .calendarPermission:
@@ -156,8 +138,73 @@ struct OnboardingView: View {
                         Task {
                             await requestAccessibilityPermission()
                             withAnimation(onboardingStepAnimation) {
-                                step = .musicPermission
+                                step = .cameraPermission
                             }
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(onboardingStepAnimation) {
+                            step = .cameraPermission
+                        }
+                    }
+                )
+                .transition(.onboardingPush)
+
+            case .cameraPermission:
+                PermissionRequestView(
+                    icon: Image(systemName: "camera.fill"),
+                    title: "Enable Camera Access",
+                    description: "Knotch includes a mirror feature that lets you quickly check your appearance using your camera, right from the notch. Camera access is required only to show this live preview. You can turn the mirror feature on or off at any time in the app.",
+                    privacyNote: "Your camera is never used without your consent, and nothing is recorded or stored.",
+                    iconColor: .gray,
+                    onAllow: {
+                        Task {
+                            await requestCameraPermission()
+                            withAnimation(onboardingStepAnimation) {
+                                step = .bluetoothPermission
+                            }
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(onboardingStepAnimation) {
+                            step = .bluetoothPermission
+                        }
+                    }
+                )
+                .transition(.onboardingPush)
+
+            case .bluetoothPermission:
+                PermissionRequestView(
+                    icon: Image(systemName: "airpods.gen3"),
+                    title: "Enable Bluetooth Access",
+                    description: "Knotch uses Bluetooth to read the battery level of your connected AirPods and other accessories, and to show a HUD when they connect or disconnect.",
+                    privacyNote: "Bluetooth is only used to read device names and battery levels. No data is collected or shared.",
+                    iconColor: .blue,
+                    onAllow: {
+                        _ = BluetoothAudioManager.shared
+                        withAnimation(onboardingStepAnimation) {
+                            step = .airDropPermission
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(onboardingStepAnimation) {
+                            step = .airDropPermission
+                        }
+                    }
+                )
+                .transition(.onboardingPush)
+
+            case .airDropPermission:
+                PermissionRequestView(
+                    icon: Image(systemName: "square.and.arrow.down"),
+                    title: "Enable AirDrop Tracking",
+                    description: "Knotch shows a live progress HUD for files AirDropped to your Mac. This requires permission to read your Downloads folder, where AirDrop transfers land.",
+                    privacyNote: "Knotch only reads file names and timestamps in Downloads to detect new transfers — it never opens or uploads their contents.",
+                    iconColor: .teal,
+                    onAllow: {
+                        AirDropReceiveManager.shared.requestDownloadsFolderAccess()
+                        withAnimation(onboardingStepAnimation) {
+                            step = .musicPermission
                         }
                     },
                     onSkip: {
@@ -167,10 +214,34 @@ struct OnboardingView: View {
                     }
                 )
                 .transition(.onboardingPush)
-                
+
             case .musicPermission:
                 MusicControllerSelectionView(
                     onContinue: {
+                        withAnimation(onboardingStepAnimation) {
+                            step = .liveWaveformPermission
+                        }
+                    }
+                )
+                .transition(.onboardingPush)
+
+            case .liveWaveformPermission:
+                PermissionRequestView(
+                    icon: Image(systemName: "waveform"),
+                    title: "Enable Live Waveform",
+                    description: "Knotch can show a live waveform of whatever's playing, reacting to the actual audio in real time. This requires permission to record system audio.",
+                    privacyNote: "Audio is analyzed on your Mac only, never recorded to disk or sent anywhere.",
+                    iconColor: .pink,
+                    onAllow: {
+                        Defaults[.liveWaveform] = true
+                        Task {
+                            await LiveAudioMeter.shared.requestPermission()
+                        }
+                        withAnimation(onboardingStepAnimation) {
+                            step = .uiModeSelection
+                        }
+                    },
+                    onSkip: {
                         withAnimation(onboardingStepAnimation) {
                             step = .uiModeSelection
                         }
@@ -185,6 +256,11 @@ struct OnboardingView: View {
                             KnotchViewCoordinator.shared.firstLaunch = false
                             step = .finished
                         }
+                        // Recreates the active controller now that onboarding
+                        // has ended, so the shuffle/repeat AppleScript probes
+                        // skipped during onboarding (see NowPlayingController.
+                        // onboardingInProgress) run once against real state.
+                        NotificationCenter.default.post(name: .mediaControllerChanged, object: nil)
                     }
                 )
                 .transition(.onboardingPush)
@@ -208,11 +284,21 @@ struct OnboardingView: View {
     }
 
     func requestCalendarPermission() async {
-        _ = try? await calendarService.requestAccess(to: .event)
+        do {
+            let granted = try await calendarService.requestAccess(to: .event)
+            NSLog("[Onboarding] Calendar requestAccess granted=\(granted), status=\(EKEventStore.authorizationStatus(for: .event).rawValue)")
+        } catch {
+            NSLog("[Onboarding] Calendar requestAccess threw: \(error)")
+        }
     }
 
     func requestRemindersPermission() async {
-        _ = try? await calendarService.requestAccess(to: .reminder)
+        do {
+            let granted = try await calendarService.requestAccess(to: .reminder)
+            NSLog("[Onboarding] Reminders requestAccess granted=\(granted), status=\(EKEventStore.authorizationStatus(for: .reminder).rawValue)")
+        } catch {
+            NSLog("[Onboarding] Reminders requestAccess threw: \(error)")
+        }
     }
     
     func requestAccessibilityPermission() async {

@@ -444,9 +444,18 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
     }
     
+     // Sending AppleEvents to Music/Spotify for the first time triggers the
+     // system "wants to control" automation prompt — skip it during onboarding
+     // so it doesn't fire unprompted over the welcome screen before the user
+     // has agreed to anything. MusicManager resyncs once onboarding finishes.
+     private func onboardingInProgress() async -> Bool {
+         await MainActor.run { KnotchViewCoordinator.shared.firstLaunch }
+     }
+
      private func fetchFavoriteStateIfSupported() async {
+         guard await !onboardingInProgress() else { return }
          let bundleID = playbackState.bundleIdentifier
-        
+
          if bundleID == "com.apple.Music" {
              let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music")
              guard !runningApps.isEmpty else { return }
@@ -469,6 +478,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
      }
 
      private func fetchShuffleStateIfSupported() async {
+         guard await !onboardingInProgress() else { return }
          let bundleID = playbackState.bundleIdentifier
          let script: String
 
@@ -507,6 +517,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
      }
 
      private func fetchRepeatStateIfSupported() async {
+         guard await !onboardingInProgress() else { return }
          let bundleID = playbackState.bundleIdentifier
          let script: String
 

@@ -112,6 +112,22 @@ class WebcamManager: NSObject, ObservableObject {
             }
         }
     }
+
+    /// Unlike checkAndRequestVideoAuthorization() (which only requests while
+    /// status is .notDetermined), this always attempts the request — used by
+    /// the Settings "Grant Access" fallback so it's never a dead click even
+    /// if status is .denied. AVFoundation simply won't show a dialog once
+    /// the OS has truly decided.
+    func requestVideoAccessAlways() {
+        AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+            DispatchQueue.main.async {
+                self?.authorizationStatus = granted ? .authorized : AVCaptureDevice.authorizationStatus(for: .video)
+                if granted {
+                    self?.checkCameraAvailability()
+                }
+            }
+        }
+    }
     
     /// Checks if any camera devices are available and sets up capture session if needed
     func checkCameraAvailability() {

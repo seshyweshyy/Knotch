@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import CoreBluetooth
 import Defaults
 import EventKit
 import KeyboardShortcuts
@@ -541,8 +542,6 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Appearance", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
-            SettingsSearchEntry(tabID: "Appearance", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
-            SettingsSearchEntry(tabID: "Appearance", title: "Show waveform in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view waveform"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable blur effect behind album art", keywords: ["blur", "glass", "album art"], highlightID: "Appearance-Enable blur effect"),
             SettingsSearchEntry(tabID: "Appearance", title: "Slider color", keywords: ["slider", "color", "accent"], highlightID: "Appearance-Slider color"),
@@ -553,6 +552,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Widgets", title: "Calendar widget", keywords: ["calendar", "widget"], highlightID: "Widgets-Show calendar widget"),
             SettingsSearchEntry(tabID: "Widgets", title: "Mirror widget", keywords: ["mirror", "camera", "widget"], highlightID: "Widgets-Mirror widget"),
             // Media
+            SettingsSearchEntry(tabID: "Media", title: "Show waveform in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view waveform"),
+            SettingsSearchEntry(tabID: "Media", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
             SettingsSearchEntry(tabID: "Media", title: "Music source", keywords: ["music", "source", "spotify", "youtube"], highlightID: "Media-Music source"),
             SettingsSearchEntry(tabID: "Media", title: "Show music live activity", keywords: ["music", "live activity", "player"], highlightID: "Media-Enable media player"),
             SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on track change", keywords: ["sneak peek", "playback", "track", "song"], highlightID: "Media-Show playback controls"),
@@ -1151,6 +1152,7 @@ struct LiveActivitiesSettings: View {
     @Default(.showFocusModeIndicator) var showFocusModeIndicator
     @Default(.useDetailedFocusMetadata) var useDetailedFocusMetadata
     @Default(.showAirDropReceiveProgress) var showAirDropReceiveProgress
+    @State private var bluetoothAuthorization = CBManager.authorization
 
     var body: some View {
         Form {
@@ -1254,6 +1256,32 @@ struct LiveActivitiesSettings: View {
                     }
                 }
                 .settingsHighlight(id: "LiveActivities-HUD icon style")
+                if bluetoothAuthorization != .allowedAlways {
+                    let isNotDetermined = bluetoothAuthorization == .notDetermined
+                    Text(isNotDetermined
+                         ? "Bluetooth access hasn't been granted yet."
+                         : "Bluetooth access is denied. Please enable it in System Settings.")
+                        .foregroundColor(isNotDetermined ? .secondary : .red)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    HStack(spacing: 12) {
+                        Button("Grant Bluetooth Access") {
+                            _ = BluetoothAudioManager.shared
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                bluetoothAuthorization = CBManager.authorization
+                            }
+                        }
+                        .settingsProminentGlassButton()
+                        if !isNotDetermined {
+                            Button("Open Bluetooth Settings") {
+                                if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth") {
+                                    NSWorkspace.shared.open(settingsURL)
+                                }
+                            }
+                            .settingsSubtleGlassButton()
+                        }
+                    }
+                }
             } header: {
                 Text("Bluetooth")
             }
@@ -1273,6 +1301,9 @@ struct LiveActivitiesSettings: View {
             }
         }
         .accentColor(.effectiveAccent)
+        .onAppear {
+            bluetoothAuthorization = CBManager.authorization
+        }
     }
 }
 
@@ -1692,6 +1723,19 @@ struct Media: View {
             }
 
             Section {
+                Defaults.Toggle(key: .homeViewVisualizer) {
+                    Text("Show waveform in home view")
+                }
+                .settingsDisabled(enableCompactUI)
+                .settingsHighlight(id: "Media-Home view waveform")
+                Defaults.Toggle(key: .liveWaveform) {
+                    HStack(spacing: 6) {
+                        Text("Live waveform")
+                        Image(systemName: "waveform.and.mic")
+                            .modifier(HoverTooltip(text: "Records system audio"))
+                    }
+                }
+                .settingsHighlight(id: "Media-Live waveform")
                 Defaults.Toggle(key: .motionArtMedia) {
                     HStack(spacing: 6) {
                         Text("Display Motion Art on media views")
@@ -2164,13 +2208,25 @@ struct CalendarSettings: View {
             .disabled(!showCalendar)
             Section(header: Text("Calendars")) {
                 if calendarManager.calendarAuthorizationStatus != .fullAccess {
-                    Text("Calendar access is denied. Please enable it in System Settings.")
-                        .foregroundColor(.red)
+                    let isNotDetermined = calendarManager.calendarAuthorizationStatus == .notDetermined
+                    Text(isNotDetermined
+                         ? "Calendar access hasn't been granted yet."
+                         : "Calendar access is denied. Please enable it in System Settings.")
+                        .foregroundColor(isNotDetermined ? .secondary : .red)
                         .multilineTextAlignment(.center)
                         .padding()
-                    Button("Open Calendar Settings") {
-                        if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
-                            NSWorkspace.shared.open(settingsURL)
+                    HStack(spacing: 12) {
+                        Button("Grant Calendar Access") {
+                            Task { await calendarManager.requestCalendarAccess() }
+                        }
+                        .settingsProminentGlassButton()
+                        if !isNotDetermined {
+                            Button("Open Calendar Settings") {
+                                if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                                    NSWorkspace.shared.open(settingsURL)
+                                }
+                            }
+                            .settingsSubtleGlassButton()
                         }
                     }
                 } else {
@@ -2194,13 +2250,25 @@ struct CalendarSettings: View {
             }
             Section(header: Text("Reminders")) {
                 if calendarManager.reminderAuthorizationStatus != .fullAccess {
-                    Text("Reminder access is denied. Please enable it in System Settings.")
-                        .foregroundColor(.red)
+                    let isNotDetermined = calendarManager.reminderAuthorizationStatus == .notDetermined
+                    Text(isNotDetermined
+                         ? "Reminders access hasn't been granted yet."
+                         : "Reminder access is denied. Please enable it in System Settings.")
+                        .foregroundColor(isNotDetermined ? .secondary : .red)
                         .multilineTextAlignment(.center)
                         .padding()
-                    Button("Open Reminder Settings") {
-                        if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
-                            NSWorkspace.shared.open(settingsURL)
+                    HStack(spacing: 12) {
+                        Button("Grant Reminders Access") {
+                            Task { await calendarManager.requestReminderAccess() }
+                        }
+                        .settingsProminentGlassButton()
+                        if !isNotDetermined {
+                            Button("Open Reminder Settings") {
+                                if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
+                                    NSWorkspace.shared.open(settingsURL)
+                                }
+                            }
+                            .settingsSubtleGlassButton()
                         }
                     }
                 } else {
@@ -2237,6 +2305,7 @@ struct CalendarSettings: View {
 
 struct Appearance: View {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @ObservedObject private var webcamManager = WebcamManager.shared
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
@@ -2264,19 +2333,6 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(key: .homeViewVisualizer) {
-                    Text("Show waveform in home view")
-                }
-                .settingsDisabled(enableCompactUI)
-                .settingsHighlight(id: "Media-Home view waveform")
-                Defaults.Toggle(key: .liveWaveform) {
-                    HStack(spacing: 6) {
-                        Text("Live waveform")
-                        Image(systemName: "waveform.and.mic")
-                            .modifier(HoverTooltip(text: "Records system audio"))
-                    }
-                }
-                .settingsHighlight(id: "Media-Live waveform")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
                     .settingsHighlight(id: "Appearance-Player tinting")
                 Defaults.Toggle(key: .lightingEffect) {
@@ -2297,11 +2353,7 @@ struct Appearance: View {
                 .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Appearance-Slider color")
             } header: {
-                Text("Media")
-            } footer: {
-                Text("Live waveform captures system audio from the active music app. Requires macOS 14.2 or later.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                Text("Media Player")
             }
 
             Section {
@@ -2317,6 +2369,29 @@ struct Appearance: View {
                 .tint(Color(nsColor: .labelColor))
                 .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Advanced-Mirror shape")
+                if webcamManager.authorizationStatus != .authorized {
+                    let isNotDetermined = webcamManager.authorizationStatus == .notDetermined
+                    Text(isNotDetermined
+                         ? "Camera access hasn't been granted yet."
+                         : "Camera access is denied. Please enable it in System Settings.")
+                        .foregroundColor(isNotDetermined ? .secondary : .red)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    HStack(spacing: 12) {
+                        Button("Grant Camera Access") {
+                            webcamManager.requestVideoAccessAlways()
+                        }
+                        .settingsProminentGlassButton()
+                        if !isNotDetermined {
+                            Button("Open Camera Settings") {
+                                if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
+                                    NSWorkspace.shared.open(settingsURL)
+                                }
+                            }
+                            .settingsSubtleGlassButton()
+                        }
+                    }
+                }
             } header: {
                 HStack { Text("Additional features") }
             } footer: {
@@ -2328,6 +2403,9 @@ struct Appearance: View {
             }
         }
         .accentColor(.effectiveAccent)
+        .onAppear {
+            webcamManager.checkAndRequestVideoAuthorization()
+        }
     }
 
     func checkVideoInput() -> Bool {

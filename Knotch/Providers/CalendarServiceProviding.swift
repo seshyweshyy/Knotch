@@ -17,21 +17,51 @@ protocol CalendarServiceProviding {
 }
 
 class CalendarService: CalendarServiceProviding {
+    // A single EKEventStore per process — Apple's EventKit engineers have
+    // flagged multiple live instances as a source of flaky authorization
+    // callbacks on macOS 14+ (requestFullAccessTo... silently returning
+    // false with no prompt). CalendarManager and OnboardingView both go
+    // through this instance rather than creating their own.
+    static let shared = CalendarService()
+
     private let store = EKEventStore()
     
     @MainActor
     func requestAccess(to type: EKEntityType) async throws -> Bool {
         if #available(macOS 14.0, *) {
-            switch type {
-            case .event:
-                return try await store.requestFullAccessToEvents()
-            case .reminder:
-                return try await store.requestFullAccessToReminders()
-            @unknown default:
-                return false
+            // The very first EventKit full-access call on a freshly-created
+            // EKEventStore can race the XPC connection to CalendarAgent and
+            // come back `false` before the user was ever actually asked —
+            // authorizationStatus stays .notDetermined in that case, unlike
+            // a real "Don't Allow" (which moves it to .denied). That specific
+            // signature is the only case safe to retry, since we're not
+            // re-prompting after a genuine decision.
+            for attempt in 0..<3 {
+                let granted = try await requestFullAccess(to: type)
+                if granted { return true }
+
+                let statusAfter = EKEventStore.authorizationStatus(for: type)
+                guard statusAfter == .notDetermined else { return false }
+
+                NSLog("[CalendarService] requestAccess(\(type)) returned false but status is still notDetermined (attempt \(attempt + 1)/3) — retrying")
+                try? await Task.sleep(for: .milliseconds(400))
             }
+            return false
         } else {
             return try await store.requestAccess(to: type)
+        }
+    }
+
+    @MainActor
+    @available(macOS 14.0, *)
+    private func requestFullAccess(to type: EKEntityType) async throws -> Bool {
+        switch type {
+        case .event:
+            return try await store.requestFullAccessToEvents()
+        case .reminder:
+            return try await store.requestFullAccessToReminders()
+        @unknown default:
+            return false
         }
     }
     

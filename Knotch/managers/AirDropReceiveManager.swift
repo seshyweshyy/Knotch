@@ -25,6 +25,20 @@ final class AirDropReceiveManager {
 
     private let watchedDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
 
+    /// Triggers the system Downloads-folder consent prompt on its own, ahead
+    /// of the user's first real AirDrop transfer — `finish()` reads the
+    /// folder's contents to resolve which file just landed, and that first
+    /// read is what the OS gates, not `Progress.addSubscriber` itself. Used
+    /// by onboarding so the prompt appears under an explained context
+    /// instead of silently mid-transfer.
+    func requestDownloadsFolderAccess() {
+        _ = try? FileManager.default.contentsOfDirectory(
+            at: watchedDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+    }
+
     private init() {
         subscriberToken = Progress.addSubscriber(forFileURL: watchedDirectory) { [weak self] progress in
             Task { @MainActor in

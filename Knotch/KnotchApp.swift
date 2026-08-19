@@ -569,7 +569,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
 
-        _ = BluetoothAudioManager.shared
+        // Deferred on first launch — creating BluetoothAudioManager creates a
+        // CBCentralManager, which fires the system Bluetooth permission prompt
+        // immediately. Onboarding's own bluetoothPermission step triggers it
+        // explicitly instead, under an explained context; if skipped there,
+        // it simply doesn't initialize this launch, same as any other
+        // skipped onboarding permission.
+        if !coordinator.firstLaunch {
+            _ = BluetoothAudioManager.shared
+        }
         _ = FocusModeManager.shared
         _ = AirDropReceiveManager.shared
 
@@ -865,7 +873,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 step: step,
                 onFinish: {
                     window.orderOut(nil)
-//                        NSApp.setActivationPolicy(.accessory)
+                    NSApp.setActivationPolicy(.accessory)
                     window.close()
                     NSApp.deactivate()
                 },
@@ -884,7 +892,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         onboardingWindowController = NSWindowController(window: window)
 
-//        NSApp.setActivationPolicy(.regular)
+        // Onboarding is normally an accessory (menu-bar-only, LSUIElement)
+        // process with no Dock icon — switched to .regular for its duration
+        // so the window and any system permission prompts it triggers get
+        // normal foreground app treatment, then reverted in onFinish.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         onboardingWindowController?.window?.makeKeyAndOrderFront(nil)
         onboardingWindowController?.window?.orderFrontRegardless()

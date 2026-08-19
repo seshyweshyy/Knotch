@@ -281,6 +281,80 @@ final class LiveAudioMeter {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
+    /// Triggers the system "System Audio Recording" consent prompt on its own,
+    /// independent of any music app actually playing — used by onboarding so
+    /// the dialog appears under an explained context instead of silently the
+    /// first time the user toggles Live Waveform in Settings.
+    ///
+    /// Per Apple/AudioCap, the OS only prompts once an aggregate device
+    /// containing a tap actually *starts* — creating the tap alone isn't
+    /// enough (confirmed: toggling the real feature on and hitting play
+    /// prompts correctly, but the earlier create-then-immediately-destroy
+    /// version of this method never did). So this mirrors start(bundleID:)
+    /// through AudioDeviceStart, holds it open briefly, then tears everything
+    /// down. Return value reflects setup success, not the user's eventual
+    /// answer (the OS grants/denies asynchronously).
+    @discardableResult
+    func requestPermission() async -> Bool {
+        let tap = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
+        tap.uuid = UUID()
+        tap.muteBehavior = .unmuted
+        tap.isPrivate = true
+        tap.isExclusive = false
+
+        var tapID: AudioObjectID = kAudioObjectUnknown
+        let tapErr = AudioHardwareCreateProcessTap(tap, &tapID)
+        guard tapErr == noErr, tapID != kAudioObjectUnknown else {
+            NSLog("[LiveAudioMeter] requestPermission tap creation failed: OSStatus \(tapErr)")
+            return false
+        }
+        defer { AudioHardwareDestroyProcessTap(tapID) }
+
+        let tapUID = tap.uuid.uuidString
+        guard let defaultOutputID = try? AudioObjectID.system.readDefaultSystemOutputDevice(),
+              let outputUID = try? defaultOutputID.readDeviceUID() else {
+            NSLog("[LiveAudioMeter] requestPermission couldn't read default output device")
+            return false
+        }
+
+        let aggregateDict: [String: Any] = [
+            kAudioAggregateDeviceNameKey: "KnotchMeter-PermissionRequest",
+            kAudioAggregateDeviceUIDKey: "knotch.meter.permission.\(tapUID)",
+            kAudioAggregateDeviceIsPrivateKey: true,
+            kAudioAggregateDeviceIsStackedKey: false,
+            kAudioAggregateDeviceMasterSubDeviceKey: outputUID,
+            kAudioAggregateDeviceTapListKey: [
+                [kAudioSubTapUIDKey: tapUID]
+            ]
+        ]
+
+        var aggID: AudioDeviceID = kAudioObjectUnknown
+        let aggErr = AudioHardwareCreateAggregateDevice(aggregateDict as CFDictionary, &aggID)
+        guard aggErr == noErr, aggID != kAudioObjectUnknown else {
+            NSLog("[LiveAudioMeter] requestPermission aggregate device creation failed: OSStatus \(aggErr)")
+            return false
+        }
+        defer { AudioHardwareDestroyAggregateDevice(aggID) }
+
+        var ioProcID: AudioDeviceIOProcID?
+        let procErr = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggID, nil) { _, _, _, _, _ in }
+        guard procErr == noErr, let procID = ioProcID else {
+            NSLog("[LiveAudioMeter] requestPermission IOProc creation failed: OSStatus \(procErr)")
+            return false
+        }
+        defer { AudioDeviceDestroyIOProcID(aggID, procID) }
+
+        let startErr = AudioDeviceStart(aggID, procID)
+        guard startErr == noErr else {
+            NSLog("[LiveAudioMeter] requestPermission device start failed: OSStatus \(startErr)")
+            return false
+        }
+        NSLog("[LiveAudioMeter] requestPermission started throwaway recording — should trigger the TCC prompt now")
+        try? await Task.sleep(for: .milliseconds(500))
+        AudioDeviceStop(aggID, procID)
+        return true
+    }
+
     // MARK: - Tap lifecycle
 
     private func start(bundleID: String) throws {
@@ -515,11 +589,38 @@ final class LiveAudioMeter {
     // Chromium-family browsers (Chrome, Edge, Brave, ...) all name these
     // helpers as dot-suffixed children of the main bundle ID, so widen the
     // match to include them.
+    //
+    // Safari doesn't fit that pattern at all: its content-rendering helper
+    // isn't a dot-suffixed child of "com.apple.Safari" — it's a structurally
+    // unrelated bundle ID, "com.apple.WebKit.WebContent" (plus sibling
+    // WebKit.* helpers), sharing no prefix with Safari's own ID. The prefix
+    // match above can never find it, so live waveform silently never starts
+    // for Safari — reproduced with Safari playing YouTube in the background,
+    // regardless of whether it was opened before or after granting the
+    // audio-capture permission.
+    //
+    // Other engines are known to spawn helpers under similarly unrelated
+    // bundle IDs (e.g. Firefox's Gecko media/plugin processes). None of
+    // those have actually been reproduced as broken — Firefox has tested
+    // fine against the plain prefix rule above — but matched here anyway as
+    // cheap defense in depth, by substring rather than exact prefix since
+    // the real bundle ID text for these isn't confirmed.
+    private static let unrelatedHelperMarkers: [String: [String]] = [
+        "com.apple.Safari": ["com.apple.webkit."],
+        "com.apple.SafariTechnologyPreview": ["com.apple.webkit."],
+        "org.mozilla.firefox": ["geckomediaplugin", "plugin-container"],
+    ]
+
     private func findProcessObjectIDs(bundleID: String) throws -> [AudioObjectID] {
         let processList = try AudioObjectID.system.readProcessList()
+        let markers = Self.unrelatedHelperMarkers[bundleID] ?? []
         let matches = processList.filter {
             guard let candidate = $0.readProcessBundleID() else { return false }
-            return candidate == bundleID || candidate.hasPrefix(bundleID + ".")
+            if candidate == bundleID || candidate.hasPrefix(bundleID + ".") {
+                return true
+            }
+            let lowercasedCandidate = candidate.lowercased()
+            return markers.contains { lowercasedCandidate.contains($0) }
         }
         guard !matches.isEmpty else { throw MeterError.processNotFound(bundleID) }
         return matches

@@ -24,7 +24,7 @@ class CalendarManager: ObservableObject {
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     private var selectedCalendars: [CalendarModel] = []
-    private let calendarService = CalendarService()
+    private let calendarService = CalendarService.shared
     private let eventFetchLimiter = EventFetchLimiter()
 
     private var eventStoreChangedObserver: NSObjectProtocol?
@@ -67,13 +67,18 @@ class CalendarManager: ObservableObject {
     func checkCalendarAuthorization() async {
         let status = EKEventStore.authorizationStatus(for: .event)
         DispatchQueue.main.async {
-            print("📅 Current calendar authorization status: \(status)")
+            NSLog("[CalendarManager] Current calendar authorization status: \(status.rawValue)")
             self.calendarAuthorizationStatus = status
         }
 
         switch status {
         case .notDetermined:
-            guard let granted = try? await calendarService.requestAccess(to: .event) else {
+            let granted: Bool
+            do {
+                granted = try await calendarService.requestAccess(to: .event)
+                NSLog("[CalendarManager] Calendar requestAccess granted=\(granted)")
+            } catch {
+                NSLog("[CalendarManager] Calendar requestAccess threw: \(error)")
                 self.calendarAuthorizationStatus = .notDetermined
                 return
             }
@@ -101,16 +106,47 @@ class CalendarManager: ObservableObject {
         }
     }
     
+    /// Unlike checkCalendarAuthorization()'s passive onAppear check (which
+    /// only calls requestAccess while status is .notDetermined), this always
+    /// attempts the request — used by the Settings "Grant Access" button so
+    /// it's never a dead click, even if status is .denied. EventKit simply
+    /// won't show a dialog once the OS has truly decided, so this is a
+    /// harmless no-op in that case rather than a spam risk.
+    func requestCalendarAccess() async {
+        do {
+            let granted = try await calendarService.requestAccess(to: .event)
+            NSLog("[CalendarManager] Manual Calendar requestAccess granted=\(granted)")
+        } catch {
+            NSLog("[CalendarManager] Manual Calendar requestAccess threw: \(error)")
+        }
+        await checkCalendarAuthorization()
+    }
+
+    func requestReminderAccess() async {
+        do {
+            let granted = try await calendarService.requestAccess(to: .reminder)
+            NSLog("[CalendarManager] Manual Reminders requestAccess granted=\(granted)")
+        } catch {
+            NSLog("[CalendarManager] Manual Reminders requestAccess threw: \(error)")
+        }
+        await checkReminderAuthorization()
+    }
+
     func checkReminderAuthorization() async {
         let status = EKEventStore.authorizationStatus(for: .reminder)
         DispatchQueue.main.async {
-            print("📅 Current reminder authorization status: \(status)")
+            NSLog("[CalendarManager] Current reminder authorization status: \(status.rawValue)")
             self.reminderAuthorizationStatus = status
         }
 
         switch status {
         case .notDetermined:
-            guard let granted = try? await calendarService.requestAccess(to: .reminder) else {
+            let granted: Bool
+            do {
+                granted = try await calendarService.requestAccess(to: .reminder)
+                NSLog("[CalendarManager] Reminders requestAccess granted=\(granted)")
+            } catch {
+                NSLog("[CalendarManager] Reminders requestAccess threw: \(error)")
                 self.reminderAuthorizationStatus = .notDetermined
                 return
             }

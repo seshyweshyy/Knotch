@@ -19,6 +19,8 @@
 	<string>Knotch uses Bluetooth to read the battery level of your connected AirPods and other accessories.</string>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Knotch checks the Apple Music catalog to show Lossless and Dolby Atmos badges for the currently playing track.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Knotch analyzes system audio to drive the live waveform visualizer. Audio is processed on your Mac only and is never recorded or sent anywhere.</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict/>

@@ -165,7 +165,7 @@ extension Defaults.Keys {
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
     static let notchAppearanceStyle = Key<NotchAppearanceStyle>("notchAppearanceStyle", default: .solidBlack)
-    static let semiLiquidGlassTransition = Key<Double>("semiLiquidGlassTransition", default: 0.5)
+    static let semiLiquidGlassTransition = Key<Double>("semiLiquidGlassTransition", default: 0.4)
     
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: true)
