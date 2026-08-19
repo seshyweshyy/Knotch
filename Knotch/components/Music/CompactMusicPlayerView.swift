@@ -37,7 +37,7 @@ struct CompactMusicPlayerView: View {
             progressBar
                 .padding(.top, 6)
 
-            MusicSlotToolbar(spacing: 10)
+            MusicSlotToolbar(spacing: 12)
                 .scaleEffect(1.12)
                 .padding(.top, 10)
         }

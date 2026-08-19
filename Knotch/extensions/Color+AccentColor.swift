@@ -27,6 +27,16 @@ extension Color {
         }
         return Color.effectiveAccent.opacity(0.25)
     }
+
+    /// Icon tint for media transport buttons other than play/pause and
+    /// previous/next (shuffle, repeat, volume, favorite, audio output, etc.)
+    /// — dimmer than .primary so those buttons read as secondary controls.
+    static let mediaControlSecondary = Color.white.opacity(0.7)
+
+    /// Icon tint for a disabled media control button, replacing .primary/
+    /// avgColor entirely rather than just dimming it via opacity — dimmer
+    /// still than mediaControlSecondary.
+    static let mediaControlDisabled = Color.white.opacity(0.35)
 }
 
 extension NSColor {

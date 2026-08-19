@@ -482,7 +482,9 @@ struct MusicControlsView: View {
     }
 
     private var slotToolbar: some View {
-        MusicSlotToolbar()
+        MusicSlotToolbar(spacing: 4)
+            .scaleEffect(1.1)
+            .offset(y: -2)
             .frame(maxWidth: .infinity, alignment: .center)
     }
 
@@ -496,7 +498,6 @@ struct FavoriteControlButton: View {
             MusicManager.shared.toggleFavoriteTrack()
         }
         .disabled(!musicManager.canFavoriteTrack)
-        .opacity(musicManager.canFavoriteTrack ? 1 : 0.35)
     }
 
     // Apple Music's own "favorite" action is a star, not a heart (Spotify's
@@ -511,7 +512,8 @@ struct FavoriteControlButton: View {
     }
 
     private var iconColor: Color {
-        musicManager.isFavoriteTrack ? Color(nsColor: musicManager.avgColor) : .primary
+        guard musicManager.canFavoriteTrack else { return .mediaControlDisabled }
+        return musicManager.isFavoriteTrack ? Color(nsColor: musicManager.avgColor) : .mediaControlSecondary
     }
 }
 
@@ -567,7 +569,7 @@ struct SpeedControlButton: View {
                         .overlay {
                             Text(speedLabel)
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(isNonDefault ? tintColor : .primary)
+                                .foregroundColor(!isEnabled ? .mediaControlDisabled : (isNonDefault ? tintColor : .mediaControlSecondary))
                                 .shadow(color: isNonDefault ? tintColor.opacity(0.8) : .clear, radius: isNonDefault ? 5 : 0)
                                 .contentTransition(.numericText())
                                 .animation(.smooth(duration: 0.25), value: musicManager.playbackRate)
@@ -576,7 +578,6 @@ struct SpeedControlButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.35)
         .onHover { hovering in isHovering = hovering }
     }
 }
@@ -609,7 +610,7 @@ struct VolumeControlView: View {
             }) {
                 Image(systemName: volumeIcon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(musicManager.volumeControlSupported ? .white : .gray)
+                    .foregroundColor(musicManager.volumeControlSupported ? .mediaControlSecondary : .mediaControlDisabled)
             }
             .buttonStyle(PlainButtonStyle())
             .disabled(!musicManager.volumeControlSupported)
@@ -692,7 +693,7 @@ struct AudioOutputButton: View {
     }
 
     var body: some View {
-        HoverButton(icon: buttonIcon, scale: .medium) {
+        HoverButton(icon: buttonIcon, iconColor: .mediaControlSecondary, scale: .medium) {
             isPopoverPresented.toggle()
             if isPopoverPresented {
                 routeManager.refreshDevices()
@@ -762,7 +763,7 @@ struct LockScreenAudioOutputIndicator: View {
         // control, so it shouldn't show hover fill or a pressed state
         // that would suggest it does something.
         Image(systemName: buttonIcon)
-            .foregroundColor(.primary)
+            .foregroundColor(.mediaControlSecondary)
             .font(.title2)
             .frame(width: 40, height: 40)
             .onAppear {
@@ -940,7 +941,7 @@ struct MusicSlotToolbar: View {
         Group {
             switch slot {
             case .shuffle:
-                HoverButton(icon: "shuffle", scale: .medium, activeDot: musicManager.isShuffled) {
+                HoverButton(icon: "shuffle", iconColor: .mediaControlSecondary, scale: .medium, activeDot: musicManager.isShuffled) {
                     MusicManager.shared.toggleShuffle()
                 }
             case .previous:
@@ -964,7 +965,7 @@ struct MusicSlotToolbar: View {
                     MusicManager.shared.nextTrack()
                 }
             case .repeatMode:
-                HoverButton(icon: repeatIcon, scale: .medium, activeDot: musicManager.repeatMode != .off, activeDotXOffset: 0, liftsIconWhenDotActive: true, hapticStateKey: musicManager.repeatMode.rawValue) {
+                HoverButton(icon: repeatIcon, iconColor: .mediaControlSecondary, scale: .medium, activeDot: musicManager.repeatMode != .off, activeDotXOffset: 0, liftsIconWhenDotActive: true, hapticStateKey: musicManager.repeatMode.rawValue) {
                     MusicManager.shared.toggleRepeat()
                 }
             case .volume:
@@ -972,11 +973,11 @@ struct MusicSlotToolbar: View {
             case .favorite:
                 FavoriteControlButton()
             case .goBackward:
-                HoverButton(icon: "gobackward.15", scale: .medium) {
+                HoverButton(icon: "gobackward.15", iconColor: .mediaControlSecondary, scale: .medium) {
                     MusicManager.shared.skip(seconds: -15)
                 }
             case .goForward:
-                HoverButton(icon: "goforward.15", scale: .medium) {
+                HoverButton(icon: "goforward.15", iconColor: .mediaControlSecondary, scale: .medium) {
                     MusicManager.shared.skip(seconds: 15)
                 }
             case .audioOutput:

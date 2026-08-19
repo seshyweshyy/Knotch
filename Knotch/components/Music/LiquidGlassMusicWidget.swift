@@ -186,7 +186,9 @@ struct LiquidGlassMusicWidget: View {
             .padding(.top, isExpanded ? 0 : 4)
 
             // ── Transport controls ──
-            MusicSlotToolbar(isLockScreenContext: true)
+            MusicSlotToolbar(isLockScreenContext: true, spacing: 7)
+                .scaleEffect(1.12)
+                .offset(y: -3)
                 .padding(.bottom, 8)
         }
         .frame(width: 320)

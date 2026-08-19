@@ -183,7 +183,7 @@ struct HoverButton: View {
                             ZStack {
                                 if let activeDot {
                                     Circle()
-                                        .fill(Color.white)
+                                        .fill(Color.mediaControlSecondary)
                                         .frame(width: activeDotDiameter, height: activeDotDiameter)
                                         .offset(x: activeDotXOffset, y: activeDot ? activeDotRestingOffset : 0)
                                         .opacity(activeDot ? 1 : 0)
