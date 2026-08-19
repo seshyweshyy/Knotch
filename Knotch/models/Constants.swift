@@ -196,7 +196,7 @@ extension Defaults.Keys {
     
     // MARK: Media playback
     static let homeViewVisualizer = Key<Bool>("homeViewVisualizer", default: true)
-    static let sneakPeekOnTrackChange = Key<Bool>("sneakPeekOnTrackChange", default: false)
+    static let sneakPeekOnTrackChange = Key<Bool>("sneakPeekOnTrackChange", default: true)
     static let sneakPeekOnResume = Key<Bool>("sneakPeekOnResume", default: false)
     // Legacy single toggle, kept only so its value can be migrated into the two keys above.
     static let legacyEnableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
@@ -300,7 +300,12 @@ extension Defaults.Keys {
     static let autoScrollToNextEvent = Key<Bool>("autoScrollToNextEvent", default: true)
     
     // MARK: Fullscreen Media Detection
-    static let hideNotchOption = Key<HideNotchOption>("hideNotchOption", default: .nowPlayingOnly)
+    // "Master" toggles, surfaced in General rather than Media, since both
+    // apply to every closed-notch live activity, not just music.
+    // Renamed key (was "hideNotchInFullscreen" as a Bool) to avoid a stored
+    // Bool colliding with this Picker's enum type.
+    static let hideNotchInFullscreen = Key<HideNotchOption>("hideNotchInFullscreenOption", default: .never)
+    static let hideNotchWhileSourceAppActive = Key<Bool>("hideNotchWhileSourceAppActive", default: false)
     
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)

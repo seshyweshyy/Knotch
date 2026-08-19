@@ -524,6 +524,8 @@ struct SettingsView: View {
             // General
             SettingsSearchEntry(tabID: "General", title: "Show menu bar icon", keywords: ["menu bar", "menubar", "status bar"], highlightID: "General-Show menu bar icon"),
             SettingsSearchEntry(tabID: "General", title: "Launch at login", keywords: ["startup", "autostart"], highlightID: "General-Launch at login"),
+            SettingsSearchEntry(tabID: "General", title: "Hide while source app is active", keywords: ["hide", "source app", "media", "frontmost"], highlightID: "General-Hide while source app is active"),
+            SettingsSearchEntry(tabID: "General", title: "Hide in fullscreen", keywords: ["hide", "full screen", "fullscreen", "behavior"], highlightID: "General-Hide in fullscreen"),
             SettingsSearchEntry(tabID: "General", title: "Show on all displays", keywords: ["multi-display", "monitor"], highlightID: "General-Show on all displays"),
             SettingsSearchEntry(tabID: "General", title: "Preferred display", keywords: ["external", "screen", "display picker"], highlightID: "General-External display support"),
             SettingsSearchEntry(tabID: "General", title: "Automatically switch displays", keywords: ["auto switch", "display"], highlightID: "General-Automatically switch displays"),
@@ -561,7 +563,6 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek style", keywords: ["sneak peek", "style"], highlightID: "Media-Sneak peek style"),
             SettingsSearchEntry(tabID: "Media", title: "Sneak peek duration", keywords: ["sneak peek", "duration", "timing"], highlightID: "Media-Sneak peek duration"),
             SettingsSearchEntry(tabID: "Media", title: "Media inactivity timeout", keywords: ["timeout", "inactivity", "media"], highlightID: "Media-Media inactivity timeout"),
-            SettingsSearchEntry(tabID: "Media", title: "Full screen behavior", keywords: ["full screen", "hide", "behavior"], highlightID: "Media-Full screen behavior"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "LockScreen-Show album art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show timer widget on lock screen", keywords: ["lock screen", "timer", "widget"], highlightID: "LockScreen-Show timer widget"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "LockScreen-Expanded album art"),
@@ -873,6 +874,7 @@ struct GeneralSettings: View {
     @Default(.changeMediaWithHorizontalGestures) var changeMediaWithHorizontalGestures
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableCompactUI) var enableCompactUI
+    @Default(.hideNotchInFullscreen) var hideNotchInFullscreen
 
     var body: some View {
         Form {
@@ -915,6 +917,20 @@ struct GeneralSettings: View {
                 }
                 LaunchAtLogin.Toggle("Launch at login")
                     .settingsHighlight(id: "General-Launch at login")
+                Defaults.Toggle(key: .hideNotchWhileSourceAppActive) {
+                    Text("Hide while source app is active")
+                }
+                .settingsHighlight(id: "General-Hide while source app is active")
+                Picker(
+                    selection: $hideNotchInFullscreen,
+                    label: Text("Hide in fullscreen")
+                ) {
+                    Text("Hide for all apps").tag(HideNotchOption.always)
+                    Text("Hide for media app only").tag(HideNotchOption.nowPlayingOnly)
+                    Text("Never hide").tag(HideNotchOption.never)
+                }
+                .tint(Color(nsColor: .labelColor))
+                .settingsHighlight(id: "General-Hide in fullscreen")
                 Defaults.Toggle(key: .showOnAllDisplays) {
                     Text("Show on all displays")
                 }
@@ -946,6 +962,10 @@ struct GeneralSettings: View {
                 .settingsHighlight(id: "General-Automatically switch displays")
             } header: {
                 Text("System features")
+            } footer: {
+                Text("\"Hide while source app is active\" and \"Hide in fullscreen\" apply to the closed-notch music and timer live activities.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
 
             Section {
@@ -1129,7 +1149,6 @@ struct Charge: View {
                 Defaults.Toggle(key: .showBatteryPercentageAsIcon) {
                     Text("Show battery percentage as icon")
                 }
-                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Battery-Show battery percentage as icon")
             } header: {
                 Text("Battery Information")
@@ -1653,7 +1672,6 @@ struct Media: View {
     @Default(.mediaController) var mediaController
     @Default(.defaultPlayer) var defaultPlayer
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
-    @Default(.hideNotchOption) var hideNotchOption
     @Default(.sneakPeekOnTrackChange) private var sneakPeekOnTrackChange
     @Default(.sneakPeekOnResume) private var sneakPeekOnResume
     @Default(.sneakPeekStyles) var sneakPeekStyles
@@ -1827,19 +1845,6 @@ struct Media: View {
                     }
                 }
                 .settingsHighlight(id: "Media-Media inactivity timeout")
-                Picker(
-                    selection: $hideNotchOption,
-                    label: HStack {
-                        Text("Full screen behavior")
-                        customBadge(text: "Beta")
-                    }
-                ) {
-                    Text("Hide for all apps").tag(HideNotchOption.always)
-                    Text("Hide for media app only").tag(HideNotchOption.nowPlayingOnly)
-                    Text("Never hide").tag(HideNotchOption.never)
-                }
-                .tint(Color(nsColor: .labelColor))
-                .settingsHighlight(id: "Media-Full screen behavior")
             } header: {
                 Text("Media playback live activity")
             }
@@ -2338,7 +2343,6 @@ struct Appearance: View {
                 Defaults.Toggle(key: .lightingEffect) {
                     Text("Enable blur effect behind album art")
                 }
-                .settingsDisabled(enableCompactUI)
                 .settingsHighlight(id: "Appearance-Enable blur effect")
                 Defaults.Toggle(key: .showAppIconOnAlbumArt) {
                     Text("Show app icon on album art")

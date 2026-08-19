@@ -37,11 +37,11 @@ final class FullscreenMediaDetector: ObservableObject {
     
     private func updateStatus(with spaces: [MacroVisionKit.FullScreenMonitor.SpaceInfo]) {
         var newStatus: [String: Bool] = [:]
-        
+
         for space in spaces {
             if let uuid = space.screenUUID {
                 let shouldDetect: Bool
-                if Defaults[.hideNotchOption] == .nowPlayingOnly, let musicSourceBundle = MusicManager.shared.bundleIdentifier  {
+                if Defaults[.hideNotchInFullscreen] == .nowPlayingOnly, let musicSourceBundle = MusicManager.shared.bundleIdentifier  {
                     shouldDetect = space.runningApps.contains(musicSourceBundle)
                 } else {
                     shouldDetect = true
@@ -49,7 +49,7 @@ final class FullscreenMediaDetector: ObservableObject {
                 newStatus[uuid] = shouldDetect
             }
         }
-        
+
         self.fullscreenStatus = newStatus
     }
 }

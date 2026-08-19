@@ -361,29 +361,53 @@ class KnotchViewModel: NSObject, ObservableObject {
     }
     
     
+    // hideOnClosed is the OR of two independent "master" toggles (General
+    // tab): hide in any fullscreen app, and hide while the current media's
+    // own source app is frontmost — the latter applies regardless of
+    // fullscreen, so it gets its own frontmost-app publisher rather than
+    // reusing the space-based fullscreen detector.
     private func setupDetectorObserver() {
-        // Publisher for the user’s fullscreen detection setting
-        let enabledPublisher = Defaults
-            .publisher(.hideNotchOption)
+        let fullscreenEnabledPublisher = Defaults
+            .publisher(.hideNotchInFullscreen)
             .map(\.newValue)
             .map { $0 != .never }
             .removeDuplicates()
 
-        // Publisher for the current screen UUID (non-nil, distinct)
         let screenPublisher = $screenUUID
             .compactMap { $0 }
             .removeDuplicates()
 
-        // Publisher for fullscreen status dictionary
         let fullscreenStatusPublisher = detector.$fullscreenStatus
             .removeDuplicates()
 
-        // Combine all three: screen UUID, fullscreen status, and enabled setting
-        Publishers.CombineLatest3(screenPublisher, fullscreenStatusPublisher, enabledPublisher)
+        let fullscreenHidePublisher = Publishers.CombineLatest3(screenPublisher, fullscreenStatusPublisher, fullscreenEnabledPublisher)
             .map { screenUUID, fullscreenStatus, enabled in
-                let isFullscreen = fullscreenStatus[screenUUID] ?? false
-                return enabled && isFullscreen
+                enabled && (fullscreenStatus[screenUUID] ?? false)
             }
+
+        let sourceAppEnabledPublisher = Defaults
+            .publisher(.hideNotchWhileSourceAppActive)
+            .map(\.newValue)
+            .removeDuplicates()
+
+        // NSWorkspace has no @Published frontmost-app property — rebuild it
+        // from the activation notification, seeded with the current value so
+        // the publisher has something to emit before the first activation.
+        let frontmostBundlePublisher = NSWorkspace.shared.notificationCenter
+            .publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .map { _ in NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+            .prepend(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+
+        let sourceBundlePublisher = MusicManager.shared.$bundleIdentifier
+
+        let sourceAppHidePublisher = Publishers.CombineLatest3(sourceAppEnabledPublisher, frontmostBundlePublisher, sourceBundlePublisher)
+            .map { enabled, frontmost, source -> Bool in
+                guard enabled, let source, !source.isEmpty else { return false }
+                return frontmost == source
+            }
+
+        Publishers.CombineLatest(fullscreenHidePublisher, sourceAppHidePublisher)
+            .map { $0 || $1 }
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] shouldHide in

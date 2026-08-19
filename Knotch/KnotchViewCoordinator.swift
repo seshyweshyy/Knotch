@@ -386,6 +386,19 @@ class KnotchViewCoordinator: ObservableObject {
         scheduleSneakPeekHide(after: remaining)
     }
 
+    /// Hides the current sneak peek right away, ignoring whatever's left on
+    /// its auto-hide timer — used by the closed-notch swipe-up-to-dismiss
+    /// gesture on the Bluetooth/AirDrop HUDs (see ContentView's
+    /// handleHUDDismissSwipe).
+    func dismissSneakPeek() {
+        sneakPeekPausedRemaining = nil
+        Task { @MainActor in
+            withAnimation(.smooth) {
+                self.sneakPeek.show = false
+            }
+        }
+    }
+
     @Published var sneakPeek: sneakPeek = .init() {
         didSet {
             if sneakPeek.show {

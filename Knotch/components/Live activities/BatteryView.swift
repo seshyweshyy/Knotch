@@ -255,6 +255,7 @@ struct KnotchBatteryView: View {
                 if Defaults[.showBatteryPercentage] && !Defaults[.showBatteryPercentageAsIcon] {
                     Text("\(Int32(levelBattery))%")
                         .font(.callout)
+                        .fontWeight(.medium)
                         .foregroundStyle(.white)
                         .fixedSize()
                 }

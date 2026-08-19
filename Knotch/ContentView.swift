@@ -277,6 +277,7 @@ struct BatteryNotchBanner: View {
             HStack {
                 Text(batteryModel.statusText)
                     .font(.subheadline)
+                    .fontWeight(.medium)
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -1759,6 +1760,11 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        if vm.notchState == .closed {
+            handleHUDDismissSwipe(translation: translation, phase: phase)
+            return
+        }
+
         guard vm.notchState == .open else { return }
 
         if phase == .began {
@@ -1802,6 +1808,37 @@ struct ContentView: View {
                 haptics.toggle()
             }
         }
+    }
+
+    /// Swipe-up-to-dismiss for the closed-notch Bluetooth/AirDrop/Battery
+    /// HUDs — the same two-finger trackpad gesture as handleUpGesture's
+    /// open-notch close swipe above, just routed to whichever HUD is
+    /// currently in its *expanded* state instead. Fires as soon as the
+    /// gesture crosses the threshold rather than waiting for `.ended`,
+    /// matching handleDownGesture's closed→open swipe below.
+    private func handleHUDDismissSwipe(translation: CGFloat, phase: NSEvent.Phase) {
+        guard phase != .ended, translation > Defaults[.gestureSensitivity] else { return }
+
+        if coordinator.sneakPeek.show,
+           (coordinator.sneakPeek.type == .bluetoothAudio && bluetoothHUDExpanded)
+            || (coordinator.sneakPeek.type == .airdropReceive && airdropHUDExpanded)
+        {
+            if Defaults[.enableHaptics] { haptics.toggle() }
+            coordinator.dismissSneakPeek()
+        } else if coordinator.expandingView.show, coordinator.expandingView.type == .battery, isStandardBatteryBanner {
+            if Defaults[.enableHaptics] { haptics.toggle() }
+            coordinator.toggleExpandingView(status: false, type: .battery)
+        }
+    }
+
+    // The battery banner's own "takeover card" state (low/full battery) —
+    // matches BatteryNotchBanner's private `kind` property. Swipe-dismiss
+    // only applies here, not to the slim low-power-mode toggle pill, which
+    // reads as a compact HUD rather than an expanded one.
+    private var isStandardBatteryBanner: Bool {
+        let batteryModel = BatteryStatusViewModel.shared
+        return (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
+            || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
     }
 
     // Sideways stretch is cosmetic and always plays; the media-change setting
