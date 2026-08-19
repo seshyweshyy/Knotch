@@ -3,6 +3,54 @@
     <channel>
         <title>Knotch</title>
         <item>
+            <title>1.8.2</title>
+            <pubDate>Wed, 19 Aug 2026 11:48:22 +0000</pubDate>
+            <link>https://github.com/seshyweshyy/Knotch</link>
+            <sparkle:version>29</sparkle:version>
+            <sparkle:shortVersionString>1.8.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2 id="-new-features"><img src="https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/icons/sparkles.svg" width="28" height="28" align="absmiddle" alt=""> New Features</h2>
+<ul>
+<li><strong>Animated album art support on media views and lock screen expanded art</strong></li>
+<li><strong>Spotify repeat-one/like/explicit-tag support</strong></li>
+<li>Spotify and Apple Podcast speed control support</li>
+<li>Reworked compact mode open animation</li>
+<li>UI mode (compact/normal) screen and liquid glass buttons to onboarding</li>
+<li>Daily compact calendar view</li>
+<li>Optional event indicators to compact calendar month grid</li>
+<li>Added master toggle for mini-widgets</li>
+<li>Added support for Dolby Atmos and Lossless badges for Apple Music (currently dormant, as the functionality requires a paid Apple Developer account)</li>
+<li>In-ear AirPod detection for Bluetooth lock screen mini-widget</li>
+<li>'Hide media title extras' toggle in settings</li>
+</ul>
+<h2 id="-fixes"><img src="https://raw.githubusercontent.com/seshyweshyy/Knotch/main/updater/icons/wrench-fixes.svg" width="28" height="28" align="absmiddle" alt=""> Fixes</h2>
+<ul>
+<li><strong>Fixed lock screen liquid glass always rendering frosted and inactive instead of tracking system clarity setting (Clear/Tinted)</strong></li>
+<li><strong>Fixed system permission requests not triggering during onboarding</strong></li>
+<li>Added bluetooth, airdrop, and live waveform screens to onboarding</li>
+<li>Fixed hover tooltip being clipped by row containers</li>
+<li>Fixed stuck glass key-hold, redundant calendar fetches on open/close, and per-frame debug print</li>
+<li>Waveform adjustments to further match iOS</li>
+<li>Made shuffle/repeat haptic only fire on the button's own tap</li>
+<li>Fixed update popup HTML code leak</li>
+<li>Updated the HUD permission strings to show "Device Control and Data Access" on macOS 27+</li>
+<li>Fixed missing menu icons on macOS 27 with rebuilt status/menu bar and notch context menus</li>
+<li>Battery HUD adjustments</li>
+<li>Added smooth animation to media progress bar</li>
+<li>Lock screen widgets and expanded art background adjustments and fixes to further match iOS</li>
+<li>Updated media controls slot customiser</li>
+<li>Added track change blur transition to media marquees and sneak peek</li>
+<li>Updated no media playing state UI</li>
+<li>Added hide in fullscreen, mission control, and source app toggles</li>
+<li>Made expanded HUDs dismissable</li>
+<li>Compact mode settings gating adjustments</li>
+<li>Media control button adjustments</li>
+<li>Added search entry in settings for media controls layout preview</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.8.2/Knotch.v.1.8.2.zip" length="16374364" type="application/octet-stream" sparkle:edSignature="y2bJx5KEyDQ/tMaqQQLRJEikTkisVMvlL2qnq97+QUwI7zAGFg+OG73WUZ1MNUS7hZdL/7WwgGteTq4rULVTAA=="/>
+        </item>
+        <item>
             <title>1.8.1</title>
             <pubDate>Wed, 05 Aug 2026 01:07:06 +0000</pubDate>
             <link>https://github.com/seshyweshyy/Knotch</link>
@@ -108,31 +156,6 @@ including highlight during click, not after</li>
 </ul>
 ]]></description>
             <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.8.0/Knotch.v.1.8.0.zip" length="15247888" type="application/octet-stream" sparkle:edSignature="fePdcVE0IdWjVC2A1lJy/3VSJTr3Lz+uAY8Z3dlnEiro7ZPS9lroTVsecNT2AxsrJNzp1WUBDwPvQttZDTQvBA=="/>
-        </item>
-        <item>
-            <title>1.7.7</title>
-            <pubDate>Sun, 19 Jul 2026 15:00:01 +0000</pubDate>
-            <link>https://github.com/seshyweshyy/Knotch</link>
-            <sparkle:version>25</sparkle:version>
-            <sparkle:shortVersionString>1.7.7</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2 id="sparkles-new-features">✨ New Features</h2>
-<ul>
-<li><strong>Added compact UI mode</strong></li>
-</ul>
-<h2 id="wrench-fixes">🔧 Fixes</h2>
-<ul>
-<li>Fixed mirror widget sizing</li>
-<li>Fixed issue where calendar wheel hover recognition prevented gesture
-reactivity</li>
-<li>Added blur effect on notch open and close</li>
-<li>Implemented a potential fix for liquid glass black mask lagging
-during notch open animation</li>
-<li>Added release notes to update popup in settings</li>
-<li>Added airdrop progress HUD toggle to settings</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/seshyweshyy/Knotch/releases/download/v1.7.7/Knotch.v.1.7.7.zip" length="15058889" type="application/octet-stream" sparkle:edSignature="bBspLUw5C9StrTByuOM+wwnA7GMi44YuDDgMaAaIjehfz1PYrJKD4XWJ4uo8SpskmdLeR7r7v3nGa7f/7gPEDw=="/>
         </item>
         <item>
             <title>1.6.3</title>
