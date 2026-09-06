@@ -127,10 +127,19 @@ extension EventModel {
     }
 
     private func appleCalendarURL(encodedID: String) -> URL? {
+        // Recurring events need the occurrence start as a leading path segment so
+        // Calendar selects the clicked day's instance, not the series anchor:
+        //   ical://ekevent/<yyyyMMdd'T'HHmmss'Z'>/<id>?method=show&options=more
+        // The compact, literal-`Z` stamp is the form Calendar accepts (an
+        // extended `yyyy-MM-dd'T'HH:mm:ssZ` stamp, or the id-before-date order,
+        // is rejected). Timed events use the UTC instant; all-day events use the
+        // local wall date, still stamped `Z`. `id` must be the
+        // calendarItemIdentifier, not the eventIdentifier.
         let date: String
         if hasRecurrenceRules {
             let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
             if !isAllDay {
                 formatter.timeZone = .init(secondsFromGMT: 0)
             }
