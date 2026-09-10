@@ -949,22 +949,28 @@ struct ContentView: View {
         return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
     }
 
-    private var notchContextMenu: NSMenu {
-        let menu = NSMenu()
+    // Plain SwiftUI `.contextMenu`. On macOS 27 `Label`-based menu items render
+    // title-only by default, so the whole menu opts back into icons with
+    // `.labelStyle(.titleAndIcon)` — no AppKit NSMenu bridging needed.
+    @ViewBuilder
+    private var notchContextMenu: some View {
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-            menu.addItem(.disabledInfo("Version \(version)", fontSize: 10))
+            Text("Version \(version)")
+                .font(.system(size: 11))
         }
-        menu.addItem(.withIcon(
-            "Settings", systemImage: "gearshape.fill",
-            action: #selector(AppDelegate.openSettingsFromMenu),
-            target: NSApp.delegate as? AppDelegate
-        ))
-        menu.addItem(.separator())
-        menu.addItem(.withIcon(
-            "Quit Knotch", systemImage: "xmark.rectangle",
-            action: #selector(NSApplication.terminate(_:))
-        ))
-        return menu
+        Button {
+            DispatchQueue.main.async { SettingsWindowController.shared.showWindow() }
+        } label: {
+            Label("Settings", systemImage: "gearshape.fill")
+                .labelStyle(.titleAndIcon)
+        }
+        Divider()
+        Button {
+            NSApplication.shared.terminate(nil)
+        } label: {
+            Label("Quit Knotch", systemImage: "xmark.rectangle")
+                .labelStyle(.titleAndIcon)
+        }
     }
 
     var body: some View {
@@ -1264,7 +1270,7 @@ struct ContentView: View {
                         }
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
-                    .overlay(NativeContextMenu(menu: notchContextMenu))
+                    .contextMenu { notchContextMenu }
                     // Explicitly centered within the full (fixed) window width, rather
                     // than relying on the ambient VStack/ZStack alignment above — the
                     // notch was drifting off-center slightly as its width animated
