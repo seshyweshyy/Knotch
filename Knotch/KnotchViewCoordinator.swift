@@ -64,6 +64,17 @@ struct ExpandedItem {
 class KnotchViewCoordinator: ObservableObject {
     static let shared = KnotchViewCoordinator()
 
+    // Reused by sneakPeekEvent, which fires on every tick while a volume or
+    // brightness key is held down. NumberFormatter init is not cheap (it spins
+    // up an ICU number formatter), so allocating one per event was pure waste
+    // for a fixed en_US_POSIX decimal parse.
+    private static let sneakPeekValueFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.numberStyle = .decimal
+        return f
+    }()
+
     @Published var currentView: NotchViews = .home
     @Published var helloAnimationRunning: Bool = false
     @Published var hudLimitBounceEvent = HUDLimitBounceEvent()
@@ -217,10 +228,7 @@ class KnotchViewCoordinator: ObservableObject {
                         : decodedData.type == "mic"
                             ? SneakContentType.mic : SneakContentType.brightness
 
-            let formatter = NumberFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.numberStyle = .decimal
-            let value = CGFloat((formatter.number(from: decodedData.value) ?? 0.0).floatValue)
+            let value = CGFloat((Self.sneakPeekValueFormatter.number(from: decodedData.value) ?? 0.0).floatValue)
             let icon = decodedData.icon
 
             print("Decoded: \(decodedData), Parsed value: \(value)")

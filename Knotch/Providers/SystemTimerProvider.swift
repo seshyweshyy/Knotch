@@ -33,12 +33,27 @@ final class SystemTimerProvider {
     // in the brief gap while we're re-registering the watcher on the new
     // inode can be missed entirely — the poll bounds worst-case staleness
     // regardless of whether that race (or any other missed kqueue event) hits.
-    private static let pollInterval: TimeInterval = 0.5
+    //
+    // The rate is tied to whether any timer is actually being mirrored, because
+    // the cost of a poll is not trivial: every tick does a
+    // CFPreferencesAppSynchronize (an IPC round-trip to cfprefsd) plus a full
+    // parse of the timers array. At the flat 0.5s this used to run at, that was
+    // ~172k round-trips a day on a machine that never sets a timer at all.
+    //
+    // With nothing mirrored there is no countdown on screen for a stale read to
+    // be wrong about, and a newly created timer still arrives instantly via the
+    // kqueue watcher — the poll is purely the backstop for a missed event, so an
+    // idle machine only needs it often enough to recover eventually. Once a
+    // timer does exist, a missed update means a visibly wrong countdown, so it
+    // steps back up to the original rate.
+    private static let activePollInterval: TimeInterval = 0.5
+    private static let idlePollInterval: TimeInterval = 5.0
 
     private let onUpdate: ([KnotchTimer]) -> Void
     private var fileDescriptor: CInt = -1
     private var watcher: DispatchSourceFileSystemObject?
     private var pollTimer: DispatchSourceTimer?
+    private var currentPollInterval: TimeInterval?
     private var lastMirrored: [KnotchTimer]?
 
     init(onUpdate: @escaping ([KnotchTimer]) -> Void) {
@@ -86,10 +101,24 @@ final class SystemTimerProvider {
 
     private func startPolling() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + Self.pollInterval, repeating: Self.pollInterval)
         timer.setEventHandler { [weak self] in self?.reload() }
-        timer.resume()
         pollTimer = timer
+        applyPollInterval()
+        timer.resume()
+    }
+
+    // Retunes the backstop poll to whether anything is currently mirrored. Safe
+    // to call on a running source — rescheduling an active DispatchSourceTimer
+    // just replaces its cadence from the next deadline on. No-ops when the rate
+    // is already correct so an unchanged reload doesn't churn the timer.
+    private func applyPollInterval() {
+        guard let pollTimer else { return }
+        let interval = (lastMirrored?.isEmpty ?? true)
+            ? Self.idlePollInterval
+            : Self.activePollInterval
+        guard interval != currentPollInterval else { return }
+        currentPollInterval = interval
+        pollTimer.schedule(deadline: .now() + interval, repeating: interval)
     }
 
     private func reload() {
@@ -101,6 +130,9 @@ final class SystemTimerProvider {
         // forward it when the mirrored list actually differs.
         guard mirrored != lastMirrored else { return }
         lastMirrored = mirrored
+        // Crossing between "no timers" and "some timers" is what changes the
+        // backstop rate, so retune before publishing.
+        applyPollInterval()
         DispatchQueue.main.async { [onUpdate] in
             onUpdate(mirrored)
         }

@@ -53,6 +53,12 @@ final class ImageProcessingService {
     static let shared = ImageProcessingService()
     
     private init() {}
+
+    // A CIContext compiles its render pipeline and allocates GPU-backed
+    // resources on creation, so it's meant to be made once and reused. This
+    // one covers every path that just needs a default-configured context;
+    // scaleImage(_:maxDimension:) keeps its own because its working color
+    // space is derived per-call from the source image.
     private let ciContext = CIContext(options: nil)
     
     // MARK: - Remove Background
@@ -113,9 +119,8 @@ final class ImageProcessingService {
         guard let output = filter.outputImage else {
             throw ImageProcessingError.backgroundRemovalFailed
         }
-        
-        let context = CIContext()
-        guard let result = context.createCGImage(output, from: output.extent) else {
+
+        guard let result = ciContext.createCGImage(output, from: output.extent) else {
             throw ImageProcessingError.backgroundRemovalFailed
         }
         
@@ -194,12 +199,11 @@ final class ImageProcessingService {
                 return nil
             }
             let ciImage = CIImage(cgImage: cgImage)
-            let context = CIContext()
             let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
             let options: [CIImageRepresentationOption: Any] = [
                 CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality
             ]
-            return context.heifRepresentation(of: ciImage, format: .RGBA8, colorSpace: colorSpace, options: options)
+            return ciContext.heifRepresentation(of: ciImage, format: .RGBA8, colorSpace: colorSpace, options: options)
         }
     }
     

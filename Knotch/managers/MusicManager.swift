@@ -340,7 +340,8 @@ class MusicManager: ObservableObject {
             }
         }
 
-        if !shouldIgnoreThisPlaybackFlip && state.isPlaying != self.isPlaying {
+        let playbackFlipped = !shouldIgnoreThisPlaybackFlip && state.isPlaying != self.isPlaying
+        if playbackFlipped {
             NSLog("Playback state changed: \(state.isPlaying ? "Playing" : "Paused")")
             withAnimation(.smooth(duration: 0.08)) {
                 self.isPlaying = state.isPlaying
@@ -450,8 +451,23 @@ class MusicManager: ObservableObject {
             resolveLockScreenMotionArt(title: displayTitle, artist: displayArtist, album: state.album, trackID: state.appleMusicTrackID)
         }
 
-        if timeChanged {
+        // elapsedTime and timestampDate are a matched pair: the timestamp records
+        // *when* elapsedTime was sampled, and estimatedPlaybackPosition extrapolates
+        // forward from that anchor. Advancing the anchor without a fresh sample makes
+        // the estimate under-report — the (now - timestampDate) delta resets to ~0
+        // while the elapsedTime base stays put, so the progress bar stalls or jumps
+        // backwards on any update that doesn't carry a new currentTime.
+        //
+        // timestampDate used to be assigned unconditionally at the end of this method,
+        // which caused exactly that, and — being @Published on a manager that
+        // ContentView, NotchHomeView and ClosedNotchRowContent all observe — also
+        // invalidated the entire notch tree on every media tick, defeating every
+        // change guard in this method. Track change and play/pause resume are included
+        // because both re-establish the anchor at a position that may be numerically
+        // unchanged (a new track starting at 0 when we were already at 0).
+        if timeChanged || trackChanged || playbackFlipped {
             self.elapsedTime = state.currentTime
+            self.timestampDate = state.lastUpdated
         }
 
         if durationChanged {
@@ -498,8 +514,6 @@ class MusicManager: ObservableObject {
         if volumeChanged {
             self.volume = state.volume
         }
-        
-        self.timestampDate = state.lastUpdated
     }
 
     func toggleFavoriteTrack() {

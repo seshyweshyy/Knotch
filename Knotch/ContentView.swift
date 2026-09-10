@@ -649,6 +649,17 @@ struct ContentView: View {
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
 
+    // Both gate ContentView's own layer structure — corner radii, the glass
+    // mount, the compact/standard layout branch — and both change only from
+    // Settings. Read through the @Default wrapper (not a raw Defaults[...]
+    // subscript) so a toggle in Settings actually invalidates this body;
+    // a raw read in a body establishes no SwiftUI dependency, so the notch
+    // would otherwise not restyle until the next unrelated re-render (a hover,
+    // a playback tick). Reads in the gesture handlers below stay raw on
+    // purpose — they run outside body evaluation and need no dependency.
+    @Default(.enableCompactUI) var enableCompactUI
+    @Default(.notchAppearanceStyle) var notchAppearanceStyle
+
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
 
@@ -656,7 +667,7 @@ struct ContentView: View {
     private let zeroHeightHoverPadding: CGFloat = 10
 
     private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
-        Defaults[.enableCompactUI] ? compactCornerRadiusInsets : cornerRadiusInsets
+        enableCompactUI ? compactCornerRadiusInsets : cornerRadiusInsets
     }
 
     // Continuously blends between the bare closed pill's radius and whichever
@@ -982,7 +993,7 @@ struct ContentView: View {
                         // slack was inflating the visible glass card past
                         // what compactContentOverlay's own clip used, two
                         // different rects for what should be one shape.
-                        ? (Defaults[.enableCompactUI] ? 0 : cornerRadiusInsets.opened.top)
+                        ? (enableCompactUI ? 0 : cornerRadiusInsets.opened.top)
                         // NotchShape's straight side walls sit inset by exactly
                         // `topCornerRadius` from this padded box's own edge (see
                         // NotchShape.path — the vertical edges are at minX+top /
@@ -995,12 +1006,12 @@ struct ContentView: View {
                         // tighter — every time the concave radius grows.
                         : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
                     )
-                    .padding([.horizontal, .bottom], (vm.notchState == .open && !Defaults[.enableCompactUI]) ? 12 : 0)
+                    .padding([.horizontal, .bottom], (vm.notchState == .open && !enableCompactUI) ? 12 : 0)
                     .background {
                         ZStack {
                             let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || lockActivityShowing
-                            let semiGlassActive = Defaults[.notchAppearanceStyle] == .semiLiquidGlass && glassVisible
-                            let fullGlassActive = Defaults[.notchAppearanceStyle] == .fullLiquidGlass && glassVisible
+                            let semiGlassActive = notchAppearanceStyle == .semiLiquidGlass && glassVisible
+                            let fullGlassActive = notchAppearanceStyle == .fullLiquidGlass && glassVisible
 
                             // Tracks the glass background's real rendered size live, for the mask switch below.
                             Color.clear
@@ -1012,7 +1023,7 @@ struct ContentView: View {
                                         }
                                 })
 
-                            if #available(macOS 26, *), Defaults[.notchAppearanceStyle] != .solidBlack {
+                            if #available(macOS 26, *), notchAppearanceStyle != .solidBlack {
                                 // Kept mounted at all times *for glass styles* —
                                 // swapping it in/out creates a new NSGlassEffectView
                                 // that animates in from its initial frame, causing
@@ -1324,7 +1335,7 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 30)
                     Spacer()
-                } else if vm.notchState == .open && !Defaults[.enableCompactUI] {
+                } else if vm.notchState == .open && !enableCompactUI {
                     KnotchHeader()
                         .frame(height: max(24, vm.effectiveClosedNotchHeight))
                         .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
@@ -1411,7 +1422,7 @@ struct ContentView: View {
             // reliably re-track a live-animating ancestor, no matter how its
             // frame/transition is expressed. Standard mode isn't broken, so
             // it keeps this original mechanism, scoped explicitly below.
-            if !Defaults[.enableCompactUI], vm.notchState == .open {
+            if !enableCompactUI, vm.notchState == .open {
                 VStack {
                     switch coordinator.currentView {
                     case .home:
@@ -1462,8 +1473,8 @@ struct ContentView: View {
         // growth terms the outer frame uses, so the bezel keeps growing
         // during a pull instead of staying pinned to the plain notchSize.
         .frame(
-            minWidth: (vm.notchState == .open && Defaults[.enableCompactUI]) ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
-            minHeight: (vm.notchState == .open && Defaults[.enableCompactUI]) ? vm.notchSize.height + vm.liquidPull * 0.2 : nil
+            minWidth: (vm.notchState == .open && enableCompactUI) ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
+            minHeight: (vm.notchState == .open && enableCompactUI) ? vm.notchSize.height + vm.liquidPull * 0.2 : nil
         )
     }
 
@@ -1476,7 +1487,7 @@ struct ContentView: View {
     // transition racing a freshly-inserted view's own layout.
     @ViewBuilder
     private var compactContentOverlay: some View {
-        if Defaults[.enableCompactUI] {
+        if enableCompactUI {
             // GeometryReader, not .frame(maxWidth: .infinity, maxHeight:
             // .infinity) — that has no upper bound, so it grows to match a
             // bigger child's natural size instead of what's actually
@@ -1510,7 +1521,7 @@ struct ContentView: View {
 
     @ViewBuilder
     var dragDetector: some View {
-        if Defaults[.knotchTray] && vm.notchState == .closed && !Defaults[.enableCompactUI] {
+        if Defaults[.knotchTray] && vm.notchState == .closed && !enableCompactUI {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
