@@ -2911,6 +2911,11 @@ struct Advanced: View {
                     .font(.caption)
             }
 
+            #if DEBUG
+            // The whole section, not just individual rows — this is
+            // developer-only tooling (previewing appearances/screens that
+            // don't reflect real device state), so none of it should exist
+            // in a build a normal user could ever open.
             Section {
                 Defaults.Toggle(key: .debugForceDynamicIslandAppearance) {
                     Text("Force Floating Pill appearance")
@@ -2921,7 +2926,6 @@ struct Advanced: View {
                 }
                 .tint(Color(nsColor: .labelColor))
                 .settingsHighlight(id: "Advanced-Floating Pill screen-edge gap")
-                #if DEBUG
                 Button("Preview Onboarding (Full)") {
                     NotificationCenter.default.post(
                         name: .previewOnboardingRequested, object: nil,
@@ -2939,7 +2943,6 @@ struct Advanced: View {
                 }
                 .settingsSubtleGlassButton()
                 .settingsHighlight(id: "Advanced-Preview Layout Selection Screen")
-                #endif
             } header: {
                 HStack(spacing: 6) {
                     Text("Developer")
@@ -2950,6 +2953,7 @@ struct Advanced: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            #endif
         }
         .accentColor(.effectiveAccent)
         .onAppear { loadCustomColor() }

@@ -254,8 +254,9 @@ struct AirDropReceiveHUD: View {
         }
         // Just visual breathing room — clearing the panel's rounded corners
         // (26/28pt radii) is handled once, systemically, by mainLayout's own
-        // outer padding scaling with the current top corner radius.
-        .padding(.horizontal, 16)
+        // outer padding scaling with the current top corner radius. Tighter
+        // in island appearance — physical notch keeps its original value.
+        .padding(.horizontal, isIslandAppearance ? 10 : 16)
         .frame(width: expandedWidth, height: expandedContentHeight)
         .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)

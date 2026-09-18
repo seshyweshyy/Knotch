@@ -52,7 +52,7 @@ struct CompactTrayDropZoneView: View {
     }
 
     private var horizontalInset: CGFloat {
-        isIslandAppearance ? 22 : CompactDropZoneMetrics.horizontalPadding
+        isIslandAppearance ? 20 : CompactDropZoneMetrics.horizontalPadding
     }
 
     @ViewBuilder
@@ -330,7 +330,7 @@ struct CompactTrayView: View {
     }
 
     private var horizontalInset: CGFloat {
-        isIslandAppearance ? 22 : compactContentSafeInset
+        isIslandAppearance ? 20 : compactContentSafeInset
     }
 
     private var panelWidth: CGFloat {

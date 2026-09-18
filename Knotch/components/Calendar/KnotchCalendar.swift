@@ -384,7 +384,7 @@ struct CompactCalendarView: View {
     }
 
     private var horizontalInset: CGFloat {
-        isIslandAppearance ? 22 : compactContentSafeInset
+        isIslandAppearance ? 20 : compactContentSafeInset
     }
 
     private var panelWidth: CGFloat {

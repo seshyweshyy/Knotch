@@ -56,7 +56,7 @@ struct CompactMusicPlayerView: View {
     // nearly as far into the sides, so that inset reads as excess side
     // padding here.
     private var horizontalInset: CGFloat {
-        isIslandAppearance ? 22 : compactContentSafeInset
+        isIslandAppearance ? 20 : compactContentSafeInset
     }
 
     private var panelWidth: CGFloat {
