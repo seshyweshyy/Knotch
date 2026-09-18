@@ -1490,8 +1490,15 @@ struct ContentView: View {
 
     @ViewBuilder
     func NotchLayout() -> some View {
-        VStack(alignment: vm.notchState == .open ? .center : .leading) {
-            VStack(alignment: vm.notchState == .open ? .center : .leading) {
+        // Keep the horizontal alignment stable while the notch changes size.
+        // Switching from leading to center in the same transaction as open()
+        // made the outgoing closed live activity inherit a horizontal layout
+        // animation while it was fading, so its intended downward motion read
+        // as a diagonal drift. Both the closed pill and open panel are already
+        // centered in the window, so a constant center alignment preserves the
+        // resting layouts and leaves the hide animation purely vertical.
+        VStack(alignment: .center) {
+            VStack(alignment: .center) {
                 if coordinator.helloAnimationRunning {
                     Spacer()
                     HelloAnimation(onFinish: {
@@ -1521,7 +1528,7 @@ struct ContentView: View {
                             .combined(with: .blur(radius: 20))
                             .animation(.smooth(duration: 0.35))
                         )
-                } else if vm.notchState == .closed {
+                } else if vm.notchState == .closed || enableCompactUI {
                     // Bluetooth/AirDrop HUDs, InlineHUD (the "Default" HUD
                     // style's SystemEventIndicatorModifier is a separate
                     // second row below, not part of this), MusicLiveActivity,
@@ -1544,6 +1551,12 @@ struct ContentView: View {
                         isHovering: $isHovering,
                         gestureProgress: $gestureProgress
                     )
+                    // Compact mode keeps the outgoing closed row mounted while
+                    // rowMorph drives its exit. Removing it at the instant the
+                    // open panel acquired its wider frame made SwiftUI animate
+                    // the orphaned removal against changing layout coordinates,
+                    // which introduced the sideways leg of the drift.
+                    .allowsHitTesting(vm.notchState == .closed)
                 } else {
                     Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                 }
@@ -2117,4 +2130,3 @@ struct FullScreenDropDelegate: DropDelegate {
         .environmentObject(vm)
         .frame(width: vm.notchSize.width, height: vm.notchSize.height)
 }
-

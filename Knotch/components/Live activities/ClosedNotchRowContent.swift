@@ -280,6 +280,15 @@ struct ClosedNotchRowContent: View {
         return rowHeight / restingHeight
     }
 
+    // The compact open animation deliberately sends the closed live activity
+    // down into the growing panel as it fades. Keeping x out of this modifier
+    // makes that exit independent of the panel's simultaneously changing
+    // width and therefore strictly vertical in both notch and pill modes.
+    private var openingOffsetY: CGFloat {
+        guard vm.notchState == .open else { return 0 }
+        return (1 - morph) * 14
+    }
+
     var body: some View {
         content
             .padding(.horizontal, isIslandAppearance ? 6 : 0)
@@ -311,6 +320,7 @@ struct ClosedNotchRowContent: View {
             // size, so .fixedSize() and the shared background box actually
             // follow rowWidth too, not restingWidth.
             .frame(width: rowWidth, height: rowHeight, alignment: .top)
+            .offset(y: openingOffsetY)
             .blur(radius: (1 - morph) * 6)
             .opacity(morph)
     }
