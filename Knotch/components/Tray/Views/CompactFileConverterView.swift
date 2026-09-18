@@ -15,6 +15,19 @@ struct CompactFileConverterView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var converter = FileConverterViewModel.shared
 
+    // See CompactMusicPlayerView's own copy of these two.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
+    private var horizontalInset: CGFloat {
+        isIslandAppearance ? 22 : compactContentSafeInset
+    }
+
+    private var panelWidth: CGFloat {
+        compactPanelWidth(isIsland: isIslandAppearance)
+    }
+
     var body: some View {
         // Same fixes as the other compact pages: pinned to
         // compactOpenNotchSize.width + compactContentSafeInset padding, plus
@@ -28,10 +41,10 @@ struct CompactFileConverterView: View {
                 }
             }
         }
-        .padding(.horizontal, compactContentSafeInset)
+        .padding(.horizontal, horizontalInset)
         .padding(.top, 10)
         .padding(.bottom, 10)
-        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        .frame(width: panelWidth, height: compactContentHeight, alignment: .top)
         .padding(.top, vm.effectiveClosedNotchHeight)
     }
 

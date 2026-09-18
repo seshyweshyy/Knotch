@@ -376,6 +376,21 @@ struct CompactCalendarView: View {
         max(vm.effectiveClosedNotchHeight - 4, 20) - 2
     }
 
+    // See CompactMusicPlayerView's own copy of these two — same reasoning:
+    // the island's plain convex clip needs neither the physical notch's
+    // corner-carve inset nor its full 400pt width.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
+    private var horizontalInset: CGFloat {
+        isIslandAppearance ? 22 : compactContentSafeInset
+    }
+
+    private var panelWidth: CGFloat {
+        compactPanelWidth(isIsland: isIslandAppearance)
+    }
+
     // The header sits a bit lower than a full pull-up — leaves the same kind
     // of extra bottom space the grid needed the same treatment for.
     private var headerPullUp: CGFloat {
@@ -438,7 +453,7 @@ struct CompactCalendarView: View {
             }
             .frame(width: 148)
         }
-        .padding(.horizontal, compactContentSafeInset)
+        .padding(.horizontal, horizontalInset)
         .padding(.top, 1)
         .padding(.bottom, 10)
         // A hard height, not maxHeight — otherwise a day with more events
@@ -448,13 +463,16 @@ struct CompactCalendarView: View {
         // size switching between the two, regardless of either's own content.
         // No .clipped() here (matching CompactMusicPlayerView) since the
         // pull-up above deliberately overflows above this frame's top edge.
-        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        .frame(width: panelWidth, height: compactContentHeight, alignment: .top)
         // Added *outside* the shared frame above, so compactContentHeight
         // itself (and therefore CompactMusicPlayerView, which also uses it
         // to keep the panel the same size across tabs) is untouched.
         // Reserves room for header/MonthGridView's own pull-up — matches
         // CompactMusicPlayerView's identical fix for the same reasoning.
-        .padding(.top, vm.effectiveClosedNotchHeight)
+        // The extra island push (see CompactMusicPlayerView's own
+        // extraTopPush) clears the plain convex top corners, which sit
+        // closer in than the physical notch's concave ones did.
+        .padding(.top, vm.effectiveClosedNotchHeight + (isIslandAppearance ? 6 : 0))
         .onChange(of: selectedDate) {
             calendarManager.scheduleUpdate(for: selectedDate)
         }

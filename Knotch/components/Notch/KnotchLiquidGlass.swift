@@ -185,7 +185,11 @@ struct KnotchLiquidGlass: NSViewRepresentable {
             case .capsule:
                 path = Capsule(style: .continuous).path(in: view.bounds).cgPath
             case .roundedRect(let cornerRadius):
-                path = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                // IslandPillShape, not a raw RoundedRectangle — see its own
+                // comment: RoundedRectangle's automatic radius clamp isn't
+                // reliable enough for .continuous corners to guarantee this
+                // matches the visible black shape underneath exactly.
+                path = IslandPillShape(cornerRadius: cornerRadius)
                     .path(in: view.bounds).cgPath
             }
 

@@ -13,6 +13,8 @@ import SwiftUI
 struct CompactMusicPlayerView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject private var musicManager = MusicManager.shared
+    @Default(.forceSimulatedNotch) private var forceSimulatedNotch
+    @Default(.debugForceDynamicIslandAppearance) private var debugForceDynamicIslandAppearance
     let albumArtNamespace: Namespace.ID
 
     @State private var sliderValue: Double = 0
@@ -21,8 +23,44 @@ struct CompactMusicPlayerView: View {
 
     private let albumArtSize: CGFloat = 55
 
+    // No physical notch to hug in Dynamic Island appearance — the reserved
+    // space above the header only needs to fit the album art's own pull-up,
+    // not the real notch cutout's height, which on some setups (custom/
+    // non-notch height settings) is taller than that pull-up actually needs.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(
+            screenUUID: vm.screenUUID,
+            forceSimulatedNotch: forceSimulatedNotch,
+            debugForceDynamicIsland: debugForceDynamicIslandAppearance
+        )
+    }
+
     private var pullUp: CGFloat {
-        max(vm.effectiveClosedNotchHeight - 4, 20)
+        isIslandAppearance ? 20 : max(vm.effectiveClosedNotchHeight - 4, 20)
+    }
+
+    // Extra clearance added on top of pullUp's own reservation, pushing the
+    // whole header (art/title/artist/waveform) and progress bar down from
+    // the top corners. Bumping pullUp itself doesn't achieve this — the
+    // reservation below grows by the same amount the art rises into it
+    // (see notchHuggingHeader's `.offset(y: -pullUp)`), so the two cancel
+    // out and the art's actual position on screen never moves. This is
+    // added independently of that cancellation, purely to push things down.
+    private var extraTopPush: CGFloat {
+        isIslandAppearance ? 8 : 0
+    }
+
+    // compactContentSafeInset (35pt corner + 15pt slack) was tuned to clear
+    // the physical notch shape's concave top-corner carve — the island's
+    // outer clip is a plain convex rounded rect instead, which doesn't eat
+    // nearly as far into the sides, so that inset reads as excess side
+    // padding here.
+    private var horizontalInset: CGFloat {
+        isIslandAppearance ? 22 : compactContentSafeInset
+    }
+
+    private var panelWidth: CGFloat {
+        compactPanelWidth(isIsland: isIslandAppearance)
     }
 
     var body: some View {
@@ -35,24 +73,36 @@ struct CompactMusicPlayerView: View {
             notchHuggingHeader
 
             progressBar
-                .padding(.top, 6)
+                // Pushed down further than the header's own natural gap —
+                // Music's total content is shorter than compactContentHeight
+                // (tuned for the tallest compact page), so absorbing some of
+                // that leftover room as deliberate spacing here reads as
+                // intentional breathing room instead of it all collecting as
+                // one stray gap below the toolbar. The bigger push is
+                // island-only — physical notch keeps its original value.
+                .padding(.top, isIslandAppearance ? 17 : 14)
 
             MusicSlotToolbar(spacing: 12)
                 .scaleEffect(1.12)
-                .padding(.top, 10)
+                // Island-only — physical notch keeps its original gap.
+                .padding(.top, isIslandAppearance ? 6 : 10)
         }
-        .padding(.horizontal, compactContentSafeInset)
+        .padding(.horizontal, horizontalInset)
         .padding(.top, 10)
         .padding(.bottom, 10)
-        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        .frame(width: panelWidth, height: compactContentHeight, alignment: .top)
         // Added *outside* the shared frame above, so compactContentHeight
         // itself (and therefore CompactCalendarView, which also uses it to
         // keep the panel the same size across tabs) is untouched. Reserves
         // room for notchHuggingHeader's album art to pull up into — without
         // it, the art's own upward offset just pushes everything flush
         // against this view's own top edge instead of hugging the physical
-        // notch cutout with real breathing room above it.
-        .padding(.top, vm.effectiveClosedNotchHeight + 4)
+        // notch cutout with real breathing room above it. Tied to pullUp
+        // itself (rather than the raw notch height) so this never reserves
+        // more than the art actually rises — a too-generous reservation
+        // pushes the toolbar row below it past compactContentHeight's own
+        // budget, into the outer clip shape's bottom corner curve.
+        .padding(.top, pullUp + 4 + extraTopPush)
     }
 
     // The album art overlaps upward alongside the physical notch cutout instead
@@ -94,7 +144,9 @@ struct CompactMusicPlayerView: View {
                         .scaleEffect(spectrumScale)
                         .frame(width: spectrumWidth, height: spectrumHeight)
                 }
-                .padding(.trailing, 8)
+                // Island-only nudge closer to the trailing edge — physical
+                // notch keeps its original clearance.
+                .padding(.trailing, isIslandAppearance ? 3 : 8)
                 .frame(width: totalWidth)
                 .offset(y: -pullUp + (albumArtSize - spectrumHeight) / 2)
 
@@ -141,9 +193,15 @@ struct CompactMusicPlayerView: View {
                 // centered in the panel before the leading padding is even
                 // applied, instead of hugging the left edge next to the art.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // Bottom of the text lines up with the bottom of the
-                // (pulled-up) album art (nudged up a bit further still).
-                .offset(y: albumArtSize - pullUp - 33)
+                // Physical notch: bottom of the text lines up with the
+                // bottom of the (pulled-up) album art (nudged up a bit
+                // further still). Island: vertically centered against the
+                // album art's own midpoint instead — pullUp is a fixed,
+                // smaller value there, so the bottom-aligned formula reads
+                // as sitting low rather than sitting next to the art.
+                .offset(y: isIslandAppearance
+                    ? (albumArtSize / 2 - pullUp - 15)
+                    : (albumArtSize - pullUp - 33))
             }
         }
         .frame(height: 26)
@@ -173,7 +231,7 @@ struct CompactMusicPlayerView: View {
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }
-            .frame(width: compactOpenNotchSize.width - 2 * compactContentSafeInset, height: 24)
+            .frame(width: panelWidth - 2 * horizontalInset, height: 24)
         }
     }
 }

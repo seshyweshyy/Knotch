@@ -1073,6 +1073,18 @@ struct NotchHomeView: View {
         Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 
+    // Matches ContentView's own currentNotchShape/notchOuterShape selection
+    // — Compact mode's content re-clip below has to be the exact same
+    // silhouette as the outer background it's layered on, or the corners
+    // visibly mismatch.
+    private var compactClipShape: AnyShape {
+        notchOuterShape(
+            topCornerRadius: compactCornerRadiusInsets.opened.top,
+            bottomCornerRadius: compactCornerRadiusInsets.opened.bottom,
+            isIsland: usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+        )
+    }
+
     @ViewBuilder
     private var mainContent: some View {
         if Defaults[.enableCompactUI] {
@@ -1125,7 +1137,7 @@ struct NotchHomeView: View {
             // their own blur, which bleeds past the shape mid-swap without
             // sealing it into a flat layer first. Fixed radii since page
             // switching only happens once compact mode is open and settled.
-            .clipShape(NotchShape(topCornerRadius: compactCornerRadiusInsets.opened.top, bottomCornerRadius: compactCornerRadiusInsets.opened.bottom))
+            .clipShape(compactClipShape)
             .compositingGroup()
             .animation(liveActivityPopSpring, value: vm.isCompactDragOverlayActive)
             .animation(.smooth(duration: 0.35), value: vm.resolvedCompactPage)
@@ -1137,7 +1149,7 @@ struct NotchHomeView: View {
             // liquidPull peaking (same withAnimation block), so the
             // transitioning page's extra scale could escape before that
             // outer clip catches up. Re-clip immediately to contain it here.
-            .clipShape(NotchShape(topCornerRadius: compactCornerRadiusInsets.opened.top, bottomCornerRadius: compactCornerRadiusInsets.opened.bottom))
+            .clipShape(compactClipShape)
             .compositingGroup()
         }
     }

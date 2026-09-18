@@ -91,14 +91,133 @@ let compactContentSafeInset: CGFloat = compactCornerRadiusInsets.opened.top + 15
 // User-set at 400x170 after earlier 350/380 attempts — keep as-is.
 let compactOpenNotchSize: CGSize = .init(width: 400, height: 170)
 
+// Narrower Compact mode width for the free-floating Dynamic Island
+// appearance — 400pt (tuned to comfortably clear the physical notch's own
+// footprint) reads as oversized once compact mode isn't hugging a real
+// screen-edge cutout anymore.
+let compactIslandOpenNotchWidth: CGFloat = 340
+
+// A little taller than the physical-notch default — gives
+// CompactMusicPlayerView's own pullUp reservation (the room its album art
+// rises into above the fixed-height content box) more headroom, since the
+// island appearance pushes that content down further to clear the plain
+// convex top corners. compactContentHeight itself (the page content's own
+// fixed budget) is untouched — this only grows the slack above it.
+let compactIslandOpenNotchHeight: CGFloat = 172
+
+// Single source of truth for Compact mode's current target size — every
+// compact page (Music/Calendar/Tray/Converter) and KnotchViewModel's own
+// computedHomeSize all read through this, so the panel and every page's
+// internal layout stay pinned to the exact same size.
+func compactPanelWidth(isIsland: Bool) -> CGFloat {
+    isIsland ? compactIslandOpenNotchWidth : compactOpenNotchSize.width
+}
+
+func compactPanelHeight(isIsland: Bool) -> CGFloat {
+    isIsland ? compactIslandOpenNotchHeight : compactOpenNotchSize.height
+}
+
 // Shared content height across compact pages, so switching between them
 // never changes the panel size. Raised in step with compactOpenNotchSize's
 // own height bump, so pages actually use the box's extra room.
 let compactContentHeight: CGFloat = 140
 
 enum MusicPlayerImageSizes {
-    static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 4.0)
+    static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 5.5)
     static let size = (opened: CGSize(width: 90, height: 90), closed: CGSize(width: 20, height: 20))
+}
+
+// The physical notch's own default closed-pill width (185, further down)
+// exists because that pill has to be at least as wide as the real camera
+// housing to visually hide behind it — Dynamic Island appearance has no
+// such cutout to hide behind, so its own default is its own, separate,
+// deliberately narrower value rather than a scaled-down copy of the
+// physical one.
+let islandClosedNotchWidth: CGFloat = 110
+
+// Whether `screenUUID` (or the main screen, if nil) should render the
+// floating "Dynamic Island" pill — uniform convex corners on all four
+// sides, detached from the screen's top edge — instead of the physical-
+// notch silhouette (concave top corners flush with the top edge).
+// Automatic on any display without a real hardware notch (external
+// monitors, non-notched MacBooks); forceSimulatedNotch opts a display back
+// into the physical-notch look, and debugForceDynamicIslandAppearance
+// previews the island look on a display that does have a real notch —
+// checked first so it always wins for local testing.
+@MainActor func usesDynamicIslandAppearance(
+    screenUUID: String?,
+    forceSimulatedNotch: Bool,
+    debugForceDynamicIsland: Bool
+) -> Bool {
+    if debugForceDynamicIsland { return true }
+    if forceSimulatedNotch { return false }
+
+    var selectedScreen = NSScreen.main
+    if let uuid = screenUUID {
+        selectedScreen = NSScreen.screen(withUUID: uuid)
+    }
+    return (selectedScreen?.safeAreaInsets.top ?? 0) <= 0
+}
+
+// Convenience overload for call sites that don't need to establish a
+// SwiftUI observation dependency on the two Defaults themselves (they just
+// want the current answer). Views that gate their `body` on this should
+// instead read both Defaults via @Default and call the explicit overload
+// above, the same way ContentView already does for other Defaults-gated
+// layout decisions — a raw Defaults[...] read here establishes no
+// dependency, so a Settings toggle wouldn't invalidate their body.
+@MainActor func usesDynamicIslandAppearance(screenUUID: String? = nil) -> Bool {
+    usesDynamicIslandAppearance(
+        screenUUID: screenUUID,
+        forceSimulatedNotch: Defaults[.forceSimulatedNotch],
+        debugForceDynamicIsland: Defaults[.debugForceDynamicIslandAppearance]
+    )
+}
+
+// Shared outer silhouette for the notch/island pill. Dynamic Island
+// appearance always uses a single radius on all four corners (a plain
+// convex rounded rect) regardless of topCornerRadius/bottomCornerRadius
+// individually differing — the physical notch's concave top corners are
+// what make top/bottom need separate radii in the first place, and this
+// shape doesn't have those.
+// .circular, not .continuous — .continuous ("squircle") corners use a
+// different curvature than a true circular arc, and even at the maximum
+// possible radius (exactly half the shorter edge) that curve still reads as
+// visibly flatter than a genuine semicircular cap, which is specifically
+// what a pill/capsule needs at its rounded ends. .circular is the one that
+// actually converges to a true semicircle there. Radius is still clamped
+// ourselves (see the struct's own history) rather than trusting
+// RoundedRectangle's automatic clamp.
+struct IslandPillShape: Shape {
+    var cornerRadius: CGFloat
+
+    var animatableData: CGFloat {
+        get { cornerRadius }
+        set { cornerRadius = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let resolvedRadius = min(cornerRadius, min(rect.width, rect.height) / 2)
+        return Path(roundedRect: rect, cornerRadius: resolvedRadius, style: .circular)
+    }
+}
+
+// Always RoundedRectangle for island, never Capsule — even gated to only
+// the idle/inline states, switching the actual *shape type* produced a
+// visible snap-to-sharp-corners glitch right at the moment it switched
+// to/from Capsule, because AnyShape can't smoothly morph between two
+// different underlying Shape types the way it can interpolate a single
+// RoundedRectangle's own animatable cornerRadius. A true pill is instead
+// produced by feeding this a radius equal to half the current height (see
+// ContentView's currentBottomCornerRadius) — RoundedRectangle already
+// clamps its own radius to half of whichever edge is shorter, so that
+// still renders as a true, fully-rounded capsule, just via a plain,
+// continuously animatable number instead of a type switch.
+func notchOuterShape(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat, isIsland: Bool) -> AnyShape {
+    if isIsland {
+        return AnyShape(IslandPillShape(cornerRadius: bottomCornerRadius))
+    }
+    return AnyShape(NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius))
 }
 
 @MainActor func getScreenFrame(_ screenUUID: String? = nil) -> CGRect? {
@@ -128,19 +247,34 @@ enum MusicPlayerImageSizes {
 
     // Check if the screen is available
     if let screen = selectedScreen {
-        // Calculate and set the exact width of the notch
-        if let topLeftNotchpadding: CGFloat = screen.auxiliaryTopLeftArea?.width,
+        // Calculate and set the exact width of the notch — real hardware
+        // notch dimensions take priority, so a debug-forced island preview
+        // on an actually-notched Mac still narrows to the island width below
+        // rather than reporting the real cutout's width.
+        let isIslandWidth = usesDynamicIslandAppearance(
+            screenUUID: screenUUID,
+            forceSimulatedNotch: Defaults[.forceSimulatedNotch],
+            debugForceDynamicIsland: Defaults[.debugForceDynamicIslandAppearance]
+        )
+        if !isIslandWidth,
+           let topLeftNotchpadding: CGFloat = screen.auxiliaryTopLeftArea?.width,
            let topRightNotchpadding: CGFloat = screen.auxiliaryTopRightArea?.width
         {
             notchWidth = screen.frame.width - topLeftNotchpadding - topRightNotchpadding + 4
+        } else if isIslandWidth {
+            notchWidth = islandClosedNotchWidth
         }
 
-        // Check if the Mac has a notch
-        if screen.safeAreaInsets.top > 0 {
+        // Check if the Mac has a notch (or the user forced the notch look
+        // back on for a display that doesn't) — the debug island override
+        // is deliberately not consulted here, so forcing the island
+        // appearance for testing doesn't also swap which height setting is
+        // in effect.
+        if !usesDynamicIslandAppearance(screenUUID: screenUUID, forceSimulatedNotch: Defaults[.forceSimulatedNotch], debugForceDynamicIsland: false) {
             // This is a display WITH a notch - use notch height settings
             notchHeight = Defaults[.notchHeight]
             if Defaults[.notchHeightMode] == .matchRealNotchSize {
-                notchHeight = screen.safeAreaInsets.top
+                notchHeight = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : notchHeight
             } else if Defaults[.notchHeightMode] == .matchMenuBar {
                 notchHeight = screen.frame.maxY - screen.visibleFrame.maxY
             }
@@ -148,7 +282,11 @@ enum MusicPlayerImageSizes {
             // This is a display WITHOUT a notch - use non-notch height settings
             notchHeight = Defaults[.nonNotchHeight]
             if Defaults[.nonNotchHeightMode] == .matchMenuBar {
-                notchHeight = screen.frame.maxY - screen.visibleFrame.maxY
+                // 2pt shorter than the menu bar itself, not an exact match —
+                // paired with dynamicIslandTopInset's own 1pt gap from the
+                // screen's top edge, so the floating pill reads as sitting
+                // just inside the menu bar strip rather than exactly filling it.
+                notchHeight = screen.frame.maxY - screen.visibleFrame.maxY - 2
             }
         }
     }

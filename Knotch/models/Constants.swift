@@ -151,6 +151,18 @@ extension Defaults.Keys {
     )
     static let nonNotchHeight = Key<CGFloat>("nonNotchHeight", default: 32)
     static let notchHeight = Key<CGFloat>("notchHeight", default: 32)
+    // Forces the physical-notch pill shape (concave top corners flush with
+    // the screen edge) on displays with no real hardware notch — e.g.
+    // external monitors — instead of the automatic Dynamic Island appearance.
+    static let forceSimulatedNotch = Key<Bool>("forceSimulatedNotch", default: false)
+    // Debug-only override to preview the Dynamic Island appearance on a Mac
+    // that actually has a physical notch, where it would never show
+    // automatically. Takes priority over forceSimulatedNotch.
+    static let debugForceDynamicIslandAppearance = Key<Bool>("debugForceDynamicIslandAppearance", default: false)
+    // Gap between the screen's top edge and the pill in Dynamic Island
+    // appearance — user-adjustable (Settings > Advanced > Debug) so it can
+    // be tuned/tested without a rebuild.
+    static let dynamicIslandTopInset = Key<Double>("dynamicIslandTopInset", default: 1)
     //static let openLastTabByDefault = Key<Bool>("openLastTabByDefault", default: false)
     static let showOnLockScreen = Key<Bool>("showOnLockScreen", default: true)
     static let hideFromScreenRecording = Key<Bool>("hideFromScreenRecording", default: false)

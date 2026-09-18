@@ -41,6 +41,8 @@ enum ClosedRowFamily: Equatable {
 func restingRowWidth(
     for family: ClosedRowFamily,
     sneakPeekType: SneakContentType,
+    sneakPeekShow: Bool = false,
+    isIsland: Bool = false,
     closedNotchWidth: CGFloat,
     effectiveClosedNotchHeight: CGFloat,
     bluetoothHUDExpanded: Bool,
@@ -53,17 +55,35 @@ func restingRowWidth(
     // more room than it's given (that mismatch was clipping through the
     // notch's concave top corners once the content out-grew the mask).
     let inlineHUDHoverGrowth: CGFloat = isHovering ? 24 : 0
+    // Every closed-row family gets the same shared 6pt-per-side edge padding
+    // in island appearance (see ClosedNotchRowContent.body) — every formula
+    // below sizes its content to exactly fill the width it returns, so
+    // without reserving room for that padding here too, it just gets
+    // absorbed as compression/clipping instead of ever becoming visible
+    // margin.
+    let islandExtra: CGFloat = isIsland ? 14 : 0
+    // MusicLiveActivity's own plain (non-sneak-peek) resting width in island
+    // appearance — the reference width every other plain/compact inline
+    // state below (lock, timer, a non-expanded Bluetooth/AirDrop card) is
+    // matched to instead of using its own separately-derived physical-notch
+    // formula, so none of them reads as arbitrarily wider or narrower than
+    // the others for no content-driven reason. States that genuinely need
+    // more room for their own content (an expanded HUD card, the volume/
+    // brightness slider's default case, a sneak-peek reveal) keep their own
+    // wider value untouched.
+    let islandPlainWidth: CGFloat = closedNotchWidth + 2 * max(0, effectiveClosedNotchHeight - 12) + 8 + 12
     switch family {
     case .none:
         // The true collapse floor — matches the -20 every compact pill here
         // already bakes into its own center gap (BluetoothHUDView/
         // AirDropReceiveHUD/InlineHUD/TimerCompactPill), since closedNotchWidth
         // itself reads a bit wider than the notch actually is once that's
-        // accounted for.
+        // accounted for. Not given islandExtra — this is the bare collapsed
+        // floor with no content to pad.
         return closedNotchWidth - 20
     case .lock:
         // Matches the original fixed lock-only pill width.
-        return closedNotchWidth + 50
+        return isIsland ? islandPlainWidth : closedNotchWidth + 50
     case .hud:
         // Only Bluetooth/AirDrop or an Inline-style HUD ever reach this
         // family — Default-style HUDs compose as an independent second row
@@ -75,24 +95,26 @@ func restingRowWidth(
             // BluetoothHUDView.expandedWidth, else its own compact HStack:
             // leading icon block (h-4+10) + center gap (closedNotchWidth-20)
             // + trailing battery block (30) = closedNotchWidth + h + 16.
-            return bluetoothHUDExpanded ? 280 : closedNotchWidth + effectiveClosedNotchHeight + 16
+            if bluetoothHUDExpanded { return 280 + islandExtra }
+            return isIsland ? islandPlainWidth : closedNotchWidth + effectiveClosedNotchHeight + 16
         case .airdropReceive:
             // AirDropReceiveHUD.expandedWidth, else the same inline-pill
             // layout Bluetooth's compact form uses.
-            return airdropHUDExpanded ? 300 : closedNotchWidth + effectiveClosedNotchHeight + 16
+            if airdropHUDExpanded { return 300 + islandExtra }
+            return isIsland ? islandPlainWidth : closedNotchWidth + effectiveClosedNotchHeight + 16
         case .mic:
             // Just an icon + short "muted"/"unmuted" label — no slider.
-            return closedNotchWidth + 44 + inlineHUDHoverGrowth
+            return closedNotchWidth + 44 + inlineHUDHoverGrowth + islandExtra
         case .focusMode:
             // No slider either, but the focus mode's own name (label) can run
             // longer than "muted"/"unmuted" ("Do Not Disturb", etc.), so this
             // wants more trailing room than mic gets.
-            return closedNotchWidth + 58 + inlineHUDHoverGrowth
+            return closedNotchWidth + 58 + inlineHUDHoverGrowth + islandExtra
         default:
             // Volume/brightness/backlight all carry a DraggableProgressBar
             // plus a percentage label — want real breathing room on the
             // trailing end so the slider/label don't crowd the pill's edge.
-            return closedNotchWidth + 170 + inlineHUDHoverGrowth
+            return closedNotchWidth + 170 + inlineHUDHoverGrowth + islandExtra
         }
     case .music:
         // Matches MusicLiveActivity's own three-part HStack (album art +
@@ -100,9 +122,28 @@ func restingRowWidth(
         // trimmed down after this ran noticeably wider than the actual
         // content, leaving dead space on both sides (MusicLiveActivity
         // doesn't stretch to fill, so any excess here just centers as gaps).
-        return closedNotchWidth + 2 * max(0, effectiveClosedNotchHeight - 12) + 8
+        let base = closedNotchWidth + 2 * max(0, effectiveClosedNotchHeight - 12) + 8
+        // The Standard sneak-peek style adds a second row (the title •
+        // artist marquee) beneath MusicLiveActivity's own bar — on a
+        // narrower closedNotchWidth (the Dynamic Island appearance only —
+        // the physical notch's own wider default never needed this, and
+        // never got it before), this formula's row-1-only sizing leaves the
+        // marquee short of room, letting its text visibly run past the
+        // pill's own edge. isIsland-gated for exactly that reason — this
+        // must never affect the physical notch's own sizing.
+        if isIsland, sneakPeekShow, sneakPeekType == .music, Defaults[.sneakPeekStyles] == .standard {
+            return base + 75
+        }
+        // Own island bump (not the shared islandExtra) — MusicLiveActivity
+        // also carries its own extra leading/trailing padding, plus the
+        // widened center gap (see its own middle Rectangle's width formula),
+        // on top of ClosedNotchRowContent's shared 6pt-per-side, so it needs
+        // more room reserved than the other families do. This IS
+        // islandPlainWidth's own +12 — kept spelled out here since this is
+        // the formula islandPlainWidth itself is derived from.
+        return isIsland ? islandPlainWidth : base
     case .timer:
-        return closedNotchWidth - 20 + timerCompactPillExtraWidth
+        return isIsland ? islandPlainWidth : closedNotchWidth - 20 + timerCompactPillExtraWidth
     case .battery:
         // Matches BatteryNotchBanner's own two forms: the low/full-battery
         // takeover card is a flat 280 (bannerWidth), while the low-power-mode
@@ -111,7 +152,15 @@ func restingRowWidth(
         let batteryModel = BatteryStatusViewModel.shared
         let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
             || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
-        return isStandardBanner ? 280 : closedNotchWidth + 226
+        if isStandardBanner {
+            return 280 + islandExtra
+        }
+        // The generic banner's own middle gap is narrowed separately for
+        // island (see BatteryNotchBanner.genericBanner's matching
+        // Rectangle) — the physical notch's "closedNotchWidth+40" gap reads
+        // as excessive relative to island's much smaller default width.
+        let genericGap: CGFloat = isIsland ? 60 : closedNotchWidth + 40
+        return 110 + genericGap + 76 + islandExtra
     }
 }
 
@@ -155,6 +204,16 @@ struct ClosedNotchRowContent: View {
     // factored in.
     private var bareWidth: CGFloat { vm.closedNotchSize.width - 20 }
 
+    // The island's rounded ends need more clearance than the physical
+    // notch's flatter closed shape does — same reasoning as
+    // MusicLiveActivity's own leading/trailing padding, applied here so
+    // every closed-row family (HUDs, lock, timer, battery, not just music)
+    // gets the same edge breathing room instead of sitting flush against
+    // the pill's rounded corners.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
     // What `family`'s content actually needs at full rest (morph == 1). Fed
     // the raw closedNotchSize.width (not bareWidth) — every non-.none formula
     // in restingRowWidth is calibrated against that same raw value the actual
@@ -163,6 +222,8 @@ struct ClosedNotchRowContent: View {
         restingRowWidth(
             for: family,
             sneakPeekType: coordinator.sneakPeek.type,
+            sneakPeekShow: coordinator.sneakPeek.show,
+            isIsland: isIslandAppearance,
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
@@ -183,6 +244,7 @@ struct ClosedNotchRowContent: View {
 
     var body: some View {
         content
+            .padding(.horizontal, isIslandAppearance ? 6 : 0)
             // Laid out at its natural resting size first — minHeight (not a
             // fixed height) guarantees at least the notch's own height even
             // for content that reports zero (EmptyView for .none — the old
@@ -235,10 +297,20 @@ struct ClosedNotchRowContent: View {
         case .music:
             musicContent
         case .timer:
+            // maxWidth: .infinity, not a hardcoded formula — this content
+            // is already constrained to restingWidth by the outer
+            // .frame(width: restingWidth) in body below (that's the one
+            // real source of truth for this row's width, island-aware via
+            // restingRowWidth's own .timer case), so pinning a *second*,
+            // separately-computed width here just risks drifting out of
+            // sync with it, which is exactly what left TimerCompactPill's
+            // own internal layout badly squeezed once the island's version
+            // of that outer width changed to something narrower.
             TimerCompactPill()
                 .frame(
-                    width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth,
-                    height: vm.effectiveClosedNotchHeight,
+                    maxWidth: .infinity,
+                    minHeight: vm.effectiveClosedNotchHeight,
+                    maxHeight: vm.effectiveClosedNotchHeight,
                     alignment: .center
                 )
                 .transition(.opacity)
@@ -292,7 +364,17 @@ struct ClosedNotchRowContent: View {
 
     @ViewBuilder
     private var musicContent: some View {
-        VStack(alignment: .leading) {
+        // .center in island appearance only, not .leading — the marquee row
+        // below is a full-width GeometryReader, so once it's showing it's
+        // what drives this VStack's own reported width (wider than
+        // MusicLiveActivity's own row). A .leading VStack then pins
+        // MusicLiveActivity flush to the left edge of that wider width
+        // instead of centering it the way a narrower child normally would —
+        // read as the album art/waveform getting stranded on the left half
+        // of the pill instead of following the row's own (island-only)
+        // growth. Left as .leading for the physical notch, matching its
+        // original, unwidened behavior exactly.
+        VStack(alignment: isIslandAppearance ? .center : .leading) {
             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
                 .frame(alignment: .center)
 
@@ -316,7 +398,16 @@ struct ClosedNotchRowContent: View {
                 && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard
                 && morph > 0.9
             {
-                HStack(alignment: .center) {
+                // spacing: 0 in island appearance — the same fix as
+                // MusicLiveActivity's own root HStack: the default
+                // (non-zero) HStack spacing between the hidden icon and the
+                // GeometryReader pushed the GeometryReader's own origin
+                // right of this row's true leading edge without being
+                // reflected in its reported width, so anything centered
+                // *within* that box (MarqueeText's own centerWhenFits math)
+                // ended up shifted right relative to the pill's real
+                // center. Left as the system default for physical notch.
+                HStack(alignment: .center, spacing: isIslandAppearance ? 0 : nil) {
                     Image(systemName: "music.note")
                         .hidden()
                         .frame(width: 0)
@@ -358,9 +449,27 @@ struct ClosedNotchRowContent: View {
                 // padding (they don't sit flush against it either), so the
                 // text doesn't start/end right at their edges — bumped again,
                 // 8 still wasn't enough clearance.
+                // Padding BEFORE frame, not after — with .frame(width:)
+                // applied first, this content's own padding just added
+                // visible margin *around* an already-restingWidth-sized
+                // box instead of shrinking what's actually offered to the
+                // GeometryReader inside, so this reported a size bigger
+                // than restingWidth itself (getting squeezed back down by
+                // musicContent's own outer width constraint in a way that
+                // decoupled geo.size — and so MarqueeText's own
+                // frameWidth/centering math — from the row's true visible
+                // width). Reordering means the padding now genuinely
+                // reduces the frame's inner content area, so this reports
+                // exactly restingWidth and MarqueeText's centering/edge
+                // clipping is computed against the pill's real bounds.
+                .padding(.leading, isIslandAppearance ? 14 : 8)
+                // Deliberately generous, not tight — the goal is for the
+                // scrolling text to visibly stop short of the pill's own
+                // rounded edge, not to reach right up to it.
+                .padding(.trailing, isIslandAppearance ? 14 : 8)
+                .padding(.top, isIslandAppearance ? 0 : 0)
+                .padding(.bottom, isIslandAppearance ? 12 : 10)
                 .frame(width: restingWidth, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
                 // Own reveal now that it pops in on its own timing rather
                 // than alongside the rest of the family swap — a small
                 // drop-down-and-fade instead of a hard cut.

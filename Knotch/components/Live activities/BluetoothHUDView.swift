@@ -40,7 +40,16 @@ struct BluetoothHUDView: View {
     private var glassActive: Bool {
         notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
     }
-    
+
+    // The expanded card's top padding below reserves room to "drop below"
+    // the physical notch's own compact bar — with no real notch to drop
+    // below in island appearance, that reservation is just empty space
+    // above the card instead. A small amount is kept, not zero, purely to
+    // clear the pill's own rounded top corner.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
     var body: some View {
         Group {
             if phase == .compact || phase == .collapsing {
@@ -103,7 +112,7 @@ struct BluetoothHUDView: View {
                 // outer padding scaling with the current top corner radius.
                 .padding(.horizontal, 10)
                 .frame(width: expandedWidth, height: 44)
-                .padding(.top, vm.effectiveClosedNotchHeight)
+                .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
                 .padding(.bottom, 10)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }

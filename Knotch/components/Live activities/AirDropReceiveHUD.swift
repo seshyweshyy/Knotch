@@ -40,6 +40,15 @@ struct AirDropReceiveHUD: View {
         notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
     }
 
+    // Same fix as BluetoothHUDView's own copy — the expanded card's top
+    // padding below reserves room to "drop below" the physical notch's own
+    // compact bar, which is just empty space above the card with no real
+    // notch to drop below in island appearance. A small amount is kept, not
+    // zero, purely to clear the pill's own rounded top corner.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
     private var fileURL: URL? {
         filePath.isEmpty ? nil : URL(fileURLWithPath: filePath)
     }
@@ -248,7 +257,7 @@ struct AirDropReceiveHUD: View {
         // outer padding scaling with the current top corner radius.
         .padding(.horizontal, 16)
         .frame(width: expandedWidth, height: expandedContentHeight)
-        .padding(.top, vm.effectiveClosedNotchHeight)
+        .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)
         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
         .onHover { hovering in
@@ -266,10 +275,10 @@ struct AirDropReceiveHUD: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(prominent ? Color.blue : Color.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
-                .background(prominent ? Color.blue : Color.white.opacity(0.14), in: Capsule())
+                .background(prominent ? Color.blue.opacity(0.25) : Color.white.opacity(0.14), in: Capsule())
         }
         .buttonStyle(.plain)
     }

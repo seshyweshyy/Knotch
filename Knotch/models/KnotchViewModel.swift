@@ -285,7 +285,8 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     var computedHomeSize: CGSize {
         if Defaults[.enableCompactUI] {
-            return compactOpenNotchSize
+            let isIsland = usesDynamicIslandAppearance(screenUUID: screenUUID)
+            return CGSize(width: compactPanelWidth(isIsland: isIsland), height: compactPanelHeight(isIsland: isIsland))
         }
         return CGSize(width: openHomeWidth, height: openNotchHomeSize.height)
     }
@@ -325,6 +326,44 @@ class KnotchViewModel: NSObject, ObservableObject {
         setupTrayEmptyGracePeriod()
         setupDetectorObserver()
         setupWidgetWidthObserver()
+        setupAppearanceObserver()
+    }
+
+    // closedNotchSize is otherwise only ever (re)computed in init() and in
+    // close()'s own completion — nothing previously refreshed it when a
+    // setting that changes getClosedNotchSize()'s result changed while the
+    // notch just sat there closed and idle. The corner shape/padding in
+    // ContentView reads Defaults live and updates immediately, but the
+    // actual pill size stayed stale until the next open/close cycle forced
+    // a recompute — visible as a "merged" look (old width, new corners)
+    // right after flipping notch/island appearance (forceSimulatedNotch,
+    // debugForceDynamicIslandAppearance) until the notch was opened once.
+    // Subscribing directly to those Defaults (rather than depending on
+    // every call site that changes notch-size-affecting settings to
+    // remember to post notchHeightChanged) closes that gap for good, and
+    // keeps handling the settings that do post it as before.
+    private func setupAppearanceObserver() {
+        Publishers.Merge(
+            Defaults.publisher(.forceSimulatedNotch).map { _ in () },
+            Defaults.publisher(.debugForceDynamicIslandAppearance).map { _ in () }
+        )
+        .merge(with: NotificationCenter.default.publisher(for: Notification.Name.notchHeightChanged).map { _ in () })
+        .receive(on: RunLoop.main)
+        .sink { [weak self] in
+            self?.refreshClosedNotchSize()
+        }
+        .store(in: &cancellables)
+    }
+
+    private func refreshClosedNotchSize() {
+        let newSize = getClosedNotchSize(screenUUID: screenUUID)
+        guard newSize != closedNotchSize else { return }
+        withAnimation(notchCloseSpring) {
+            closedNotchSize = newSize
+            if notchState == .closed {
+                notchSize = newSize
+            }
+        }
     }
 
     // The tray can go empty via several different removal paths (the "All"

@@ -44,6 +44,17 @@ struct CompactTrayDropZoneView: View {
             ?? quickShare.availableProviders.first { $0.id == "AirDrop" }
     }
 
+    // See CompactMusicPlayerView's own copy of these two — the shared
+    // CompactDropZoneMetrics.horizontalPadding is tuned for the physical
+    // notch's corner carve, same as every other compact page's inset.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
+    private var horizontalInset: CGFloat {
+        isIslandAppearance ? 22 : CompactDropZoneMetrics.horizontalPadding
+    }
+
     @ViewBuilder
     private var shareProviderIcon: some View {
         if let imgData = shareProvider?.imageData, let nsImg = NSImage(data: imgData) {
@@ -178,7 +189,7 @@ struct CompactTrayDropZoneView: View {
             .frame(maxHeight: .infinity)
             .animation(.spring(response: 0.35, dampingFraction: 0.75), value: targetedKind)
         }
-        .padding(.horizontal, CompactDropZoneMetrics.horizontalPadding)
+        .padding(.horizontal, horizontalInset)
         .padding(.vertical, CompactDropZoneMetrics.verticalPadding)
         .frame(height: compactContentHeight, alignment: .center)
         .frame(maxWidth: .infinity)
@@ -187,7 +198,12 @@ struct CompactTrayDropZoneView: View {
         // never got it, so its own verticalPadding (10pt) was the only thing
         // separating the drop-zone squares from the top of the panel, far
         // less than the room the other three reserve for the notch cutout.
-        .padding(.top, vm.effectiveClosedNotchHeight)
+        // Physical notch only — the drop-zone squares don't "hug" the
+        // cutout the way album art does, so reserving room above them just
+        // pushes them low in the panel instead of centering them. Island
+        // instead centers this whole block within the panel's full height.
+        .padding(.top, isIslandAppearance ? 2 : vm.effectiveClosedNotchHeight)
+        .frame(maxHeight: isIslandAppearance ? .infinity : nil, alignment: .center)
     }
 
     // Dock-magnification-style layout: the targeted box claims a larger share
@@ -308,6 +324,19 @@ struct CompactTrayView: View {
         max(vm.effectiveClosedNotchHeight - 4, 20)
     }
 
+    // See CompactMusicPlayerView's own copy of these two.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
+    }
+
+    private var horizontalInset: CGFloat {
+        isIslandAppearance ? 22 : compactContentSafeInset
+    }
+
+    private var panelWidth: CGFloat {
+        compactPanelWidth(isIsland: isIslandAppearance)
+    }
+
     var body: some View {
         // Pinned to compactOpenNotchSize.width (the fixed target), same fix
         // as CompactMusicPlayerView/CompactCalendarView — a plain
@@ -320,13 +349,20 @@ struct CompactTrayView: View {
                 // header borrows — TrayItemView's own fixed height (icon +
                 // label + its internal padding) is taller than what's left
                 // after the header and outer padding otherwise, clipping the
-                // selection outline at the bottom edge.
-                .offset(y: -8)
+                // selection outline at the bottom edge. Pulled up further in
+                // island appearance, closer to the header, since the extra
+                // island-only top push above gave the header more room than
+                // physical notch has, widening the header-to-scroll gap.
+                .offset(y: isIslandAppearance ? -16 : -8)
         }
-        .padding(.horizontal, compactContentSafeInset)
+        .padding(.horizontal, horizontalInset)
         .padding(.top, 4)
         .padding(.bottom, 4)
-        .frame(width: compactOpenNotchSize.width, height: compactContentHeight, alignment: .top)
+        .frame(width: panelWidth, height: compactContentHeight, alignment: .top)
+        // Extra island push, same idea as CompactMusicPlayerView's own
+        // extraTopPush — clears the plain convex top corners, which sit
+        // closer in than the physical notch's concave ones did.
+        .padding(.top, isIslandAppearance ? 10 : 0)
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
         }

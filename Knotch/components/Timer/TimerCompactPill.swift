@@ -56,7 +56,14 @@ struct TimerCompactPill: View {
             }
             .foregroundStyle(activeColor)
             .padding(.horizontal, 4)
-            .frame(width: vm.closedNotchSize.width - 20 + timerCompactPillExtraWidth, height: vm.effectiveClosedNotchHeight, alignment: .center)
+            // maxWidth: .infinity, not a hardcoded copy of the outer row's
+            // own width formula — this view is always wrapped in a frame
+            // that already resolves to the true row width (see
+            // ClosedNotchRowContent's own .timer case), so filling
+            // whatever's actually given stays correct automatically
+            // instead of needing to be kept in sync with that formula by
+            // hand every time it changes (island vs. physical notch, etc).
+            .frame(maxWidth: .infinity, minHeight: vm.effectiveClosedNotchHeight, maxHeight: vm.effectiveClosedNotchHeight, alignment: .center)
         }
     }
 

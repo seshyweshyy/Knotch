@@ -21,8 +21,21 @@ struct MusicLiveActivity: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.forceSimulatedNotch) var forceSimulatedNotch
+    @Default(.debugForceDynamicIslandAppearance) var debugForceDynamicIslandAppearance
 
     let albumArtNamespace: Namespace.ID
+
+    // The island's closed pill is a narrower, free-floating capsule — its
+    // rounded ends need more breathing room around the art/waveform than the
+    // physical notch's flatter closed shape does.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(
+            screenUUID: vm.screenUUID,
+            forceSimulatedNotch: forceSimulatedNotch,
+            debugForceDynamicIsland: debugForceDynamicIslandAppearance
+        )
+    }
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
@@ -43,6 +56,27 @@ struct MusicLiveActivity: View {
         !musicManager.isPlaying && displayedArt !== noArtworkPlaceholderImage
     }
 
+    // True only for the Standard-style sneak-peek reveal — the middle
+    // Rectangle above is left unconstrained during exactly this state (see
+    // its own .frame(width:)) so it fills out to the row's true trailing
+    // edge on its own; pulling the waveform back further here on top of
+    // that would just undo it.
+    private var isStandardSneakPeekReveal: Bool {
+        coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && sneakPeekStyles == .standard
+    }
+
+    private var waveformTrailingOffset: CGFloat {
+        if isStandardSneakPeekReveal {
+            // The flexible middle Rectangle above already pushes this to the
+            // row's true trailing edge — barely any offset left to add here.
+            return isIslandAppearance ? -2 : -9
+        }
+        if coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music {
+            return isIslandAppearance ? -14 : -9
+        }
+        return isIslandAppearance ? 0 : -5
+    }
+
     private var artSize: CGFloat {
         max(0, (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
             ? vm.effectiveClosedNotchHeight - 4   // slightly bigger during sneak peek
@@ -51,7 +85,13 @@ struct MusicLiveActivity: View {
 
 
     var body: some View {
-        HStack {
+        // Explicit 0 in island appearance — the default (non-zero) HStack
+        // spacing was an unaccounted-for gap between the middle Rectangle
+        // and the waveform HStack, on top of waveformTrailingOffset's own
+        // deliberate offset, throwing off the pixel-exact alignment against
+        // the marquee row's own edge below. Left as the system default for
+        // physical notch, matching its original, untouched spacing.
+        HStack(spacing: isIslandAppearance ? 0 : nil) {
             Image(nsImage: displayedArt)
                 .resizable()
                 // Wide artwork (e.g. YouTube video thumbnails) has its own aspect
@@ -84,8 +124,10 @@ struct MusicLiveActivity: View {
                 // Sat flush against the pill's leading edge with zero inset
                 // outside the sneak-peek-active state (whose own conditional
                 // padding above only applies during that state) — nudged in
-                // a little so it doesn't anchor right at the corner.
-                .padding(.leading, 5)
+                // a little so it doesn't anchor right at the corner. The
+                // island's rounded capsule ends need more clearance than the
+                // physical notch's flatter closed shape does.
+                .padding(.leading, isIslandAppearance ? 1 : 5)
                 .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
                 // No longer matchedGeometryEffect'd with the open panel's own
                 // art — needs its own appear/disappear now. Removal gets a
@@ -181,8 +223,30 @@ struct MusicLiveActivity: View {
                         && coordinator.expandingView.type == .music
                         && sneakPeekStyles == .inline)
                         ? 380
+                        // Standard-style sneak peek in island appearance
+                        // only: no fixed width — this Rectangle is a Shape,
+                        // so leaving it unconstrained lets it fill whatever's
+                        // left in the row (widened for exactly this case, see
+                        // restingRowWidth's .music case), pushing the
+                        // visualizer icon after it out to the row's actual
+                        // trailing edge instead of leaving it stranded at
+                        // this Rectangle's own fixed, narrower width. Gated
+                        // to island — the physical notch's own resting width
+                        // was never widened for this case, so making this
+                        // flexible there too would just change its proportions
+                        // for no reason, not fix anything.
+                        : (isIslandAppearance && isStandardSneakPeekReveal)
+                        ? nil
+                        // Extra gap for island appearance — closedNotchSize's
+                        // own island default was cut down (110 vs the
+                        // physical notch's 185, see islandClosedNotchWidth)
+                        // to shrink the pill overall, which also squeezed
+                        // this middle gap down with it more than wanted —
+                        // widened back out again on its own, independent of
+                        // that shrink.
                         : vm.closedNotchSize.width
                             + -cornerRadiusInsets.closed.top
+                            + (isIslandAppearance ? 10 : 0)
                 )
 
             HStack {
@@ -198,7 +262,7 @@ struct MusicLiveActivity: View {
                 height: max(0, vm.effectiveClosedNotchHeight - 12),
                 alignment: .center
             )
-            .offset(x: (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music) ? -9 : -5)
+            .offset(x: waveformTrailingOffset)
         }
         // Only when the top corner curves inward to the concave 12pt (music
         // sneak peek) does the album art/waveform need edge padding — it sits
@@ -229,6 +293,13 @@ struct BatteryNotchBanner: View {
     // of covering it with an opaque black rectangle.
     private var glassActive: Bool {
         notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
+    }
+
+    // Matches restingRowWidth's own island-specific genericGap — the
+    // physical notch's "closedNotchSize.width+40" gap reads as excessive
+    // once closedNotchSize.width itself is island's much narrower default.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
     }
 
     private enum BannerKind: Equatable {
@@ -286,7 +357,7 @@ struct BatteryNotchBanner: View {
 
             Rectangle()
                 .fill(glassActive ? Color.clear : Color.black)
-                .frame(width: vm.closedNotchSize.width + 40)
+                .frame(width: isIslandAppearance ? 60 : vm.closedNotchSize.width + 40)
 
             HStack {
                 KnotchBatteryView(
@@ -659,16 +730,32 @@ struct ContentView: View {
     // purpose — they run outside body evaluation and need no dependency.
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.forceSimulatedNotch) var forceSimulatedNotch
+    @Default(.debugForceDynamicIslandAppearance) var debugForceDynamicIslandAppearance
+    @Default(.dynamicIslandTopInset) var dynamicIslandTopInset
+    @Default(.extendHoverArea) var extendHoverArea
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
 
-    private let extendedHoverPadding: CGFloat = 30
+    private let extendedHoverPadding: CGFloat = 10
     private let zeroHeightHoverPadding: CGFloat = 10
 
     private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
         enableCompactUI ? compactCornerRadiusInsets : cornerRadiusInsets
     }
+
+    // Whether this screen should render the floating "Dynamic Island" pill
+    // (uniform convex corners, detached from the screen's top edge) instead
+    // of the physical-notch silhouette. See usesDynamicIslandAppearance.
+    private var isIslandAppearance: Bool {
+        usesDynamicIslandAppearance(
+            screenUUID: vm.screenUUID,
+            forceSimulatedNotch: forceSimulatedNotch,
+            debugForceDynamicIsland: debugForceDynamicIslandAppearance
+        )
+    }
+
 
     // Continuously blends between the bare closed pill's radius and whichever
     // family is currently displayed's own resting radius, by rowMorph — at
@@ -822,6 +909,19 @@ struct ContentView: View {
         return .none
     }
 
+    // Half the current closed height (floored at 16, matching a real
+    // reference implementation of this same idea — Atoll's own Dynamic
+    // Island pill) — the shared "true pill" radius for island appearance,
+    // used both as currentBottomCornerRadius's idle/bare floor below and as
+    // restingBottomCornerRadius's own default for every family that's just
+    // a plain inline live activity (persistent music bar, timer, lock, a
+    // compact/un-hovered HUD, the low-power-mode battery message) rather
+    // than an active sneak-peek reveal or an expanded/takeover card, which
+    // keep their own separately-tuned larger radius untouched.
+    private var islandPillRadius: CGFloat {
+        max(vm.effectiveClosedNotchHeight / 2, 16)
+    }
+
     // Same blend-by-rowMorph treatment as topCornerRadius above — hello/open
     // keep their own unconditional values (untouched by any row family swap),
     // everything else (including the battery banner now) continuously
@@ -834,7 +934,7 @@ struct ContentView: View {
             return activeCornerRadiusInsets.opened.bottom + vm.liquidPull * 0.05
         }
 
-        let bareBottom = activeCornerRadiusInsets.closed.bottom
+        let bareBottom = isIslandAppearance ? islandPillRadius : activeCornerRadiusInsets.closed.bottom
         let blended = bareBottom + (restingBottomCornerRadius - bareBottom) * rowMorph
         // Same independent contribution as topCornerRadius above.
         return defaultStyleHUDShowing ? max(blended, 22) : blended
@@ -843,24 +943,38 @@ struct ContentView: View {
     // The radius displayedRowFamily's content rests at once fully expanded —
     // same special-case values currentBottomCornerRadius always used.
     private var restingBottomCornerRadius: CGFloat {
+        // The plain/default radius for a compact inline state — every branch
+        // below falls back to this except an active sneak-peek reveal or a
+        // genuinely expanded/takeover card, which keep their own separately-
+        // tuned (larger, non-pill) radius regardless of appearance.
+        let plain = isIslandAppearance ? islandPillRadius : activeCornerRadiusInsets.closed.bottom
         switch displayedRowFamily {
         case .hud:
             if coordinator.sneakPeek.type == .bluetoothAudio {
-                return bluetoothHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 3
+                if bluetoothHUDExpanded {
+                    // True capsule for island, matching the closed pill's
+                    // own treatment — half of the expanded card's actual
+                    // rendered height (44pt content + 10pt top/bottom
+                    // padding = 64pt, see BluetoothHUDView's own expanded
+                    // layout) rather than a fixed radius that only happens
+                    // to look round at one specific height.
+                    return isIslandAppearance ? 32 : 28
+                }
+                return plain + 3
             }
             if coordinator.sneakPeek.type == .airdropReceive {
-                return airdropHUDExpanded ? 28 : activeCornerRadiusInsets.closed.bottom + 4
+                return airdropHUDExpanded ? 28 : plain + 4
             }
             // Always an Inline-style HUD here now — see restingTopCornerRadius's
             // matching comment.
-            return isHovering ? activeCornerRadiusInsets.closed.bottom + 6 : activeCornerRadiusInsets.closed.bottom
+            return isHovering ? plain + 6 : plain
         case .music:
             // Same sneakPeek.show gating as restingTopCornerRadius above —
             // this bug (persistent music bar's bottom corners over-rounded
             // to 22pt at all times) was from unconditionally returning 22
             // for the whole .music family instead of just the active reveal.
             return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
-                ? 26 : activeCornerRadiusInsets.closed.bottom
+                ? (isIslandAppearance ? 24 : 26) : plain
         case .battery:
             // Matches the original isExpandedBatteryBanner check — only the
             // low/full-battery takeover card (not the low-power-mode toggle
@@ -868,14 +982,18 @@ struct ContentView: View {
             let batteryModel = BatteryStatusViewModel.shared
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
-            return isStandardBanner ? 28 : activeCornerRadiusInsets.closed.bottom
+            return isStandardBanner ? 28 : plain
         case .timer, .none, .lock:
-            return activeCornerRadiusInsets.closed.bottom
+            return plain
         }
     }
 
-    private var currentNotchShape: NotchShape {
-        NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: currentBottomCornerRadius)
+    private var currentNotchShape: AnyShape {
+        notchOuterShape(
+            topCornerRadius: topCornerRadius,
+            bottomCornerRadius: currentBottomCornerRadius,
+            isIsland: isIslandAppearance
+        )
     }
 
     // The closed-notch row's own current width — continuously interpolated
@@ -893,6 +1011,8 @@ struct ContentView: View {
         let resting = restingRowWidth(
             for: displayedRowFamily,
             sneakPeekType: coordinator.sneakPeek.type,
+            sneakPeekShow: coordinator.sneakPeek.show,
+            isIsland: isIslandAppearance,
             closedNotchWidth: vm.closedNotchSize.width,
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
@@ -993,7 +1113,14 @@ struct ContentView: View {
                     .frame(alignment: .top)
                     .padding(
                         .horizontal,
-                        vm.notchState == .open
+                        // The Dynamic Island's outer shape is a plain rounded
+                        // rect (see notchOuterShape) — unlike NotchShape's
+                        // concave carve, its footprint never shrinks as the
+                        // corner radius grows, so it needs none of the
+                        // compensating inset below.
+                        isIslandAppearance
+                        ? 0
+                        : (vm.notchState == .open
                         // Compact mode already sizes to vm.notchSize (see
                         // its minWidth/minHeight floor) — this standard-only
                         // slack was inflating the visible glass card past
@@ -1010,7 +1137,7 @@ struct ContentView: View {
                         // sneak-peek/HUD states raise it (12, 26, ...) instead of
                         // the gap shrinking — and the content behind it clipping
                         // tighter — every time the concave radius grows.
-                        : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
+                        : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top))
                     )
                     .padding([.horizontal, .bottom], (vm.notchState == .open && !enableCompactUI) ? 12 : 0)
                     .background {
@@ -1042,10 +1169,12 @@ struct ContentView: View {
                                 // creating the glass view at all instead of just
                                 // hiding it behind an opaque cover.
                                 KnotchLiquidGlass(
-                                    shape: .notch(
-                                        topCornerRadius: topCornerRadius,
-                                        bottomCornerRadius: currentBottomCornerRadius
-                                    )
+                                    shape: isIslandAppearance
+                                        ? .roundedRect(cornerRadius: currentBottomCornerRadius)
+                                        : .notch(
+                                            topCornerRadius: topCornerRadius,
+                                            bottomCornerRadius: currentBottomCornerRadius
+                                        )
                                 )
                                 Color.black
                                     .opacity(semiGlassActive || fullGlassActive ? 0 : 1)
@@ -1102,10 +1231,16 @@ struct ContentView: View {
                     }
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(.black)
-                            .frame(height: 1)
-                            .padding(.horizontal, topCornerRadius)
+                        // Hides the seam against the real camera housing —
+                        // meaningless (and visibly wrong, cutting across the
+                        // floating pill's own rounded top edge) once this
+                        // display has no physical notch to blend into.
+                        if !isIslandAppearance {
+                            Rectangle()
+                                .fill(.black)
+                                .frame(height: 1)
+                                .padding(.horizontal, topCornerRadius)
+                        }
                     }
                     .scaleEffect(
                         x: vm.hudOvershootScale, y: 1,
@@ -1141,6 +1276,12 @@ struct ContentView: View {
                     // KnotchViewModel.open()/close() wrap their own state
                     // changes in explicit withAnimation(...) now.
                     .animation(.smooth, value: gestureProgress)
+                    // Negative padding grows the hit-tested frame below
+                    // without affecting anything visual — scoped to closed
+                    // only, since the point is making the small closed pill
+                    // easier to trigger open, not lingering open longer
+                    // after the cursor actually leaves the panel.
+                    .padding((extendHoverArea && vm.notchState == .closed) ? -extendedHoverPadding : 0)
                     .contentShape(Rectangle())
                     .onHover { hovering in
                         handleHover(hovering)
@@ -1284,6 +1425,10 @@ struct ContentView: View {
             }
         }
         
+        // Floats the whole pill down from the screen's top edge for the
+        // Dynamic Island appearance — the window itself stays flush with the
+        // top edge (see KnotchApp.positionWindow), so this is purely visual.
+        .padding(.top, isIslandAppearance ? CGFloat(dynamicIslandTopInset) : 0)
         .padding(.bottom, 8)
         .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .compositingGroup()
@@ -1344,6 +1489,12 @@ struct ContentView: View {
                 } else if vm.notchState == .open && !enableCompactUI {
                     KnotchHeader()
                         .frame(height: max(24, vm.effectiveClosedNotchHeight))
+                        // The island's top corners are real convex curves,
+                        // unlike the physical notch's flush concave ones —
+                        // without this the header icons sit right in that
+                        // curve's way instead of clear of it.
+                        .padding(.top, isIslandAppearance ? 6 : 0)
+                        .padding(.horizontal, isIslandAppearance ? 10 : 0)
                         .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                         .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
                         .blur(radius: closeSwipeBlur)
@@ -1450,6 +1601,14 @@ struct ContentView: View {
                 // inflates the bezel around it — flexible children like the album art
                 // image would otherwise grow into the offered extra height and get
                 // clipped by the shape's rounded top corner.
+                //
+                // maxHeight only, deliberately not a fixed/minHeight pin — the
+                // background pill behind this (mainLayout's own clip, sized from
+                // this same vm.notchSize.height) is already identical between
+                // Home and Tray regardless of what happens in here. Forcing an
+                // exact/minimum height on this content wrapper instead stretched
+                // TrayView's own flexible drop-zone squares to fill it, making
+                // Tray look bloated instead of actually fixing anything.
                 .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
                 // No more width transition between home and tray — notchSize
                 // is the same (computedHomeSize) for both now, so there's
@@ -1939,3 +2098,4 @@ struct FullScreenDropDelegate: DropDelegate {
         .environmentObject(vm)
         .frame(width: vm.notchSize.width, height: vm.notchSize.height)
 }
+

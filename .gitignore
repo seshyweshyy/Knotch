@@ -31,6 +31,7 @@ build/
 
 # Claude Code project-scoped skills (local tooling, not part of the app)
 .claude/skills/
+.agents/
 *.app
 *.dSYM
 

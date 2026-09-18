@@ -531,6 +531,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "General", title: "Automatically switch displays", keywords: ["auto switch", "display"], highlightID: "General-Automatically switch displays"),
             SettingsSearchEntry(tabID: "General", title: "Notch height on notch displays", keywords: ["notch height", "sizing"], highlightID: "General-Notch height on notch displays"),
             SettingsSearchEntry(tabID: "General", title: "Notch height on non-notch displays", keywords: ["non-notch", "height", "sizing"], highlightID: "General-Notch height on non-notch displays"),
+            SettingsSearchEntry(tabID: "General", title: "Force simulated notch", keywords: ["notch", "simulated", "floating pill", "island"], highlightID: "General-Force simulated notch"),
             SettingsSearchEntry(tabID: "General", title: "Open notch on hover", keywords: ["hover", "hide", "notch"], highlightID: "General-Hide until hover"),
             SettingsSearchEntry(tabID: "General", title: "Enable haptic feedback", keywords: ["haptic", "vibration"], highlightID: "General-Enable haptic feedback"),
             SettingsSearchEntry(tabID: "General", title: "Remember last tab", keywords: ["tab", "remember", "restore"], highlightID: "General-Remember last tab"),
@@ -618,7 +619,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Advanced", title: "Corner radius scaling", keywords: ["corner", "radius", "scaling"], highlightID: "Appearance-Corner radius scaling"),
             //SettingsSearchEntry(tabID: "Advanced", title: "Progressive edge blur when notch is open", keywords: ["edge", "blur", "progressive"], highlightID: "Appearance-Progressive edge blur"),
             SettingsSearchEntry(tabID: "Advanced", title: "Extend hover area", keywords: ["hover", "area", "extend"], highlightID: "Advanced-Extend hover area"),
-            SettingsSearchEntry(tabID: "Advanced", title: "Hide title bar", keywords: ["title bar", "hide"], highlightID: "Advanced-Hide title bar"),
+            SettingsSearchEntry(tabID: "Advanced", title: "Extend click area to menu bar", keywords: ["menu bar", "click area", "notch height"], highlightID: "Advanced-Extend click area to menu bar"),
             SettingsSearchEntry(tabID: "Advanced", title: "Hide from screen recording", keywords: ["screen recording", "privacy", "hide"], highlightID: "Advanced-Hide from screen recording"),
             // About
             SettingsSearchEntry(tabID: "About", title: "Check for Updates", keywords: ["version", "update", "check", "build", "changelog", "release"], highlightID: "About-Check for Updates"),
@@ -627,13 +628,24 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "About", title: "Release Notes", keywords: ["release notes", "changelog", "whats new", "version"], highlightID: "About-Release Notes"),
     ]
 
+    // Same gate as GeneralSettings' own copy — "Force simulated notch" only
+    // means anything (and is only actually shown as a row) on a display
+    // without a physical notch, so it shouldn't turn up in search results
+    // that link to a row that isn't there.
+    private var preferredScreenHasPhysicalNotch: Bool {
+        let screen = KnotchViewCoordinator.shared.preferredScreenUUID.flatMap { NSScreen.screen(withUUID: $0) } ?? NSScreen.main
+        return (screen?.safeAreaInsets.top ?? 0) > 0
+    }
+
     private var searchSuggestions: [SettingsSearchEntry] {
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }
+        let notchGated = preferredScreenHasPhysicalNotch
         return Array(
             Self.searchIndex.filter { entry in
-                entry.title.localizedCaseInsensitiveContains(trimmed) ||
-                entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
+                guard entry.title != "Force simulated notch" || !notchGated else { return false }
+                return entry.title.localizedCaseInsensitiveContains(trimmed) ||
+                    entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
             }
             .prefix(8)
         )
@@ -877,6 +889,14 @@ struct GeneralSettings: View {
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.hideNotchInFullscreen) var hideNotchInFullscreen
 
+    // Whether the currently relevant display (the preferred one, falling
+    // back to the main screen) actually has a physical notch cutout —
+    // "Force simulated notch" only means anything on a display without one.
+    private var preferredScreenHasPhysicalNotch: Bool {
+        let screen = coordinator.preferredScreenUUID.flatMap { NSScreen.screen(withUUID: $0) } ?? NSScreen.main
+        return (screen?.safeAreaInsets.top ?? 0) > 0
+    }
+
     var body: some View {
         Form {
             Section {
@@ -1016,8 +1036,31 @@ struct GeneralSettings: View {
                         NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
                     }
                 }
+                // Shown only when the relevant display actually lacks a
+                // physical notch — checked against hardware
+                // (safeAreaInsets), not usesDynamicIslandAppearance, since
+                // that already factors in this very toggle's own state and
+                // would hide it the moment it's turned on, with no way back.
+                if !preferredScreenHasPhysicalNotch {
+                    Defaults.Toggle(key: .forceSimulatedNotch) {
+                        Text("Force simulated notch")
+                    }
+                    .onChange(of: Defaults[.forceSimulatedNotch]) {
+                        NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
+                    }
+                    .settingsHighlight(id: "General-Force simulated notch")
+                }
             } header: {
                 Text("Notch sizing")
+            } footer: {
+                // Same visibility condition as the toggle itself — this
+                // text exists to explain that toggle, so it has nothing to
+                // say on a display where the toggle isn't even shown.
+                if !preferredScreenHasPhysicalNotch {
+                    Text("Displays without a physical notch (external monitors, non-notched MacBooks) show a \"Floating Pill\" by default. Turn on \"Force simulated notch\" above to use the regular notch shape there instead.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
             }
 
             NotchBehaviour()
@@ -2728,6 +2771,7 @@ struct Advanced: View {
     @Default(.customAccentColorData) var customAccentColorData
     @Default(.extendHoverArea) var extendHoverArea
     @Default(.hideFromScreenRecording) var hideFromScreenRecording
+    @Default(.dynamicIslandTopInset) var dynamicIslandTopInset
 
     @State private var customAccentColor: Color = .accentColor
     @State private var selectedPresetColor: PresetAccentColor? = nil
@@ -2852,15 +2896,59 @@ struct Advanced: View {
                 }
                 .settingsHighlight(id: "Advanced-Extend hover area")
                 Defaults.Toggle(key: .hideTitleBar) {
-                    Text("Hide title bar")
+                    Text("Extend click area to menu bar")
                 }
-                .settingsHighlight(id: "Advanced-Hide title bar")
+                .settingsHighlight(id: "Advanced-Extend click area to menu bar")
                 Defaults.Toggle(key: .hideFromScreenRecording) {
                     Text("Hide from screen recording")
                 }
                 .settingsHighlight(id: "Advanced-Hide from screen recording")
             } header: {
                 Text("Window Behavior")
+            } footer: {
+                Text("Extend hover area widens the region around the notch that responds to your cursor before it opens. Extend click area to menu bar extends the notch's own clickable area down to the bottom of the menu bar, so nothing behind it can be clicked when the closed notch is shorter than the menu bar itself. Hide from screen recording excludes the notch from screenshots and screen recordings.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Section {
+                Defaults.Toggle(key: .debugForceDynamicIslandAppearance) {
+                    Text("Force Floating Pill appearance")
+                }
+                .settingsHighlight(id: "Advanced-Force Floating Pill appearance")
+                Slider(value: $dynamicIslandTopInset, in: 0...35, step: 1) {
+                    Text("Screen-edge gap - \(dynamicIslandTopInset, specifier: "%.0f")pt")
+                }
+                .tint(Color(nsColor: .labelColor))
+                .settingsHighlight(id: "Advanced-Floating Pill screen-edge gap")
+                #if DEBUG
+                Button("Preview Onboarding (Full)") {
+                    NotificationCenter.default.post(
+                        name: .previewOnboardingRequested, object: nil,
+                        userInfo: ["step": OnboardingStep.welcome]
+                    )
+                }
+                .settingsSubtleGlassButton()
+                .settingsHighlight(id: "Advanced-Preview Onboarding")
+
+                Button("Preview Layout Selection Screen") {
+                    NotificationCenter.default.post(
+                        name: .previewOnboardingRequested, object: nil,
+                        userInfo: ["step": OnboardingStep.uiModeSelection]
+                    )
+                }
+                .settingsSubtleGlassButton()
+                .settingsHighlight(id: "Advanced-Preview Layout Selection Screen")
+                #endif
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Developer")
+                    customBadge(text: "Debug")
+                }
+            } footer: {
+                Text("Previews the Floating Pill appearance on this display even though it has a real notch. For testing only — takes priority over \"Force simulated notch\" in General.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
         }
         .accentColor(.effectiveAccent)
@@ -3085,27 +3173,6 @@ struct About: View {
                             .padding(.top, -8)
                     }
                 }
-                #if DEBUG
-                Section {
-                    Button("Preview Onboarding (Full)") {
-                        NotificationCenter.default.post(
-                            name: .previewOnboardingRequested, object: nil,
-                            userInfo: ["step": OnboardingStep.welcome]
-                        )
-                    }
-                    .settingsSubtleGlassButton()
-
-                    Button("Preview Layout Selection Screen") {
-                        NotificationCenter.default.post(
-                            name: .previewOnboardingRequested, object: nil,
-                            userInfo: ["step": OnboardingStep.uiModeSelection]
-                        )
-                    }
-                    .settingsSubtleGlassButton()
-                } header: {
-                    Text("Developer")
-                }
-                #endif
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
                     Button {
