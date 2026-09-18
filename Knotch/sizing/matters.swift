@@ -123,7 +123,7 @@ func compactPanelHeight(isIsland: Bool) -> CGFloat {
 let compactContentHeight: CGFloat = 140
 
 enum MusicPlayerImageSizes {
-    static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 5.5)
+    static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 18.0, closed: 4.0)
     static let size = (opened: CGSize(width: 90, height: 90), closed: CGSize(width: 20, height: 20))
 }
 
@@ -133,7 +133,7 @@ enum MusicPlayerImageSizes {
 // such cutout to hide behind, so its own default is its own, separate,
 // deliberately narrower value rather than a scaled-down copy of the
 // physical one.
-let islandClosedNotchWidth: CGFloat = 110
+let islandClosedNotchWidth: CGFloat = 85
 
 // Whether `screenUUID` (or the main screen, if nil) should render the
 // floating "Dynamic Island" pill — uniform convex corners on all four
