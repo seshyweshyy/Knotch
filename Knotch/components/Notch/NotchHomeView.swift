@@ -1271,17 +1271,26 @@ struct MusicSliderView: View {
     let isPlaying: Bool
     var showRemainingTime: Bool = false
     var inlineTimestamps: Bool = false
+    var animatesSliderGeometryChanges: Bool = true
+    var playbackValueAnimationDuration: TimeInterval? = 0.5
+    var usesContinuousPlaybackAnimation: Bool = false
     /// True for a browser tab with no known duration — nothing to scrub, so show a
     /// static "LIVE" bar instead of a progress track stuck at 0%.
     var isLive: Bool = false
     var onValueChange: (Double) -> Void
+
+    @State private var animatedPlaybackValue: Double = 0
+    @State private var continuousAnimationIsReady = false
+    @State private var animationAnchorValue: Double = 0
+    @State private var animationAnchorDate: Date = .distantPast
+    @State private var continuousAnimationGeneration = 0
 
     var body: some View {
         if isLive {
             liveIndicatorBar
         } else if inlineTimestamps {
             HStack(alignment: .center, spacing: 6) {
-                Text(timeString(from: sliderValue))
+                Text(timeString(from: displayedSliderValue))
                     .fontWeight(.medium)
                     .foregroundColor(
                         Defaults[.playerColorTinting]
@@ -1299,12 +1308,16 @@ struct MusicSliderView: View {
                         : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
                     dragging: $dragging,
                     lastDragged: $lastDragged,
+                    displayValue: sliderTrackValue,
+                    animatesGeometryChanges: animatesSliderGeometryChanges,
+                    playbackValueAnimationDuration: playbackValueAnimationDuration,
+                    usesContinuousPlaybackAnimation: usesContinuousPlaybackAnimation,
                     onValueChange: onValueChange
                 )
                 .frame(height: 10, alignment: .center)
 
                 Text(showRemainingTime && duration.isFinite && duration > 0
-                     ? "-" + timeString(from: max(0, duration - sliderValue))
+                     ? "-" + timeString(from: max(0, duration - displayedSliderValue))
                      : timeString(from: duration))
                     .fontWeight(.medium)
                     .foregroundColor(
@@ -1317,12 +1330,27 @@ struct MusicSliderView: View {
             }
             .onAppear {
                 let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
-                withAnimation(.easeOut(duration: 0.4)) { sliderValue = target }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { sliderValue = target }
+                restartContinuousPlaybackAnimation(force: true)
             }
             .onChange(of: currentDate) {
-                guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+                guard !usesContinuousPlaybackAnimation, !dragging,
+                      timestampDate.timeIntervalSince(lastDragged) > -1
+                else { return }
                 sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
             }
+            .modifier(ContinuousPlaybackObservers(
+                isEnabled: usesContinuousPlaybackAnimation,
+                isPlaying: isPlaying,
+                duration: duration,
+                elapsedTime: elapsedTime,
+                timestampDate: timestampDate,
+                playbackRate: playbackRate,
+                dragging: dragging,
+                refresh: restartContinuousPlaybackAnimation
+            ))
         } else {
             VStack {
                 CustomSlider(
@@ -1333,15 +1361,19 @@ struct MusicSliderView: View {
                         : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
                     dragging: $dragging,
                     lastDragged: $lastDragged,
+                    displayValue: sliderTrackValue,
+                    animatesGeometryChanges: animatesSliderGeometryChanges,
+                    playbackValueAnimationDuration: playbackValueAnimationDuration,
+                    usesContinuousPlaybackAnimation: usesContinuousPlaybackAnimation,
                     onValueChange: onValueChange
                 )
                 .frame(height: 10, alignment: .center)
 
                 HStack {
-                    Text(timeString(from: sliderValue))
+                    Text(timeString(from: displayedSliderValue))
                     Spacer()
                     if showRemainingTime && duration.isFinite && duration > 0 {
-                        Text("-" + timeString(from: max(0, duration - sliderValue)))
+                        Text("-" + timeString(from: max(0, duration - displayedSliderValue)))
                     } else {
                         Text(timeString(from: duration))
                     }
@@ -1355,13 +1387,102 @@ struct MusicSliderView: View {
             }
             .onAppear {
                 let target = MusicManager.shared.estimatedPlaybackPosition(at: Date())
-                withAnimation(.easeOut(duration: 0.4)) { sliderValue = target }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { sliderValue = target }
+                restartContinuousPlaybackAnimation(force: true)
             }
             .onChange(of: currentDate) {
-                guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+                guard !usesContinuousPlaybackAnimation, !dragging,
+                      timestampDate.timeIntervalSince(lastDragged) > -1
+                else { return }
                 sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
             }
+            .modifier(ContinuousPlaybackObservers(
+                isEnabled: usesContinuousPlaybackAnimation,
+                isPlaying: isPlaying,
+                duration: duration,
+                elapsedTime: elapsedTime,
+                timestampDate: timestampDate,
+                playbackRate: playbackRate,
+                dragging: dragging,
+                refresh: restartContinuousPlaybackAnimation
+            ))
         }
+    }
+
+    private var displayedSliderValue: Double {
+        guard usesContinuousPlaybackAnimation, !dragging else { return sliderValue }
+        guard isPlaying else { return elapsedTime }
+
+        let elapsedSinceTimestamp = currentDate.timeIntervalSince(timestampDate)
+        let estimatedValue = elapsedTime + elapsedSinceTimestamp * playbackRate
+        return min(max(estimatedValue, 0), duration)
+    }
+
+    private var sliderTrackValue: Double {
+        guard usesContinuousPlaybackAnimation, continuousAnimationIsReady, !dragging else {
+            return displayedSliderValue
+        }
+        return animatedPlaybackValue
+    }
+
+    private func restartContinuousPlaybackAnimation(force: Bool) {
+        guard usesContinuousPlaybackAnimation, !isLive, !dragging,
+              duration.isFinite, duration > 0
+        else { return }
+
+        let now = Date()
+        let position = estimatedPlaybackValue(at: now)
+
+        if !force, animationAnchorDate != .distantPast {
+            let elapsed = max(0, now.timeIntervalSince(animationAnchorDate))
+            let expected = isPlaying
+                ? min(duration, animationAnchorValue + elapsed * max(playbackRate, 0))
+                : animationAnchorValue
+
+            // MediaRemote regularly refreshes its playback anchor. Ignore tiny
+            // timing differences so they cannot restart an otherwise perfectly
+            // smooth animation; only real seeks or meaningful corrections reset it.
+            guard abs(position - expected) > 0.35 else { return }
+        }
+
+        continuousAnimationGeneration += 1
+        let generation = continuousAnimationGeneration
+        animationAnchorValue = position
+        animationAnchorDate = now
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            animatedPlaybackValue = position
+            continuousAnimationIsReady = true
+        }
+
+        guard isPlaying, playbackRate > 0, position < duration else { return }
+        let remainingDuration = (duration - position) / playbackRate
+
+        // Yield once so SwiftUI commits the exact starting scale before asking
+        // Core Animation to interpolate to the end of the track.
+        DispatchQueue.main.async {
+            guard generation == continuousAnimationGeneration,
+                  isPlaying, !dragging
+            else { return }
+
+            withAnimation(.linear(duration: remainingDuration)) {
+                animatedPlaybackValue = duration
+            }
+        }
+    }
+
+    private func estimatedPlaybackValue(at date: Date) -> Double {
+        let position: Double
+        if isPlaying, playbackRate > 0 {
+            position = elapsedTime + date.timeIntervalSince(timestampDate) * playbackRate
+        } else {
+            position = elapsedTime
+        }
+        return min(max(position, 0), duration)
     }
 
     private var liveIndicatorBar: some View {
@@ -1416,12 +1537,55 @@ struct MusicSliderView: View {
     }
 }
 
+private struct ContinuousPlaybackObservers: ViewModifier {
+    let isEnabled: Bool
+    let isPlaying: Bool
+    let duration: Double
+    let elapsedTime: Double
+    let timestampDate: Date
+    let playbackRate: Double
+    let dragging: Bool
+    let refresh: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: isPlaying) { _, _ in
+                guard isEnabled else { return }
+                refresh(true)
+            }
+            .onChange(of: duration) { _, _ in
+                guard isEnabled else { return }
+                refresh(true)
+            }
+            .onChange(of: playbackRate) { _, _ in
+                guard isEnabled else { return }
+                refresh(true)
+            }
+            .onChange(of: elapsedTime) { _, _ in
+                guard isEnabled else { return }
+                refresh(false)
+            }
+            .onChange(of: timestampDate) { _, _ in
+                guard isEnabled else { return }
+                refresh(false)
+            }
+            .onChange(of: dragging) { _, isDragging in
+                guard isEnabled, !isDragging else { return }
+                refresh(true)
+            }
+    }
+}
+
 struct CustomSlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var color: Color = .white
     @Binding var dragging: Bool
     @Binding var lastDragged: Date
+    var displayValue: Double? = nil
+    var animatesGeometryChanges: Bool = true
+    var playbackValueAnimationDuration: TimeInterval? = 0.5
+    var usesContinuousPlaybackAnimation: Bool = false
     var onValueChange: ((Double) -> Void)?
     var onDragChange: ((Double) -> Void)?
 
@@ -1430,18 +1594,47 @@ struct CustomSlider: View {
             let width = geometry.size.width
             let height = CGFloat(dragging ? 9 : 5)
             let rangeSpan = range.upperBound - range.lowerBound
+            let playbackAnimation: Animation? = playbackValueAnimationDuration.map {
+                .linear(duration: $0)
+            }
 
-            let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
+            let renderedValue = displayValue ?? value
+            let progress = rangeSpan == .zero ? 0 : (renderedValue - range.lowerBound) / rangeSpan
             let filledTrackWidth = min(max(progress, 0), 1) * width
 
-            ZStack(alignment: .leading) {
+            let track = ZStack(alignment: .leading) {
                 Rectangle()
                     .fill(.gray.opacity(0.3))
                     .frame(height: height)
 
                 Rectangle()
                     .fill(color)
-                    .frame(width: filledTrackWidth, height: height)
+                    .frame(width: max(1, width), height: height)
+                    .scaleEffect(
+                        x: width > 0 ? filledTrackWidth / width : 0,
+                        y: 1,
+                        anchor: .leading
+                    )
+            }
+
+            Group {
+                if usesContinuousPlaybackAnimation {
+                    // Keep the explicit, track-length animation transaction
+                    // intact; a local .animation(value:) would replace it.
+                    track
+                } else {
+                    track
+                        .animation(
+                            dragging || !animatesGeometryChanges
+                                ? nil
+                                : .linear(duration: 0.5),
+                            value: filledTrackWidth
+                        )
+                        .animation(
+                            dragging || animatesGeometryChanges ? nil : playbackAnimation,
+                            value: renderedValue
+                        )
+                }
             }
             .cornerRadius(height / 2)
             .frame(height: 10)
@@ -1463,19 +1656,6 @@ struct CustomSlider: View {
                     }
             )
             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: dragging)
-            // Ticks arrive every 0.5s from the parent TimelineView; animating the
-            // fill linearly over that same interval turns the once-per-tick jump
-            // into continuous motion instead of a snap. Skipped while dragging so
-            // the thumb tracks the cursor immediately.
-            //
-            // Keyed on filledTrackWidth (not just value) so a width change from
-            // an ancestor's own animation (e.g. the lock-screen widget's expand/
-            // collapse spring resizing this view's container) also falls inside
-            // this animation's tracked scope — otherwise .animation(value:)
-            // silently opts everything BUT `value` changes out of animating at
-            // all, so a width-only change snapped instantly instead of easing,
-            // which read as the fill flashing/disappearing mid-transition.
-            .animation(dragging ? nil : .linear(duration: 0.5), value: filledTrackWidth)
         }
     }
 }

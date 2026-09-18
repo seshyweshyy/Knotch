@@ -213,6 +213,9 @@ struct CompactMusicPlayerView: View {
         // Fixed width pin, same reasoning as body's outer frame — without it
         // the two .fixedSize() timestamp labels + flexible CustomSlider
         // sized off their own ideal width, cutting labels off at the clip.
+        // The labels only need occasional updates. The fill itself is one long,
+        // linear compositor animation, so it remains fluid without rebuilding
+        // this entire view on every display frame.
         TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
@@ -227,6 +230,9 @@ struct CompactMusicPlayerView: View {
                 isPlaying: musicManager.isPlaying,
                 showRemainingTime: true,
                 inlineTimestamps: true,
+                animatesSliderGeometryChanges: false,
+                playbackValueAnimationDuration: nil,
+                usesContinuousPlaybackAnimation: true,
                 isLive: musicManager.isLiveBrowserStream
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
