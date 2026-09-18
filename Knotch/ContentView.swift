@@ -128,7 +128,7 @@ struct MusicLiveActivity: View {
                 // island's rounded capsule ends need more clearance than the
                 // physical notch's flatter closed shape does.
                 .padding(.leading, isIslandAppearance ? 1 : 5)
-                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
+                .animation(musicSneakPeekSpring, value: coordinator.sneakPeek.show)
                 // No longer matchedGeometryEffect'd with the open panel's own
                 // art — needs its own appear/disappear now. Removal gets a
                 // heavier blur + explicit .move(edge: .bottom) (strictly
@@ -276,7 +276,7 @@ struct MusicLiveActivity: View {
                 : vm.effectiveClosedNotchHeight,
             alignment: .center
         )
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: coordinator.sneakPeek.show)
+        .animation(musicSneakPeekSpring, value: coordinator.sneakPeek.show)
     }
 }
 
@@ -874,6 +874,23 @@ struct ContentView: View {
             && coordinator.sneakPeek.type != .airdropReceive
             && !Defaults[.inlineHUD]
             && vm.notchState == .closed
+    }
+
+    // Keep the closed layout's modifier chain structurally identical while a
+    // sneak peek appears or disappears. Using conditionalModifier here used
+    // to switch the entire VStack between `Self` and `ModifiedContent`, which
+    // made SwiftUI remove and recreate ClosedNotchRowContent. That replacement
+    // also ran MusicLiveActivity's album-art removal transition, producing the
+    // apparent slide/fade/cross-fade instead of interpolating the existing art
+    // and waveform into their new size and position.
+    private var closedLayoutUsesIdealSize: Bool {
+        let standardMusicSneakPeek = coordinator.sneakPeek.type == .music
+            && !vm.hideOnClosed
+            && Defaults[.sneakPeekStyles] == .standard
+
+        return coordinator.sneakPeek.show
+            && vm.notchState == .closed
+            && (standardMusicSneakPeek || coordinator.sneakPeek.type != .music)
     }
 
     // Which family (HUD vs. lock vs. battery banner vs. music vs. timer live
@@ -1568,10 +1585,12 @@ struct ContentView: View {
                     .transition(.opacity)
                 }
             }
-              .conditionalModifier((coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
-                  view
-                      .fixedSize()
-              }
+              // Always apply the same modifier type and vary only its values,
+              // preserving the identity of the persistent music row.
+              .fixedSize(
+                  horizontal: closedLayoutUsesIdealSize,
+                  vertical: closedLayoutUsesIdealSize
+              )
               .animation(.easeInOut(duration: 0.25), value: timerLiveActivityShowing)
               .zIndex(2)
             // Compact's own content lives in compactContentOverlay instead —

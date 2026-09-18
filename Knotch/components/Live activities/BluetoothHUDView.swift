@@ -33,6 +33,16 @@ struct BluetoothHUDView: View {
     private let expandedWidth: CGFloat = 280
     private let compactWidth: CGFloat = 120
 
+    // Give the outer shell an animatable height target instead of letting
+    // the conditional transition determine layout. During removal SwiftUI
+    // otherwise retains the expanded view's tall footprint while the parent
+    // width is already shrinking, which makes dismissal happen in two axes.
+    private var phaseHeight: CGFloat {
+        guard phase == .expanded else { return vm.effectiveClosedNotchHeight }
+        let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
+        return 44 + topInset + 10
+    }
+
     // Matches BatteryNotchBanner/AirDropReceiveHUD's treatment: when glass is
     // active, the middle strip should let the shared notch background
     // (glass + gradient mask) show through instead of covering it with an
@@ -117,18 +127,8 @@ struct BluetoothHUDView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: phase)
-        .onChange(of: phase) { _, newPhase in
-            // .onChange handlers don't inherit the animation of the value
-            // that triggered them — without this, isExpanded (which drives
-            // ContentView's shared clip shape corner radius, 17/26/28pt)
-            // snapped instantly while this view's own frame/width animated
-            // smoothly over the spring above, so the clip shape briefly
-            // didn't match the actual (still resizing) frame.
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
-                isExpanded = newPhase == .expanded
-            }
-        }
+        .frame(height: phaseHeight, alignment: .top)
+        .animation(expandedHUDSpring, value: phase)
         .onAppear {
             startPhaseSequence()
         }
@@ -183,6 +183,13 @@ struct BluetoothHUDView: View {
     // MARK: - Phase sequencing
     
     private func startPhaseSequence() {
+        var noAnimation = Transaction()
+        noAnimation.disablesAnimations = true
+        withTransaction(noAnimation) {
+            phase = .compact
+            isExpanded = false
+        }
+
         phaseTask?.cancel()
         phaseTask = Task { @MainActor [self] in
             do {
@@ -192,13 +199,22 @@ struct BluetoothHUDView: View {
                 // as an open/close does, so it needs the same refresh nudge (see
                 // KnotchSkyLightWindow.knotchWillOpen for the handler).
                 NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
-                withAnimation { phase = .expanded }
+                transition(to: .expanded)
                 try await Task.sleep(for: .seconds(2.7))
                 NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
-                withAnimation { phase = .collapsing }
+                transition(to: .collapsing)
             } catch {
                 // Task was cancelled (view dismissed) — do nothing
             }
+        }
+    }
+
+    /// Updates the child content and the parent shell in one transaction so
+    /// width, height, and corner radii interpolate as one shape.
+    private func transition(to newPhase: Phase) {
+        withAnimation(expandedHUDSpring) {
+            phase = newPhase
+            isExpanded = newPhase == .expanded
         }
     }
 }

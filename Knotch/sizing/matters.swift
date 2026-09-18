@@ -41,6 +41,17 @@ let hudLimitBounceSpring = Animation.spring(response: 0.8, dampingFraction: 0.95
 // No overshoot on close — critically damped regardless of the open spring.
 let notchCloseSpring = Animation.spring(response: 0.35, dampingFraction: 1.0, blendDuration: 0)
 
+// One shared timeline for the closed music sneak peek. The outer pill width,
+// MusicLiveActivity's internal layout, and the marquee container must all use
+// the same spring; otherwise the trailing waveform can reach its destination
+// before the pill's clip has expanded far enough to contain it.
+let musicSneakPeekSpring = Animation.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0)
+
+// Shared by an expanded HUD's internal content phase and the parent shell's
+// width/corner state. Both values must change in the same transaction or the
+// card visibly collapses one axis at a time.
+let expandedHUDSpring = Animation.spring(response: 0.45, dampingFraction: 0.78, blendDuration: 0)
+
 // Drives the closed-notch row's collapse-to-notch/expand-back-out choreography
 // (ClosedNotchRowContent's rowMorph) whenever a HUD and a live activity (music/
 // timer) swap places in the same slot. Slowed down from an initial 0.28/0.18

@@ -33,6 +33,17 @@ struct AirDropReceiveHUD: View {
     private let expandedWidth: CGFloat = 300
     private let expandedContentHeight: CGFloat = 92
 
+    // Keep the shell's height driven by the same phase that drives its width.
+    // Without an explicit outer height, SwiftUI's removal transition keeps
+    // expandedBody's tall layout footprint alive until that transition ends;
+    // the parent width has already started collapsing by then, producing a
+    // narrow tall card followed by a separate vertical snap.
+    private var phaseHeight: CGFloat {
+        guard phase == .expanded else { return vm.effectiveClosedNotchHeight }
+        let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
+        return expandedContentHeight + topInset + 10
+    }
+
     // Matches BatteryNotchBanner's treatment: when glass is active, the
     // middle strip should let the shared notch background (glass + gradient
     // mask) show through instead of covering it with an opaque black bar.
@@ -81,18 +92,8 @@ struct AirDropReceiveHUD: View {
                 collapsingBody
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: phase)
-        .onChange(of: phase) { _, newPhase in
-            // .onChange handlers don't inherit the animation of the value
-            // that triggered them — without this, isExpanded (which drives
-            // ContentView's shared clip shape corner radius, 17/26/28pt)
-            // snapped instantly while this view's own frame/width animated
-            // smoothly over the spring above, so the clip shape briefly
-            // didn't match the actual (still resizing) frame.
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
-                isExpanded = newPhase == .expanded
-            }
-        }
+        .frame(height: phaseHeight, alignment: .top)
+        .animation(expandedHUDSpring, value: phase)
         .onChange(of: progress) { _, newValue in
             if newValue >= 0.999 && phase == .compact {
                 // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
@@ -100,7 +101,7 @@ struct AirDropReceiveHUD: View {
                 // as an open/close does, so it needs the same refresh nudge (see
                 // KnotchSkyLightWindow.knotchWillOpen for the handler).
                 NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
-                withAnimation { phase = .expanded }
+                transition(to: .expanded)
                 scheduleCollapse()
             }
         }
@@ -111,8 +112,13 @@ struct AirDropReceiveHUD: View {
             // `isExpanded == true` left behind by a previous transfer whose
             // view was torn down mid-expanded-phase would silently carry
             // over into this new, still-compact HUD.
-            phase = progress >= 0.999 ? .expanded : .compact
-            isExpanded = phase == .expanded
+            let initialPhase: Phase = progress >= 0.999 ? .expanded : .compact
+            var noAnimation = Transaction()
+            noAnimation.disablesAnimations = true
+            withTransaction(noAnimation) {
+                phase = initialPhase
+                isExpanded = initialPhase == .expanded
+            }
             if phase == .expanded {
                 scheduleCollapse()
             }
@@ -152,7 +158,16 @@ struct AirDropReceiveHUD: View {
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
             NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
-            withAnimation { phase = .collapsing }
+            transition(to: .collapsing)
+        }
+    }
+
+    /// Updates the child content and the parent shell in one transaction so
+    /// width, height, and corner radii interpolate as one shape.
+    private func transition(to newPhase: Phase) {
+        withAnimation(expandedHUDSpring) {
+            phase = newPhase
+            isExpanded = newPhase == .expanded
         }
     }
 

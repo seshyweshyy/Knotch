@@ -242,6 +242,44 @@ struct ClosedNotchRowContent: View {
         return bareWidth + (restingWidth - bareWidth) * morph
     }
 
+    // Expanded AirDrop/Bluetooth cards are taller than the ordinary closed
+    // row. During a direct dismiss (including swipe-to-dismiss), their child
+    // phase never gets a chance to collapse to its compact form first, so the
+    // shared row-family transition must animate the shell's real layout
+    // height itself. A scaleEffect alone cannot do that: transforms change
+    // pixels but keep reporting the original tall size to mainLayout, which
+    // is why the background narrowed first and shortened only at the swap.
+    private var expandedHUDRestingHeight: CGFloat? {
+        guard family == .hud else { return nil }
+
+        let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
+        switch coordinator.sneakPeek.type {
+        case .airdropReceive where airdropHUDExpanded:
+            return 92 + topInset + 10
+        case .bluetoothAudio where bluetoothHUDExpanded:
+            return 44 + topInset + 10
+        default:
+            return nil
+        }
+    }
+
+    private var rowHeight: CGFloat? {
+        guard let restingHeight = expandedHUDRestingHeight else { return nil }
+        if vm.notchState == .open { return restingHeight }
+        return vm.effectiveClosedNotchHeight
+            + (restingHeight - vm.effectiveClosedNotchHeight) * morph
+    }
+
+    private var rowScaleY: CGFloat {
+        guard let restingHeight = expandedHUDRestingHeight,
+              let rowHeight,
+              restingHeight > 0
+        else {
+            return 0.88 + 0.12 * morph
+        }
+        return rowHeight / restingHeight
+    }
+
     var body: some View {
         content
             .padding(.horizontal, isIslandAppearance ? 6 : 0)
@@ -254,7 +292,11 @@ struct ClosedNotchRowContent: View {
             // it. Without a real height, the whole notch collapsed to a
             // hairline with nothing left to hover/tap to reopen it.
             .frame(width: restingWidth, alignment: .center)
-            .frame(minHeight: vm.effectiveClosedNotchHeight)
+            .frame(
+                height: expandedHUDRestingHeight,
+                alignment: .top
+            )
+            .frame(minHeight: vm.effectiveClosedNotchHeight, alignment: .top)
             // ...then visually squished to match the currently-interpolated
             // rowWidth, so content compresses together with the shrinking
             // frame instead of just getting clipped by it. The y squish is
@@ -262,13 +304,13 @@ struct ClosedNotchRowContent: View {
             // families, this is only selling the "squeezing in" motion.
             .scaleEffect(
                 x: restingWidth > 0 ? rowWidth / restingWidth : 1,
-                y: 0.88 + 0.12 * morph,
-                anchor: .center
+                y: rowScaleY,
+                anchor: expandedHUDRestingHeight == nil ? .center : .top
             )
             // ...and the reported/layout size matches the visually-squished
             // size, so .fixedSize() and the shared background box actually
             // follow rowWidth too, not restingWidth.
-            .frame(width: rowWidth, alignment: .center)
+            .frame(width: rowWidth, height: rowHeight, alignment: .top)
             .blur(radius: (1 - morph) * 6)
             .opacity(morph)
     }
@@ -364,17 +406,14 @@ struct ClosedNotchRowContent: View {
 
     @ViewBuilder
     private var musicContent: some View {
-        // .center in island appearance only, not .leading — the marquee row
-        // below is a full-width GeometryReader, so once it's showing it's
-        // what drives this VStack's own reported width (wider than
-        // MusicLiveActivity's own row). A .leading VStack then pins
-        // MusicLiveActivity flush to the left edge of that wider width
-        // instead of centering it the way a narrower child normally would —
-        // read as the album art/waveform getting stranded on the left half
-        // of the pill instead of following the row's own (island-only)
-        // growth. Left as .leading for the physical notch, matching its
-        // original, unwidened behavior exactly.
-        VStack(alignment: isIslandAppearance ? .center : .leading) {
+        // Center the two rows against each other in both appearances. Their
+        // measured widths are not always identical: in physical-notch mode
+        // MusicLiveActivity's intrinsic width can be slightly wider than the
+        // marquee's fixed restingWidth frame. A leading-aligned VStack pinned
+        // that narrower marquee to the wider row's left edge, shifting its
+        // apparent center even though MarqueeText centered correctly inside
+        // its own GeometryReader.
+        VStack(alignment: .center) {
             MusicLiveActivity(albumArtNamespace: albumArtNamespace)
                 .frame(alignment: .center)
 
@@ -398,16 +437,14 @@ struct ClosedNotchRowContent: View {
                 && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard
                 && morph > 0.9
             {
-                // spacing: 0 in island appearance — the same fix as
-                // MusicLiveActivity's own root HStack: the default
-                // (non-zero) HStack spacing between the hidden icon and the
-                // GeometryReader pushed the GeometryReader's own origin
-                // right of this row's true leading edge without being
-                // reflected in its reported width, so anything centered
-                // *within* that box (MarqueeText's own centerWhenFits math)
-                // ended up shifted right relative to the pill's real
-                // center. Left as the system default for physical notch.
-                HStack(alignment: .center, spacing: isIslandAppearance ? 0 : nil) {
+                // Keep the hidden compatibility slot from contributing
+                // implicit spacing in either appearance. MarqueeText centers
+                // against the GeometryReader's width, so the system-default
+                // HStack gap made that centering box narrower and offset from
+                // the physical notch even though the hidden icon is 0pt wide.
+                // The island path already used zero spacing; applying it to
+                // the notch path makes both calculate against the real row.
+                HStack(alignment: .center, spacing: 0) {
                     Image(systemName: "music.note")
                         .hidden()
                         .frame(width: 0)
@@ -476,6 +513,6 @@ struct ClosedNotchRowContent: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(rowMorphSpring, value: coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && morph > 0.9)
+        .animation(musicSneakPeekSpring, value: coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music && morph > 0.9)
     }
 }

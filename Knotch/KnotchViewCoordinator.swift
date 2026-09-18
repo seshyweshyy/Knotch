@@ -252,7 +252,8 @@ class KnotchViewCoordinator: ObservableObject {
             }
         }
         Task { @MainActor in
-            withAnimation(.smooth) {
+            let animation = type == .music ? musicSneakPeekSpring : .smooth
+            withAnimation(animation) {
                 self.sneakPeek.show = status
                 self.sneakPeek.type = type
                 self.sneakPeek.value = value
