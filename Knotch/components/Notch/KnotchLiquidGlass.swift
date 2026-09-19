@@ -17,7 +17,7 @@ enum KnotchSystemGlassTint {
     }
 }
 
-struct KnotchLiquidGlass: NSViewRepresentable {
+struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
     enum GlassShape {
         case notch(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat)
         case capsule
@@ -41,6 +41,36 @@ struct KnotchLiquidGlass: NSViewRepresentable {
     // uses .regular for its lock-screen-style widget and renders genuinely
     // visible glass — worth trying .regular at the lock-screen call sites.
     var style: Int = 1
+
+    // NSViewRepresentable values otherwise arrive at updateNSView already at
+    // their target. Exposing the radii as animatable data makes SwiftUI call
+    // updateNSView with every intermediate value from the notch spring, so the
+    // private glass path stays aligned with the animating SwiftUI clip.
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get {
+            switch shape {
+            case .notch(let topCornerRadius, let bottomCornerRadius):
+                return AnimatablePair(topCornerRadius, bottomCornerRadius)
+            case .roundedRect(let cornerRadius):
+                return AnimatablePair(cornerRadius, cornerRadius)
+            case .capsule:
+                return AnimatablePair(0, 0)
+            }
+        }
+        set {
+            switch shape {
+            case .notch:
+                shape = .notch(
+                    topCornerRadius: newValue.first,
+                    bottomCornerRadius: newValue.second
+                )
+            case .roundedRect:
+                shape = .roundedRect(cornerRadius: newValue.second)
+            case .capsule:
+                break
+            }
+        }
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()

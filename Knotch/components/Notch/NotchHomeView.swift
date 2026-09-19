@@ -1077,7 +1077,7 @@ struct NotchHomeView: View {
     // — Compact mode's content re-clip below has to be the exact same
     // silhouette as the outer background it's layered on, or the corners
     // visibly mismatch.
-    private var compactClipShape: AnyShape {
+    private var compactClipShape: NotchOuterShape {
         notchOuterShape(
             topCornerRadius: compactCornerRadiusInsets.opened.top,
             bottomCornerRadius: compactCornerRadiusInsets.opened.bottom,

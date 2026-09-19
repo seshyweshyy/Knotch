@@ -224,11 +224,40 @@ struct IslandPillShape: Shape {
 // clamps its own radius to half of whichever edge is shorter, so that
 // still renders as a true, fully-rounded capsule, just via a plain,
 // continuously animatable number instead of a type switch.
-func notchOuterShape(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat, isIsland: Bool) -> AnyShape {
-    if isIsland {
-        return AnyShape(IslandPillShape(cornerRadius: bottomCornerRadius))
+struct NotchOuterShape: Shape {
+    var topCornerRadius: CGFloat
+    var bottomCornerRadius: CGFloat
+    let isIsland: Bool
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(topCornerRadius, bottomCornerRadius) }
+        set {
+            topCornerRadius = newValue.first
+            bottomCornerRadius = newValue.second
+        }
     }
-    return AnyShape(NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius))
+
+    func path(in rect: CGRect) -> Path {
+        if isIsland {
+            return IslandPillShape(cornerRadius: bottomCornerRadius).path(in: rect)
+        }
+        return NotchShape(
+            topCornerRadius: topCornerRadius,
+            bottomCornerRadius: bottomCornerRadius
+        ).path(in: rect)
+    }
+}
+
+func notchOuterShape(
+    topCornerRadius: CGFloat,
+    bottomCornerRadius: CGFloat,
+    isIsland: Bool
+) -> NotchOuterShape {
+    NotchOuterShape(
+        topCornerRadius: topCornerRadius,
+        bottomCornerRadius: bottomCornerRadius,
+        isIsland: isIsland
+    )
 }
 
 @MainActor func getScreenFrame(_ screenUUID: String? = nil) -> CGRect? {

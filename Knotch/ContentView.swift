@@ -1005,7 +1005,7 @@ struct ContentView: View {
         }
     }
 
-    private var currentNotchShape: AnyShape {
+    private var currentNotchShape: NotchOuterShape {
         notchOuterShape(
             topCornerRadius: topCornerRadius,
             bottomCornerRadius: currentBottomCornerRadius,
@@ -1255,8 +1255,20 @@ struct ContentView: View {
                         if !isIslandAppearance {
                             Rectangle()
                                 .fill(.black)
-                                .frame(height: 1)
-                                .padding(.horizontal, topCornerRadius)
+                                // mainLayout drops its explicit outer width as
+                                // soon as notchState becomes .closed. During the
+                                // close spring its natural width can therefore
+                                // briefly expand to the full window, which made
+                                // this seam cover appear as a long line sliding
+                                // in above the shrinking notch. Size it from the
+                                // same animated notch target instead, subtracting
+                                // the curved top corners just as the old padding
+                                // did. The close/open transaction now interpolates
+                                // this width in lockstep with the panel.
+                                .frame(
+                                    width: max(0, vm.notchSize.width - 2 * topCornerRadius),
+                                    height: 1
+                                )
                         }
                     }
                     .scaleEffect(
