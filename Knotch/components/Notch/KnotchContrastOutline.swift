@@ -11,12 +11,6 @@ import SwiftUI
 /// screenshots and needs no Screen Recording permission. Every private piece
 /// is availability-guarded; if anything is missing or a sample is
 /// unavailable/protected, the outline simply stays hidden.
-///
-/// Measured behaviour this relies on (macOS 27, sampler in one process, black
-/// → white window in another): the callback tracks the other app's pixels
-/// (0.15/0.3/0.5/0.7/0.85/1.0 gray → 0.20/0.38/0.58/0.75/0.88/1.0) but ONLY
-/// when the backdrop layer has an active filter — a bare backdrop reports one
-/// initial value and then never updates.
 enum KnotchContrastOutline {
     enum Edge: CaseIterable, Hashable { case left, right, bottom, top }
 
