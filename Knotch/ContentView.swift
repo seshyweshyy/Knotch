@@ -1790,6 +1790,10 @@ struct ContentView: View {
                 )
                 .blur(radius: shown ? 0 : 30)
                 .opacity(shown ? 1 : 0)
+                // The blur above spreads outward past the first clip's edge,
+                // so on close that haze (album art, calendar colors) showed
+                // up outside the shrinking shape. Clip once more after it.
+                .clipShape(currentNotchShape)
                 .allowsHitTesting(vm.notchState == .open)
             }
         }
@@ -1873,6 +1877,9 @@ struct ContentView: View {
                     .allowsHitTesting(vm.notchState == .open)
                     .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                     .blur(radius: closeSwipeBlur)
+                    // Blur spreads outward past the first clip's edge — clip
+                    // again after it so the haze can't show outside the shape.
+                    .clipShape(currentNotchShape)
             }
         }
     }
