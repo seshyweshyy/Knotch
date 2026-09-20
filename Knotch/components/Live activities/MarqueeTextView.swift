@@ -249,6 +249,11 @@ struct MarqueeText: View {
             let elapsedTotal = scrollStartDate.map { timeline.date.timeIntervalSince($0) } ?? 0
             let timeInCycle = cycleDuration > 0 ? elapsedTotal.truncatingRemainder(dividingBy: cycleDuration) : 0
             let wrapped = max(0, timeInCycle - minDuration) * scrollSpeed
+            let distanceToNextCopy = period - wrapped
+            let fadeIn = min(1, wrapped / 6)
+            // Ease the fade away across the gap between copies, finishing
+            // before the next copy enters the six-point leading edge.
+            let fadeOut = min(1, max(0, (distanceToNextCopy - 6) / 20))
             HStack(spacing: 20) {
                 styledText(text)
                 styledText(text)
@@ -258,6 +263,10 @@ struct MarqueeText: View {
             .fixedSize(horizontal: true, vertical: false)
             .offset(x: -wrapped)
             .background(backgroundColor)
+            // Fade only while glyphs are moving through the leading clip.
+            // Both ends of the cycle keep the first letter fully opaque.
+            .frame(width: frameWidth, alignment: .leading)
+            .edgeFade(leading: 6, trailing: 0, leadingStrength: min(fadeIn, fadeOut))
         }
     }
 

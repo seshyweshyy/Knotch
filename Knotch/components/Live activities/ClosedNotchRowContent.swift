@@ -477,7 +477,7 @@ struct ClosedNotchRowContent: View {
                                 needsScrollingBinding: $sneakPeekTitleScrolling
                             )
                             .conditionalModifier(sneakPeekTitleScrolling) { view in
-                                view.edgeFade(leading: 6)
+                                view.edgeFade()
                             }
                         }
                     }
