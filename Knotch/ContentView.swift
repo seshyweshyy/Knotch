@@ -38,6 +38,7 @@ struct MusicLiveActivity: View {
     }
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
+    @State private var inlineTitleScrolls = false
     @State private var rotationDegrees: Double = 0
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
@@ -189,8 +190,11 @@ struct MusicLiveActivity: View {
                                     textColor: playerColorTinting
                                         ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                     minDuration: 0.4,
-                                    frameWidth: 100
+                                    frameWidth: 100,
+                                    needsScrollingBinding: $inlineTitleScrolls
                                 )
+                                .frame(width: 100)
+                                .edgeFade(trailing: inlineTitleScrolls ? 10 : 0)
                             }
                             .opacity(
                                 (coordinator.expandingView.show

@@ -355,6 +355,11 @@ struct AlbumArtView: View {
     }
 }
 
+private struct LyricRowHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 struct MusicControlsView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @EnvironmentObject var vm: KnotchViewModel
@@ -367,6 +372,10 @@ struct MusicControlsView: View {
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
+    // Measured height of one lyric line, so the row keeps a fixed size while
+    // lines crossfade (see the lyrics ZStack below).
+    @State private var lyricRowHeight: CGFloat = 0
+    @State private var lyricsScrolls = false
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
 
@@ -407,6 +416,10 @@ struct MusicControlsView: View {
                                 ),
                                 needsScrollingBinding: $titleScrolls
                             )
+                            // MarqueeText fills whatever width it's proposed
+                            // (not just frameWidth), so pin it or the fade
+                            // lands past the visible text edge.
+                            .frame(width: width - trailingReserve)
                             .edgeFade(trailing: titleScrolls ? 10 : 0)
                         }
                         if musicManager.hasActiveSession {
@@ -422,6 +435,7 @@ struct MusicControlsView: View {
                                     needsScrollingBinding: $artistScrolls
                                 )
                                 .fontWeight(.medium)
+                                .frame(width: width - trailingReserve)
                                 .edgeFade(trailing: artistScrolls ? 10 : 0)
                             }
                         }
@@ -449,15 +463,42 @@ struct MusicControlsView: View {
                             let v = scalar.value
                             return v >= 0x0600 && v <= 0x06FF
                         }
-                        MarqueeText(
-                            .constant(line),
-                            font: .subheadline,
-                            nsFont: .subheadline,
-                            textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                            frameWidth: width
-                        )
-                        .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
-                        .lineLimit(1)
+                        // Each line is its own view (.id) so a change is a
+                        // crossfade with a small vertical drift — opacity and
+                        // offset only, no blur, so it stays cheap.
+                        ZStack {
+                            MarqueeText(
+                                .constant(line),
+                                font: .subheadline,
+                                nsFont: .subheadline,
+                                textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+                                frameWidth: width,
+                                needsScrollingBinding: $lyricsScrolls
+                            )
+                            .frame(width: width)
+                            .edgeFade(trailing: lyricsScrolls ? 10 : 0)
+                            .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
+                            .lineLimit(1)
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear.preference(key: LyricRowHeightKey.self, value: proxy.size.height)
+                                }
+                            )
+                            .id(line)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: 6)),
+                                removal: .opacity.combined(with: .offset(y: -6))
+                            ))
+                        }
+                        // The animation stays inside this fixed-height frame,
+                        // so nothing about it (the incoming line briefly
+                        // measures 0 tall, both lines coexist mid-fade) can
+                        // resize the row and drag the progress bar with it.
+                        .animation(.easeInOut(duration: 0.3), value: line)
+                        .frame(height: lyricRowHeight > 0 ? lyricRowHeight : nil)
+                        .onPreferenceChange(LyricRowHeightKey.self) { height in
+                            if height > 0, height != lyricRowHeight { lyricRowHeight = height }
+                        }
                         .opacity(musicManager.isPlaying ? 1 : 0)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }

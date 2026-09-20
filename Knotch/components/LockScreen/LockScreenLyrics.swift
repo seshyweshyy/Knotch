@@ -7,9 +7,8 @@
 //  and renders them as a centred, auto-scrolling column where the current
 //  line is sharp and the surrounding lines fade and blur with distance.
 //
-//  Independent of the notch's single-line lyrics (MusicManager.currentLyrics /
-//  Defaults[.enableLyrics]) — those only ever need the current line as a
-//  string, this needs every line with its own timestamp.
+//  LRCLIBLyricsProvider is shared with the notch's single-line lyrics
+//  (MusicManager.fetchLyricsIfAvailable), so both find the same tracks.
 //
 
 import SwiftUI
