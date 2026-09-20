@@ -361,7 +361,17 @@ class MusicManager: ObservableObject {
 
         // Check for artwork changes
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
-        let hasContentChange = titleChanged || artistChanged || albumChanged || artworkChanged || bundleChanged
+        // An artist-only change on an otherwise identical track is Spotify's full
+        // credit list replacing the primary artist once it resolves (see
+        // SpotifyArtistLookup) — not a new track. Treating it as one would hit the
+        // no-artwork branch below whenever that update carries no artwork (Now
+        // Playing diffs omit it) and swap the real art for the placeholder.
+        let artistOnlyChange = artistChanged && !titleChanged && !albumChanged && !bundleChanged && !artworkChanged
+        if artistOnlyChange {
+            self.lastArtworkArtist = state.artist
+        }
+        let hasContentChange = !artistOnlyChange
+            && (titleChanged || artistChanged || albumChanged || artworkChanged || bundleChanged)
 
         // Handle artwork and visual transitions for changed content
         if hasContentChange {

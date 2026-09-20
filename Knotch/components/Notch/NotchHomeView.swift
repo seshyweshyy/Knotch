@@ -360,6 +360,10 @@ struct MusicControlsView: View {
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
     var trailingReserve: CGFloat = 0
+    // The trailing edge fade only belongs on a marquee that actually scrolls —
+    // on text that fits, it just dims the last letters for no reason.
+    @State private var titleScrolls = false
+    @State private var artistScrolls = false
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
@@ -400,9 +404,10 @@ struct MusicControlsView: View {
                                 frameWidth: width - trailingReserve,
                                 trailingIcons: musicManager.trackBadges(
                                     explicitColor: Color(white: 0.55), qualityColor: Color(white: 0.38)
-                                )
+                                ),
+                                needsScrollingBinding: $titleScrolls
                             )
-                            .edgeFade()
+                            .edgeFade(trailing: titleScrolls ? 10 : 0)
                         }
                         if musicManager.hasActiveSession {
                             BlurRevealText(musicManager.artistName) { artist in
@@ -413,10 +418,11 @@ struct MusicControlsView: View {
                                     textColor: Defaults[.playerColorTinting]
                                         ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
                                         : .gray,
-                                    frameWidth: width - trailingReserve
+                                    frameWidth: width - trailingReserve,
+                                    needsScrollingBinding: $artistScrolls
                                 )
                                 .fontWeight(.medium)
-                                .edgeFade()
+                                .edgeFade(trailing: artistScrolls ? 10 : 0)
                             }
                         }
                     }

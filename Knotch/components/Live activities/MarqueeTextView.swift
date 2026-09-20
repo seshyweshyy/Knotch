@@ -186,6 +186,9 @@ struct MarqueeText: View {
         .animation(nil, value: text)
         // Starts the next cycle fresh on un-pause, instead of resuming from
         // a stale scrollStartDate that would jump the cycle-position math.
+        .onChange(of: frameWidth) { _, width in
+            needsScrollingBinding?.wrappedValue = textSize.width > width
+        }
         .onChange(of: isPaused) { _, paused in
             if !paused, needsScrolling {
                 scrollStartDate = Date()

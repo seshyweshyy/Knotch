@@ -62,6 +62,10 @@ class SpotifyController: MediaControllerProtocol {
     private var explicitCache: [String: Bool] = [:]
     private var explicitFetchTask: Task<Void, Never>?
 
+    private var artistsCache: [String: String] = [:]
+    private var artistsFetchTask: Task<Void, Never>?
+    private var artistsRefreshURI: String?
+
     init() {
         setupPlaybackStateChangeObserver()
         Task {
@@ -88,6 +92,7 @@ class SpotifyController: MediaControllerProtocol {
         artworkFetchTask?.cancel()
         favoriteFetchTask?.cancel()
         explicitFetchTask?.cancel()
+        artistsFetchTask?.cancel()
     }
 
     // MARK: - Protocol Implementation
@@ -212,7 +217,7 @@ class SpotifyController: MediaControllerProtocol {
             bundleIdentifier: "com.spotify.client",
             isPlaying: isPlaying,
             title: currentTrack,
-            artist: currentTrackArtist,
+            artist: fetchFullArtists(uri: trackURI) ?? currentTrackArtist,
             album: currentTrackAlbum,
             currentTime: currentTime,
             duration: duration,
@@ -256,6 +261,8 @@ class SpotifyController: MediaControllerProtocol {
                     await MainActor.run { [weak self] in
                         guard let self = self else { return }
                         var updatedState = currentState
+                        // The full artist list may have resolved while artwork loaded.
+                        if self.currentTrackURI == trackURI { updatedState.artist = self.playbackState.artist }
                         updatedState.artwork = data
                         self.playbackState = updatedState
                         self.lastArtworkURL = artworkURL
@@ -358,6 +365,51 @@ class SpotifyController: MediaControllerProtocol {
             await MainActor.run { [weak self] in
                 guard let self, self.currentTrackURI == uri else { return }
                 self.playbackState.isFavorite = isFavorite
+            }
+        }
+    }
+
+    // MARK: - Full artist list
+
+    // AppleScript's "artist of current track" only returns the primary artist.
+    // Returns the cached full list when known, otherwise nil so the caller shows
+    // the AppleScript artist until the lookup resolves. Each new track also
+    // triggers a queue refresh, which caches the upcoming tracks' full artists
+    // ahead of time — queued tracks then need no lookup when they start.
+    // Failed lookups are cached as an empty string so they aren't retried on
+    // every refresh.
+    private func fetchFullArtists(uri: String) -> String? {
+        guard uri.hasPrefix("spotify:track:") else { return nil }
+        if uri != artistsRefreshURI { refreshArtists(uri: uri) }
+        if let cached = artistsCache[uri] { return cached.isEmpty ? nil : cached }
+        return nil
+    }
+
+    private func refreshArtists(uri: String) {
+        // Set up front so repeated refreshes for the same track neither restart
+        // a lookup in flight nor retry a failed one.
+        artistsRefreshURI = uri
+        artistsFetchTask?.cancel()
+
+        artistsFetchTask = Task { [weak self] in
+            let queue = await SpotifyArtistLookup.queueArtists()
+            guard self != nil, !Task.isCancelled else { return }
+            var resolved = queue.first(where: { $0.uri == uri })?.artists
+            if resolved == nil {
+                // Queue didn't include this track (or spotify_cli is missing).
+                let names = await SpotifyArtistLookup.artists(forTrackURI: uri)
+                resolved = names.joined(separator: ", ")
+            }
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                // Bounded so a long session doesn't grow this forever.
+                if self.artistsCache.count > 300 { self.artistsCache.removeAll() }
+                for entry in queue { self.artistsCache[entry.uri] = entry.artists }
+                self.artistsCache[uri] = resolved ?? ""
+                guard let full = resolved, !full.isEmpty, self.currentTrackURI == uri else { return }
+                self.playbackState.artist = full
             }
         }
     }

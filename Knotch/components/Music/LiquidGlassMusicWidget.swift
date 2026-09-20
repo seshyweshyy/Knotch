@@ -33,6 +33,10 @@ struct LiquidGlassMusicWidget: View {
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
     @State private var sliderValue: Double = 0
+    // The trailing edge fade only belongs on a marquee that actually scrolls —
+    // on text that fits, it just dims the last letters for no reason.
+    @State private var titleScrolls = false
+    @State private var artistScrolls = false
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
 
@@ -106,7 +110,8 @@ struct LiquidGlassMusicWidget: View {
                             trailingIcons: musicManager.trackBadges(
                                 explicitColor: .white, qualityColor: Color(white: 0.7)
                             ),
-                            centerWhenFits: isExpanded
+                            centerWhenFits: isExpanded,
+                            needsScrollingBinding: $titleScrolls
                         )
                         .fontWeight(.semibold)
                         // MarqueeText's internal GeometryReader always fills whatever
@@ -116,7 +121,7 @@ struct LiquidGlassMusicWidget: View {
                         // correctly-centered content inside ends up pinned to the
                         // left edge of that (rather than actually centered in the row).
                         .frame(width: isExpanded ? 210 : 190)
-                        .edgeFade(trailing: 6)
+                        .edgeFade(trailing: titleScrolls ? 6 : 0)
                     }
                     if musicManager.hasActiveSession {
                         BlurRevealText(musicManager.artistName, anchor: isExpanded ? .center : .leading) { artist in
@@ -128,11 +133,12 @@ struct LiquidGlassMusicWidget: View {
                                     ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
                                     : Color.white.opacity(0.65),
                                 frameWidth: isExpanded ? 210 : 190,
-                                centerWhenFits: isExpanded
+                                centerWhenFits: isExpanded,
+                                needsScrollingBinding: $artistScrolls
                             )
                             .fontWeight(.medium)
                             .frame(width: isExpanded ? 210 : 190)
-                            .edgeFade(trailing: 6)
+                            .edgeFade(trailing: artistScrolls ? 6 : 0)
                         }
                     }
                 }

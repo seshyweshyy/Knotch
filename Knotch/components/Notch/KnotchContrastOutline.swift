@@ -11,6 +11,9 @@ import SwiftUI
 /// screenshots and needs no Screen Recording permission. Every private piece
 /// is availability-guarded; if anything is missing or a sample is
 /// unavailable/protected, the outline simply stays hidden.
+///
+/// Diagnostic logging is compiled out. Add CONTRAST_OUTLINE_DEBUG to the
+/// target's Active Compilation Conditions to print strip readings and decisions.
 enum KnotchContrastOutline {
     enum Edge: CaseIterable, Hashable { case left, right, bottom, top }
 
@@ -279,7 +282,7 @@ private final class ContrastOutlineSamplerView: NSView {
     private var brightSince: TimeInterval?
     private var decisionWork: DispatchWorkItem?
     private var decisionDeadline: TimeInterval?
-    #if DEBUG
+    #if CONTRAST_OUTLINE_DEBUG
     private var lastDebugSummary = ""
     #endif
     private struct Observer {
@@ -528,7 +531,7 @@ private final class ContrastOutlineSamplerView: NSView {
                 if let last = strip.lastReadingAt { return now - last > KnotchContrastOutline.staleAfter }
                 return true
             }
-            #if DEBUG
+            #if CONTRAST_OUTLINE_DEBUG
             if !stuck.isEmpty {
                 print("KnotchContrastOutline: rebuilding missing/stale strips \(stuck)")
             }
@@ -565,7 +568,7 @@ private final class ContrastOutlineSamplerView: NSView {
     private func reportVisibility(_ edges: Set<Edge>) {
         guard edges != reportedDarkEdges else { return }
         reportedDarkEdges = edges
-        #if DEBUG
+        #if CONTRAST_OUTLINE_DEBUG
         print("KnotchContrastOutline: darkEdges=\(darkEdges), visibleEdges=\(edges)")
         #endif
         onDarkChange?(edges)
@@ -609,7 +612,7 @@ private final class ContrastOutlineSamplerView: NSView {
         }
         scheduleRetry()
 
-        #if DEBUG
+        #if CONTRAST_OUTLINE_DEBUG
         let readings = strips.keys.sorted { "\($0)" < "\($1)" }.map { edge -> String in
             let strip = strips[edge]!
             return "\(edge)=\(strip.isUsable ? "\(strip.reading)" : "unusable")"

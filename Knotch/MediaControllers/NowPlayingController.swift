@@ -80,6 +80,14 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private var appleMusicShuffleObserverTask: Task<Void, Never>?
     private var spotifyShuffleObserverTask: Task<Void, Never>?
 
+    // MediaRemote only reports Spotify's primary artist, so the full credit list
+    // comes from spotify_cli's queue (see SpotifyArtistLookup). Every refresh
+    // caches the current track plus the upcoming queue, so queued tracks already
+    // have their full artists by the time they start playing.
+    private var spotifyArtistsCache: [(title: String, artists: String)] = []
+    private var spotifyArtistsRefreshKey: String?
+    private var spotifyArtistsFetchTask: Task<Void, Never>?
+
     // MARK: - Initialization
     init?() {
         guard
@@ -119,6 +127,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         streamTask?.cancel()
         appleMusicShuffleObserverTask?.cancel()
         spotifyShuffleObserverTask?.cancel()
+        spotifyArtistsFetchTask?.cancel()
 
         if let pipeHandler = self.pipeHandler {
             Task { await pipeHandler.close()
@@ -343,6 +352,53 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     // MARK: - Update Methods
+    // Matches on title, then on the reported artist being the start of the full
+    // credit list — so two different tracks sharing a title don't collide. The
+    // queue sometimes reports a shortened title (no "(From …)" suffix), so the
+    // reported title may extend the cached one.
+    private func cachedSpotifyArtists(title: String, primary: String) -> String? {
+        spotifyArtistsCache.first {
+            title.hasPrefix($0.title) && $0.artists.hasPrefix(primary)
+        }?.artists
+    }
+
+    private func refreshSpotifyArtists(key: String, title: String) {
+        spotifyArtistsFetchTask?.cancel()
+        // Set up front, and left set on failure, so repeated updates for the same
+        // track neither restart a lookup in flight nor retry a failed one.
+        spotifyArtistsRefreshKey = key
+
+        spotifyArtistsFetchTask = Task { [weak self] in
+            let queue = await SpotifyArtistLookup.queueArtists()
+            guard let self, !Task.isCancelled else { return }
+            self.cacheSpotifyArtists(queue.map { ($0.title, $0.artists) })
+
+            let matched = self.playbackState.bundleIdentifier == "com.spotify.client"
+                && self.cachedSpotifyArtists(title: title, primary: self.playbackState.artist) != nil
+            if !matched {
+                // Queue didn't include the current track — resolve it directly.
+                let names = await SpotifyArtistLookup.artistsForCurrentTrack(matchingTitle: title)
+                guard !Task.isCancelled else { return }
+                if !names.isEmpty { self.cacheSpotifyArtists([(title, names.joined(separator: ", "))]) }
+            }
+
+            let current = self.playbackState
+            guard current.bundleIdentifier == "com.spotify.client",
+                  "\(current.title)|\(current.album)" == key,
+                  let full = self.cachedSpotifyArtists(title: title, primary: current.artist),
+                  full != current.artist else { return }
+            self.playbackState.artist = full
+        }
+    }
+
+    private func cacheSpotifyArtists(_ entries: [(title: String, artists: String)]) {
+        for entry in entries where !spotifyArtistsCache.contains(where: { $0 == entry }) {
+            spotifyArtistsCache.append(entry)
+        }
+        // Bounded so a long session doesn't grow this forever; oldest drop first.
+        if spotifyArtistsCache.count > 300 { spotifyArtistsCache.removeFirst(spotifyArtistsCache.count - 300) }
+    }
+
     private func handleAdapterUpdate(_ update: NowPlayingUpdate) async {
         let payload = update.payload
         let diff = update.diff ?? false
@@ -428,6 +484,16 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         newPlaybackState.isPodcastContent = resolvedBundleIdentifier == "com.apple.podcasts"
 
         newPlaybackState.volume = payload.volume ?? (diff ? self.playbackState.volume : 0.5)
+
+        if resolvedBundleIdentifier == "com.spotify.client", !newPlaybackState.title.isEmpty {
+            if let full = cachedSpotifyArtists(title: newPlaybackState.title, primary: newPlaybackState.artist) {
+                newPlaybackState.artist = full
+            }
+            let key = "\(newPlaybackState.title)|\(newPlaybackState.album)"
+            if key != spotifyArtistsRefreshKey {
+                refreshSpotifyArtists(key: key, title: newPlaybackState.title)
+            }
+        }
 
         let previousBundleIdentifier = self.playbackState.bundleIdentifier
         self.playbackState = newPlaybackState

@@ -20,6 +20,10 @@ struct CompactMusicPlayerView: View {
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
+    // The trailing edge fade only belongs on a marquee that actually scrolls —
+    // on text that fits, it just dims the last letters for no reason.
+    @State private var titleScrolls = false
+    @State private var artistScrolls = false
 
     private let albumArtSize: CGFloat = 55
 
@@ -167,18 +171,26 @@ struct CompactMusicPlayerView: View {
                                 // This view stays mounted and fades out on
                                 // close, so without this it'd keep scrolling
                                 // invisibly and be mid-cycle on reopen.
+                                needsScrollingBinding: $titleScrolls,
                                 isPaused: vm.notchState == .closed
                             )
+                            .edgeFade(trailing: titleScrolls ? 10 : 0)
                         }
                         if musicManager.hasActiveSession {
                             BlurRevealText(musicManager.artistName) { artist in
-                                Text(artist)
-                                    .font(.system(size: 11.5, weight: .medium))
-                                    .foregroundColor(
-                                        Defaults[.playerColorTinting]
-                                            ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
-                                    )
-                                    .lineLimit(1)
+                                // Marquee rather than a truncating Text — multi-artist
+                                // credits are routinely wider than the text area.
+                                MarqueeText(
+                                    .constant(artist),
+                                    font: .system(size: 11.5, weight: .medium),
+                                    nsFont: .subheadline,
+                                    textColor: Defaults[.playerColorTinting]
+                                        ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray,
+                                    frameWidth: max(0, textAreaWidth - textLeadingInset),
+                                    needsScrollingBinding: $artistScrolls,
+                                    isPaused: vm.notchState == .closed
+                                )
+                                .edgeFade(trailing: artistScrolls ? 10 : 0)
                             }
                         }
                     }
@@ -186,7 +198,6 @@ struct CompactMusicPlayerView: View {
                 .buttonStyle(.plain)
                 .padding(.leading, textLeadingInset)
                 .frame(width: textAreaWidth, alignment: .leading)
-                .edgeFade()
                 .padding(.leading, albumArtSize + 4)
                 // ZStack(alignment: .top) centers children horizontally by
                 // default — without this, the fixed-width text box above gets
