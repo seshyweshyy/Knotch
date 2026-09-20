@@ -1366,7 +1366,9 @@ struct ContentView: View {
                         compactContentOverlay
                         standardContentOverlay
                     }
-                    .offset(x: vm.liquidPullHorizontal * 0.25)
+                    // Standard's width grows by 0.7x the pull (0.35x per side), so
+                    // a 0.35x shift keeps the opposite edge exactly in place.
+                    .offset(x: vm.liquidPullHorizontal * (enableCompactUI ? 0.25 : 0.35))
                     // No ambient .animation(_:value:) for vm.notchState —
                     // KnotchViewModel.open()/close() wrap their own state
                     // changes in explicit withAnimation(...) now.
@@ -1746,13 +1748,10 @@ struct ContentView: View {
                             // neighbors.
                             NotchHomeView(albumArtNamespace: standardAlbumArtNamespace)
                         case .tray:
+                            // Leans/stretches sideways with the rest of the group
+                            // on a horizontal pull (liquidHorizontalGroup below).
                             TrayView()
                                 .liquidStretch(vm)
-                                // Drop-zone outlines are actual drag targets — keep
-                                // their x-position fixed even though the shared
-                                // header+content group leans sideways on a
-                                // horizontal pull (liquidHorizontalGroup below).
-                                .liquidHorizontalGroupExempt(vm)
                         }
                     }
                     // Pin content to the un-stretched target height so the liquid
@@ -1784,7 +1783,15 @@ struct ContentView: View {
                 // frame then centers that fixed layout in the live rect, so
                 // the clip just reveals/hides it symmetrically.
                 .frame(width: layoutWidth, height: geo.size.height, alignment: .top)
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                // While pulled sideways the live rect grows toward the pull, so
+                // centering the fixed layout there pushed content away from
+                // the anchored (opposite) edge — pin to that edge instead.
+                .frame(
+                    width: geo.size.width,
+                    height: geo.size.height,
+                    alignment: vm.liquidPullHorizontal < 0 ? .topTrailing
+                        : (vm.liquidPullHorizontal > 0 ? .topLeading : .top)
+                )
                 .clipShape(currentNotchShape)
                 .compositingGroup()
                 .scaleEffect(

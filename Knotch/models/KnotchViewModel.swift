@@ -186,7 +186,7 @@ class KnotchViewModel: NSObject, ObservableObject {
     // Horizontal-only — vertical pull's deform is pullDownDeformScale below.
     var liquidHorizontalStretchScale: CGFloat {
         // Kept modest — content is clipped by the notch's own bezel.
-        1 + liquidHorizontalFactor * 0.015
+        1 + liquidHorizontalFactor * (Defaults[.enableCompactUI] ? 0.015 : 0.07)
     }
 
     // Content elongation for pull-down-to-open, cosmetic only (notchSize is
@@ -199,7 +199,7 @@ class KnotchViewModel: NSObject, ObservableObject {
     // well below Compact's to land on similar-looking travel for its own
     // bottom row (the button toolbar) instead of overshooting it.
     var pullDownDeformScale: CGFloat {
-        let maxStretch: CGFloat = Defaults[.enableCompactUI] ? 0.16 : 0.045
+        let maxStretch: CGFloat = Defaults[.enableCompactUI] ? 0.16 : 0.09
         return 1 + liquidVerticalFactor * maxStretch
     }
 
