@@ -42,6 +42,10 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
     var anchor: UnitPoint
     var outDuration: Double
     var inDuration: Double
+    // Whether a fresh mount pulses too (see the .onAppear below). Off for
+    // labels that get mounted as part of a larger reveal (the open panel),
+    // where their own pulse on top of the panel's would double up.
+    var animatesOnAppear: Bool
     @ViewBuilder let content: (Value) -> Content
 
     @State private var displayedValue: Value
@@ -61,6 +65,7 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
         anchor: UnitPoint = .leading,
         outDuration: Double = 0.1,
         inDuration: Double = 0.22,
+        animatesOnAppear: Bool = true,
         @ViewBuilder content: @escaping (Value) -> Content
     ) {
         self.value = value
@@ -69,6 +74,7 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
         self.anchor = anchor
         self.outDuration = outDuration
         self.inDuration = inDuration
+        self.animatesOnAppear = animatesOnAppear
         self.content = content
         _displayedValue = State(initialValue: value)
     }
@@ -169,7 +175,7 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
             .blur(radius: blur)
             .opacity(revealOpacity)
             .scaleEffect(revealScale, anchor: anchor)
-            .onAppear { pulse(to: value) }
+            .onAppear { if animatesOnAppear { pulse(to: value) } }
             .onChange(of: value) { _, newValue in pulse(to: newValue) }
     }
 }

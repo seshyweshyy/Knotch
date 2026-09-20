@@ -640,6 +640,7 @@ class KnotchViewModel: NSObject, ObservableObject {
 
     func open() {
         guard !isScreenLocked else { return }
+        applyPendingViewReset()
         lastOpenAt = Date()
         // NSGlassEffectView's backdrop capture goes stale the same way it
         // does on space/app switches (see KnotchSkyLightWindow's other use
@@ -749,21 +750,44 @@ class KnotchViewModel: NSObject, ObservableObject {
         self.isMediaOutputPopoverActive = false
         self.edgeAutoOpenActive = false
 
-        // Set the current view to tray if it contains files and the user enables openTrayByDefault
-        // Otherwise, if the user has not enabled openLastTrayByDefault, set the view to home
-        if !TrayStateViewModel.shared.isEmpty && Defaults[.openTrayByDefault] && Defaults[.showTrayView] {
-            coordinator.currentView = .tray
-        } else if !coordinator.openLastTabByDefault {
-            // Ensure we land on an enabled view
-            coordinator.currentView = Defaults[.showHomeView] ? .home : .tray
+        // Deferred rather than done inline: the open panel's content stays
+        // mounted (fading out) through the close spring, so swapping
+        // currentView here made a tray tab visibly snap to home mid-close.
+        // Waits until the content is fully hidden; open() applies it early if
+        // the notch is reopened first.
+        pendingViewReset = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard let self, self.notchState == .closed else { return }
+            self.applyPendingViewReset()
         }
+    }
 
-        // Never leave the remembered tab pointed at a view the user has disabled
-        // (e.g. "open last tab" kept it on Home after Home view was turned off).
-        if coordinator.currentView == .home && !Defaults[.showHomeView] {
-            coordinator.currentView = .tray
-        } else if coordinator.currentView == .tray && !Defaults[.showTrayView] {
-            coordinator.currentView = .home
+    // Set by close(), consumed by applyPendingViewReset().
+    private var pendingViewReset = false
+
+    private func applyPendingViewReset() {
+        guard pendingViewReset else { return }
+        pendingViewReset = false
+        var noAnimation = Transaction()
+        noAnimation.disablesAnimations = true
+        withTransaction(noAnimation) {
+            // Set the current view to tray if it contains files and the user enables openTrayByDefault
+            // Otherwise, if the user has not enabled openLastTrayByDefault, set the view to home
+            if !TrayStateViewModel.shared.isEmpty && Defaults[.openTrayByDefault] && Defaults[.showTrayView] {
+                coordinator.currentView = .tray
+            } else if !coordinator.openLastTabByDefault {
+                // Ensure we land on an enabled view
+                coordinator.currentView = Defaults[.showHomeView] ? .home : .tray
+            }
+
+            // Never leave the remembered tab pointed at a view the user has disabled
+            // (e.g. "open last tab" kept it on Home after Home view was turned off).
+            if coordinator.currentView == .home && !Defaults[.showHomeView] {
+                coordinator.currentView = .tray
+            } else if coordinator.currentView == .tray && !Defaults[.showTrayView] {
+                coordinator.currentView = .home
+            }
         }
     }
 

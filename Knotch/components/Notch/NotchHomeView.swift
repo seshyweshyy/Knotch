@@ -395,7 +395,7 @@ struct MusicControlsView: View {
                     musicManager.openMusicApp()
                 } label: {
                     VStack(alignment: .leading, spacing: 0) {
-                        BlurRevealText(musicManager.songTitle) { title in
+                        BlurRevealText(musicManager.songTitle, animatesOnAppear: false) { title in
                             MarqueeText(
                                 .constant(title),
                                 font: .headline,
@@ -410,7 +410,7 @@ struct MusicControlsView: View {
                             .edgeFade(trailing: titleScrolls ? 10 : 0)
                         }
                         if musicManager.hasActiveSession {
-                            BlurRevealText(musicManager.artistName) { artist in
+                            BlurRevealText(musicManager.artistName, animatesOnAppear: false) { artist in
                                 MarqueeText(
                                     .constant(artist),
                                     font: .headline,

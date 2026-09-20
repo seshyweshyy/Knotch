@@ -98,6 +98,14 @@ struct TrayView: View {
                         .foregroundStyle(.gray)
                         .font(.system(.title3, design: .rounded))
                         .fontWeight(.medium)
+                        // The panel's transaction below animates every layout
+                        // change under it, so as the box shrinks on close the
+                        // text re-typesets against the narrowing width and its
+                        // glyph runs animate separately ("D rop files here").
+                        // Pinning it to its ideal size means there's no
+                        // re-layout, just the whole line moving as one.
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             } else {
                 ScrollView(.horizontal) {

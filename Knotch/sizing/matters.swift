@@ -87,7 +87,7 @@ let openNotchHomeSize: CGSize = .init(width: 680, height: 190)
 // windowSize must be wide enough for the widest possible home layout
 let windowSize: CGSize = .init(
     width: WidgetWidth.music + WidgetWidth.calendar + WidgetWidth.camera
-           + WidgetWidth.spacing * 2 + WidgetWidth.dividerWidth + WidgetWidth.horizontalPad + 40,
+           + WidgetWidth.spacing * 4 + WidgetWidth.dividerWidth * 2 + WidgetWidth.horizontalPad + 40,
     height: openNotchHomeSize.height + shadowPadding + liquidPullMaxStretch
 )
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 39), closed: (top: 6, bottom: 14))
@@ -342,7 +342,7 @@ enum WidgetWidth {
     static let calendarWithCam: CGFloat = 180
     static let spacing: CGFloat  = 12
     static let dividerWidth: CGFloat = 1
-    static let horizontalPad: CGFloat = 60  // ContentView's horizontal padding * 2
+    static let horizontalPad: CGFloat = 60 // total left+right inset around the home content (ContentView's standardContentOverlay applies half per side)
     static let timerSlider: CGFloat = 440   // notch width while the timer ruler is showing
 }
 
@@ -367,7 +367,9 @@ func computedOpenNotchHomeWidth(
     if showMusic && showCal { dividerCount += 1 }
     if showCam && (showMusic || showCal) { dividerCount += 1 }
     let dividers: CGFloat = WidgetWidth.dividerWidth * CGFloat(dividerCount)
-    let spacingTotal = WidgetWidth.spacing * CGFloat(widths.count - 1)
+    // HStack spacing applies between every child, dividers included — so
+    // each divider adds a second gap next to its neighbors.
+    let spacingTotal = WidgetWidth.spacing * CGFloat(widths.count + dividerCount - 1)
     let total = widths.reduce(0, +) + spacingTotal + dividers + WidgetWidth.horizontalPad
 
     return max(total, 300) // minimum sane width

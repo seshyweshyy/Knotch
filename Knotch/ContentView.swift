@@ -640,6 +640,13 @@ struct ContentView: View {
 
     @State private var hasTriggeredSwipe = false
     @State private var hasTriggeredHorizontalSwipe = false
+    // Standard mode's open-content overlay lifecycle — see
+    // standardContentOverlay / syncStandardContent.
+    @State private var standardContentMounted = false
+    @State private var standardContentRevealed = false
+    @State private var standardContentWidth: CGFloat = 0
+    @State private var standardContentTask: Task<Void, Never>?
+    private let standardContentEdgeInset: CGFloat = 12
     // Guards vm.cycleCompactPage() against re-triggering before the prior
     // page-switch transition finished — hasTriggeredSwipe alone only blocks
     // a second trigger *within* one gesture, so a quick run of separate
@@ -1174,12 +1181,14 @@ struct ContentView: View {
                         isIslandAppearance
                         ? 0
                         : (vm.notchState == .open
-                        // Compact mode already sizes to vm.notchSize (see
-                        // its minWidth/minHeight floor) — this standard-only
-                        // slack was inflating the visible glass card past
-                        // what compactContentOverlay's own clip used, two
-                        // different rects for what should be one shape.
-                        ? (enableCompactUI ? 0 : cornerRadiusInsets.opened.top)
+                        // The open panel sizes to vm.notchSize (see NotchLayout's
+                        // minWidth/minHeight floor) in both modes, and the
+                        // content overlays (compactContentOverlay /
+                        // standardContentOverlay) apply their own insets —
+                        // padding here would inflate the visible glass past
+                        // what those overlays clip against, two different
+                        // rects for what should be one shape.
+                        ? 0
                         // NotchShape's straight side walls sit inset by exactly
                         // `topCornerRadius` from this padded box's own edge (see
                         // NotchShape.path — the vertical edges are at minX+top /
@@ -1192,7 +1201,6 @@ struct ContentView: View {
                         // tighter — every time the concave radius grows.
                         : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top))
                     )
-                    .padding([.horizontal, .bottom], (vm.notchState == .open && !enableCompactUI) ? 12 : 0)
                     .background {
                         ZStack {
                             let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || lockActivityShowing
@@ -1344,13 +1352,15 @@ struct ContentView: View {
                             : (vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.2 : nil),
                         alignment: .top
                     )
-                    // Compact mode's whole open-content reveal — see
+                    // The open panel's whole content reveal — see
                     // compactContentOverlay's own comment for why this has
                     // to be a plain .overlay() here, on mainLayout's own
                     // already-resolved bounds, rather than living inside
                     // NotchLayout()'s normal child flow the way it used to.
+                    // Only one of the two ever renders, per enableCompactUI.
                     .overlay(alignment: .top) {
                         compactContentOverlay
+                        standardContentOverlay
                     }
                     .offset(x: vm.liquidPullHorizontal * 0.25)
                     // No ambient .animation(_:value:) for vm.notchState —
@@ -1419,6 +1429,13 @@ struct ContentView: View {
                         if newState == .open {
                             handleRowFamilyChange(to: .none)
                         }
+                        syncStandardContent(to: newState)
+                    }
+                    .onChange(of: enableCompactUI) {
+                        syncStandardContent(to: vm.notchState)
+                    }
+                    .onChange(of: vm.notchSize.width) { _, newWidth in
+                        if vm.notchState == .open { standardContentWidth = newWidth }
                     }
                     .onChange(of: vm.isBatteryPopoverActive) {
                         if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
@@ -1490,6 +1507,7 @@ struct ContentView: View {
                             displayedRowFamily = desiredRowFamily
                             rowMorph = 1
                         }
+                        syncStandardContent(to: vm.notchState)
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu { notchContextMenu }
@@ -1574,25 +1592,7 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 30)
                     Spacer()
-                } else if vm.notchState == .open && !enableCompactUI {
-                    KnotchHeader()
-                        .frame(height: max(24, vm.effectiveClosedNotchHeight))
-                        // The island's top corners are real convex curves,
-                        // unlike the physical notch's flush concave ones —
-                        // without this the header icons sit right in that
-                        // curve's way instead of clear of it.
-                        .padding(.top, isIslandAppearance ? 6 : 0)
-                        .padding(.horizontal, isIslandAppearance ? 10 : 0)
-                        .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
-                        .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
-                        .blur(radius: closeSwipeBlur)
-                        .liquidStretch(vm)
-                        .transition(
-                            .opacity
-                            .combined(with: .blur(radius: 20))
-                            .animation(.smooth(duration: 0.35))
-                        )
-                } else if vm.notchState == .closed || enableCompactUI {
+                } else {
                     // Bluetooth/AirDrop HUDs, InlineHUD (the "Default" HUD
                     // style's SystemEventIndicatorModifier is a separate
                     // second row below, not part of this), MusicLiveActivity,
@@ -1615,14 +1615,12 @@ struct ContentView: View {
                         isHovering: $isHovering,
                         gestureProgress: $gestureProgress
                     )
-                    // Compact mode keeps the outgoing closed row mounted while
-                    // rowMorph drives its exit. Removing it at the instant the
+                    // The outgoing closed row stays mounted while rowMorph
+                    // drives its exit. Removing it at the instant the
                     // open panel acquired its wider frame made SwiftUI animate
                     // the orphaned removal against changing layout coordinates,
                     // which introduced the sideways leg of the drift.
                     .allowsHitTesting(vm.notchState == .closed)
-                } else {
-                    Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                 }
 
                 // The "Default" HUD style's own independent second row —
@@ -1670,73 +1668,168 @@ struct ContentView: View {
               )
               .animation(.easeInOut(duration: 0.25), value: timerLiveActivityShowing)
               .zIndex(2)
-            // Compact's own content lives in compactContentOverlay instead —
-            // a conditionally-mounted `if` + `.transition()` here doesn't
-            // reliably re-track a live-animating ancestor, no matter how its
-            // frame/transition is expressed. Standard mode isn't broken, so
-            // it keeps this original mechanism, scoped explicitly below.
-            if !enableCompactUI, vm.notchState == .open {
-                VStack {
-                    switch coordinator.currentView {
-                    case .home:
-                        // NotchHomeView applies one stretch across its whole content
-                        // group (standard or compact), so nothing drifts relative
-                        // to its neighbors.
-                        NotchHomeView(albumArtNamespace: standardAlbumArtNamespace)
-                    case .tray:
-                        TrayView()
-                            .liquidStretch(vm)
-                            // Drop-zone outlines are actual drag targets — keep
-                            // their x-position fixed even though the shared
-                            // header+content group leans sideways on a
-                            // horizontal pull (liquidHorizontalGroup below).
-                            .liquidHorizontalGroupExempt(vm)
-                    }
-                }
-                // Pin content to the un-stretched target height so the liquid pull only
-                // inflates the bezel around it — flexible children like the album art
-                // image would otherwise grow into the offered extra height and get
-                // clipped by the shape's rounded top corner.
-                //
-                // maxHeight only, deliberately not a fixed/minHeight pin — the
-                // background pill behind this (mainLayout's own clip, sized from
-                // this same vm.notchSize.height) is already identical between
-                // Home and Tray regardless of what happens in here. Forcing an
-                // exact/minimum height on this content wrapper instead stretched
-                // TrayView's own flexible drop-zone squares to fill it, making
-                // Tray look bloated instead of actually fixing anything.
-                .frame(maxWidth: .infinity, maxHeight: vm.notchSize.height, alignment: .top)
-                // No more width transition between home and tray — notchSize
-                // is the same (computedHomeSize) for both now, so there's
-                // nothing left for this to react to.
-                .transition(
-                    .scale(scale: 0.8, anchor: .top)
-                    .combined(with: .opacity)
-                    .combined(with: .blur(radius: 20))
-                    .animation(.smooth(duration: 0.35))
-                )
-                .zIndex(1)
-                .allowsHitTesting(vm.notchState == .open)
-                .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
-                .blur(radius: closeSwipeBlur)
-            }
         }
         // Shared across the whole header+content group so a left/right pull
         // leans everything together in one direction, instead of each widget
         // independently bulging from its own edge (which the per-widget
         // vertical stretch below is fine doing, since nothing overlaps there).
         .liquidHorizontalGroup(vm)
-        // Compact mode's real content lives in compactContentOverlay, not
-        // here — while open this function's own natural size would fall
-        // back to the tiny closed placeholder without this floor, since
-        // mainLayout's clipShape bakes from this function's own bounds
-        // before the outer .frame() applies. Matches the same liquidPull
-        // growth terms the outer frame uses, so the bezel keeps growing
-        // during a pull instead of staying pinned to the plain notchSize.
+        // The open panel's real content lives in compactContentOverlay /
+        // standardContentOverlay, not here — while open this function's own
+        // natural size would fall back to the tiny closed placeholder
+        // without this floor, since mainLayout's clipShape bakes from this
+        // function's own bounds before the outer .frame() applies. Matches
+        // the same liquidPull growth terms the outer frame uses, so the
+        // bezel keeps growing during a pull instead of staying pinned to the
+        // plain notchSize.
         .frame(
-            minWidth: (vm.notchState == .open && enableCompactUI) ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
-            minHeight: (vm.notchState == .open && enableCompactUI) ? vm.notchSize.height + vm.liquidPull * 0.2 : nil
+            minWidth: vm.notchState == .open ? vm.notchSize.width + abs(vm.liquidPullHorizontal) * 0.7 : nil,
+            minHeight: vm.notchState == .open ? vm.notchSize.height + vm.liquidPull * 0.2 : nil
         )
+    }
+
+    // Standard mode's counterpart to compactContentOverlay — same reveal
+    // mechanism (overlay on mainLayout's own resolved bounds, clip sealed
+    // with compositingGroup before the scale/blur/opacity, all driven by the
+    // open/close springs), holding the header and the home/tray content that
+    // used to be conditionally mounted inside NotchLayout()'s child flow.
+    //
+    // Unlike compact's, this one isn't kept mounted permanently: standard
+    // content owns onAppear/onDisappear work that has to track the notch
+    // actually being open (calendar refetch, the webcam session stopping
+    // when its preview goes away, the audio-output popover hiding). So it's
+    // mounted on open and unmounted once the close has settled — see
+    // syncStandardContent for how the reveal still gets an animatable
+    // "hidden" starting state despite that.
+    @ViewBuilder
+    private var standardContentOverlay: some View {
+        if !enableCompactUI, standardContentMounted {
+            let headerHeight = max(24, vm.effectiveClosedNotchHeight) + (isIslandAppearance ? 6 : 0)
+            // Half of what computedOpenNotchHomeWidth reserves per side, so
+            // the content fits its slot exactly with this much clear on each
+            // edge.
+            let horizontalInset = WidgetWidth.horizontalPad / 2
+            let shown = standardContentRevealed && vm.notchState == .open
+            // While open this tracks the model's target width directly (so
+            // width changes like the timer slider still animate); once
+            // closing, vm.notchSize has already collapsed to the closed
+            // pill, so hold the last open width instead.
+            let layoutWidth = vm.notchState == .open ? vm.notchSize.width : standardContentWidth
+            GeometryReader { geo in
+                VStack(alignment: .center, spacing: 8) {
+                    KnotchHeader()
+                        .frame(height: max(24, vm.effectiveClosedNotchHeight))
+                        // The island's top corners are real convex curves,
+                        // unlike the physical notch's flush concave ones —
+                        // without this the header icons sit right in that
+                        // curve's way instead of clear of it.
+                        .padding(.top, isIslandAppearance ? 6 : 0)
+                        .padding(.horizontal, isIslandAppearance ? 10 : 0)
+                        .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                        .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
+                        .blur(radius: closeSwipeBlur)
+                        .liquidStretch(vm)
+
+                    VStack {
+                        switch coordinator.currentView {
+                        case .home:
+                            // NotchHomeView applies one stretch across its whole
+                            // content group, so nothing drifts relative to its
+                            // neighbors.
+                            NotchHomeView(albumArtNamespace: standardAlbumArtNamespace)
+                        case .tray:
+                            TrayView()
+                                .liquidStretch(vm)
+                                // Drop-zone outlines are actual drag targets — keep
+                                // their x-position fixed even though the shared
+                                // header+content group leans sideways on a
+                                // horizontal pull (liquidHorizontalGroup below).
+                                .liquidHorizontalGroupExempt(vm)
+                        }
+                    }
+                    // Pin content to the un-stretched target height so the liquid
+                    // pull only inflates the bezel around it — flexible children
+                    // like the album art image would otherwise grow into the
+                    // offered extra height and get clipped by the shape's rounded
+                    // top corner. maxHeight only, deliberately not a fixed/
+                    // minHeight pin: forcing an exact height stretched TrayView's
+                    // own flexible drop-zone squares to fill it.
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: max(0, vm.notchSize.height - headerHeight - 8 - standardContentEdgeInset),
+                        alignment: .top
+                    )
+                    .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
+                    .blur(radius: closeSwipeBlur)
+                }
+                // Shared across the whole header+content group so a left/right
+                // pull leans everything together in one direction, instead of
+                // each widget independently bulging from its own edge.
+                .liquidHorizontalGroup(vm)
+                .padding(.horizontal, horizontalInset)
+                .padding(.bottom, standardContentEdgeInset)
+                // Laid out at the open panel's target width, not the live
+                // (growing/shrinking) rect — otherwise the header's
+                // leading/center/trailing HStack re-spaces itself against
+                // the narrowing box on every close, piling up toward the
+                // left, and a quick reopen catches it mid-squeeze. The outer
+                // frame then centers that fixed layout in the live rect, so
+                // the clip just reveals/hides it symmetrically.
+                .frame(width: layoutWidth, height: geo.size.height, alignment: .top)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                .clipShape(currentNotchShape)
+                .compositingGroup()
+                .scaleEffect(
+                    x: shown ? 1 : 0.6,
+                    y: shown ? 1 : 0.6,
+                    anchor: .top
+                )
+                .blur(radius: shown ? 0 : 30)
+                .opacity(shown ? 1 : 0)
+                .allowsHitTesting(vm.notchState == .open)
+            }
+        }
+    }
+
+    // Mounts/unmounts standardContentOverlay around the notch's open state.
+    // The overlay's reveal needs an already-mounted view whose hidden values
+    // (scale/blur/opacity) then animate to shown — a view inserted directly
+    // in its shown state has nothing to animate from — so opening mounts it
+    // hidden first, then flips standardContentRevealed on with the open
+    // spring a frame later. Closing needs no extra step for the reveal
+    // itself (`shown` also keys off vm.notchState, so it rides close()'s own
+    // spring); the unmount just waits for that to finish.
+    private func syncStandardContent(to state: NotchState) {
+        standardContentTask?.cancel()
+        guard !enableCompactUI else {
+            standardContentMounted = false
+            standardContentRevealed = false
+            return
+        }
+        if state == .open {
+            var noAnim = Transaction()
+            noAnim.disablesAnimations = true
+            withTransaction(noAnim) {
+                standardContentWidth = vm.notchSize.width
+                standardContentMounted = true
+            }
+            standardContentTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(20))
+                guard !Task.isCancelled, vm.notchState == .open else { return }
+                withAnimation(notchOpenSpring) { standardContentRevealed = true }
+            }
+        } else {
+            standardContentTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled, vm.notchState == .closed else { return }
+                var noAnim = Transaction()
+                noAnim.disablesAnimations = true
+                withTransaction(noAnim) {
+                    standardContentRevealed = false
+                    standardContentMounted = false
+                }
+            }
+        }
     }
 
     // Compact mode's entire open-content reveal — an .overlay() on
