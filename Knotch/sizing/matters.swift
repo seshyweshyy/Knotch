@@ -343,6 +343,19 @@ enum WidgetWidth {
     static let spacing: CGFloat  = 12
     static let dividerWidth: CGFloat = 1
     static let horizontalPad: CGFloat = 60 // total left+right inset around the home content (ContentView's standardContentOverlay applies half per side)
+    // The floating island pill has no notch corners to clear, so it runs
+    // tighter than the physical-notch layout on both counts.
+    static let islandHorizontalPad: CGFloat = 24
+    static let contentGap: CGFloat = 8          // header -> content
+    static let islandContentGap: CGFloat = 0
+
+    static func homeHorizontalPad(isIsland: Bool) -> CGFloat {
+        isIsland ? islandHorizontalPad : horizontalPad
+    }
+
+    static func homeContentGap(isIsland: Bool) -> CGFloat {
+        isIsland ? islandContentGap : contentGap
+    }
     static let timerSlider: CGFloat = 440   // notch width while the timer ruler is showing
 }
 
@@ -351,7 +364,8 @@ func computedOpenNotchHomeWidth(
     showCalendar: Bool,
     showMirror: Bool,
     cameraExpanded: Bool,
-    cameraAvailable: Bool
+    cameraAvailable: Bool,
+    isIsland: Bool
 ) -> CGFloat {
     let showCam = showMirror && cameraAvailable && cameraExpanded
     let showCal = showCalendar
@@ -370,7 +384,7 @@ func computedOpenNotchHomeWidth(
     // HStack spacing applies between every child, dividers included — so
     // each divider adds a second gap next to its neighbors.
     let spacingTotal = WidgetWidth.spacing * CGFloat(widths.count + dividerCount - 1)
-    let total = widths.reduce(0, +) + spacingTotal + dividers + WidgetWidth.horizontalPad
+    let total = widths.reduce(0, +) + spacingTotal + dividers + WidgetWidth.homeHorizontalPad(isIsland: isIsland)
 
     return max(total, 300) // minimum sane width
 }

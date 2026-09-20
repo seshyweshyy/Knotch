@@ -1712,7 +1712,8 @@ struct ContentView: View {
             // Half of what computedOpenNotchHomeWidth reserves per side, so
             // the content fits its slot exactly with this much clear on each
             // edge.
-            let horizontalInset = WidgetWidth.horizontalPad / 2
+            let horizontalInset = WidgetWidth.homeHorizontalPad(isIsland: isIslandAppearance) / 2
+            let contentGap = WidgetWidth.homeContentGap(isIsland: isIslandAppearance)
             let shown = standardContentRevealed && vm.notchState == .open
             // While open this tracks the model's target width directly (so
             // width changes like the timer slider still animate); once
@@ -1720,7 +1721,7 @@ struct ContentView: View {
             // pill, so hold the last open width instead.
             let layoutWidth = vm.notchState == .open ? vm.notchSize.width : standardContentWidth
             GeometryReader { geo in
-                VStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .center, spacing: contentGap) {
                     KnotchHeader()
                         .frame(height: max(24, vm.effectiveClosedNotchHeight))
                         // The island's top corners are real convex curves,
@@ -1729,6 +1730,9 @@ struct ContentView: View {
                         // curve's way instead of clear of it.
                         .padding(.top, isIslandAppearance ? 6 : 0)
                         .padding(.horizontal, isIslandAppearance ? 10 : 0)
+                        // Visual nudge only (an offset, not padding), so the
+                        // content below keeps its position.
+                        .offset(y: isIslandAppearance ? -3 : 0)
                         .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                         .scaleEffect(x: 1, y: closeSwipeSquish, anchor: .top)
                         .blur(radius: closeSwipeBlur)
@@ -1760,7 +1764,7 @@ struct ContentView: View {
                     // own flexible drop-zone squares to fill it.
                     .frame(
                         maxWidth: .infinity,
-                        maxHeight: max(0, vm.notchSize.height - headerHeight - 8 - standardContentEdgeInset),
+                        maxHeight: max(0, vm.notchSize.height - headerHeight - contentGap - standardContentEdgeInset),
                         alignment: .top
                     )
                     .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)

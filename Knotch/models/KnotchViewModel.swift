@@ -471,7 +471,8 @@ class KnotchViewModel: NSObject, ObservableObject {
                 showCalendar: cal,
                 showMirror: mirror,
                 cameraExpanded: camExpanded,
-                cameraAvailable: self.webcamManager.cameraAvailable
+                cameraAvailable: self.webcamManager.cameraAvailable,
+                isIsland: usesDynamicIslandAppearance(screenUUID: self.screenUUID)
             )
             self.openHomeWidth = w
             if self.notchState == .open && self.coordinator.currentView == .home && !TimerManager.shared.isCreatingTimer {
@@ -499,7 +500,8 @@ class KnotchViewModel: NSObject, ObservableObject {
                     showCalendar: Defaults[.showCalendar],
                     showMirror: Defaults[.showMirror],
                     cameraExpanded: self.isCameraExpanded,
-                    cameraAvailable: self.webcamManager.cameraAvailable
+                    cameraAvailable: self.webcamManager.cameraAvailable,
+                    isIsland: usesDynamicIslandAppearance(screenUUID: self.screenUUID)
                 )
                 self.openHomeWidth = w
                 let newSize = self.computedHomeSize
@@ -695,7 +697,8 @@ class KnotchViewModel: NSObject, ObservableObject {
             showCalendar: Defaults[.showCalendar],
             showMirror: Defaults[.showMirror],
             cameraExpanded: isCameraExpanded,
-            cameraAvailable: webcamManager.cameraAvailable
+            cameraAvailable: webcamManager.cameraAvailable,
+            isIsland: usesDynamicIslandAppearance(screenUUID: screenUUID)
         )
     }
 
