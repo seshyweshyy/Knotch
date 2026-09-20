@@ -149,9 +149,9 @@
 		43D11EA92F978592007FECCE /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 43D11EA82F978592007FECCE /* ZIPFoundation */; };
 		43D122D92F8D0FCE00A145E3 /* LockNotchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */; };
 		43D15ED6305F7CB1007B648B /* SpotifyArtistLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D15ED5305F7CB1007B648B /* SpotifyArtistLookup.swift */; };
+		43D15EEE3060005E007B648B /* TimerExpandedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D15EED3060005E007B648B /* TimerExpandedCard.swift */; };
 		4783473D4E4B8588FC2B35B1 /* FileConverterViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6DC6976CD68FD72BBA3BDC2 /* FileConverterViewModel.swift */; };
 		4DB0A3E8BAEE4F68AECEA6A4 /* LockScreenMiniWidgetRowWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */; };
-		A1B2C3D4E5F60718293A4B5D /* LockScreenLyrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */; };
 		4F1793338DBF4A32A4E269A7 /* LockScreenMiniWidgetsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DB67F8AA294F03B01DAADB /* LockScreenMiniWidgetsSection.swift */; };
 		507266DB2C908E2E00A2D00D /* HoverButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507266DA2C908E2E00A2D00D /* HoverButton.swift */; };
 		5917FD112E57891600E87F1C /* MediaKeyInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5917FD102E57891600E87F1C /* MediaKeyInterceptor.swift */; };
@@ -170,6 +170,7 @@
 		9A987A102C73CA8D005CA465 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = 9A987A0F2C73CA8D005CA465 /* Collections */; };
 		9AB0C6BD2C73C9CB00F7CD30 /* NotchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB0C6BB2C73C9CB00F7CD30 /* NotchHomeView.swift */; };
 		A1B2C3D4E5F607182930A1B3 /* AppKitMenuHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607182930A1B2 /* AppKitMenuHelpers.swift */; };
+		A1B2C3D4E5F60718293A4B5D /* LockScreenLyrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */; };
 		A3D40A2A126D7B347D9FC602 /* MotionArtResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB75C887FE9BE2115A78ED5 /* MotionArtResolver.swift */; };
 		A61B93AAACFF476499FA09C3 /* LocalSendDevicePickerWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2DE985DCBC4AEF9D24E54F /* LocalSendDevicePickerWindowManager.swift */; };
 		A71C73B0A6CA88822B39BE51 /* BlurTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0CC491A0E83D8760E7CA95 /* BlurTransition.swift */; };
@@ -389,6 +390,7 @@
 		43B648042F93EF4A0017C00A /* Knotch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Knotch.entitlements; sourceTree = "<group>"; };
 		43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockNotchOverlay.swift; sourceTree = "<group>"; };
 		43D15ED5305F7CB1007B648B /* SpotifyArtistLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyArtistLookup.swift; sourceTree = "<group>"; };
+		43D15EED3060005E007B648B /* TimerExpandedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerExpandedCard.swift; sourceTree = "<group>"; };
 		4E7766FAD377F9CCB3F4A6AC /* AppleMusicAudioQualityResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicAudioQualityResolver.swift; sourceTree = "<group>"; };
 		507266DA2C908E2E00A2D00D /* HoverButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoverButton.swift; sourceTree = "<group>"; };
 		58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseNotesView.swift; sourceTree = "<group>"; };
@@ -407,6 +409,7 @@
 		9A987A032C73CA66005CA465 /* TrayView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TrayView.swift; sourceTree = "<group>"; };
 		9AB0C6BB2C73C9CB00F7CD30 /* NotchHomeView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotchHomeView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F607182930A1B2 /* AppKitMenuHelpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppKitMenuHelpers.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenLyrics.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE550001 /* SystemTimerProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTimerProvider.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE550003 /* LiquidGlassTimerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassTimerWidget.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassTimerWidgetWindow.swift; sourceTree = "<group>"; };
@@ -442,7 +445,6 @@
 		E1588802E00106CDC39856C9 /* CompactTrayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactTrayView.swift; sourceTree = "<group>"; };
 		E1C0BA205B1B48CEEA465D5A /* UpdateFlowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateFlowState.swift; sourceTree = "<group>"; };
 		E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMiniWidgetRowWindow.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenLyrics.swift; sourceTree = "<group>"; };
 		F033F9AC62494E578B2143F2 /* WeatherManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherManager.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
 		F6DC6976CD68FD72BBA3BDC2 /* FileConverterViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileConverterViewModel.swift; sourceTree = "<group>"; };
@@ -849,6 +851,7 @@
 				AA11BB22CC33DD44EE550005 /* LiquidGlassTimerWidgetWindow.swift */,
 				AA11BB22CC33DD44EE550007 /* TimerGlassButton.swift */,
 				437B18F62FFA9631000E4E6B /* TimerSliderView.swift */,
+				43D15EED3060005E007B648B /* TimerExpandedCard.swift */,
 			);
 			path = Timer;
 			sourceTree = "<group>";
@@ -1213,6 +1216,7 @@
 				1163988F2DF5CC870052E6AF /* CalendarModel.swift in Sources */,
 				437B18FB2FFA964B000E4E6B /* TimerListView.swift in Sources */,
 				43130CB62F8F37EF00BA14A1 /* ExpandedAlbumArtView.swift in Sources */,
+				43D15EEE3060005E007B648B /* TimerExpandedCard.swift in Sources */,
 				1153BD9A2D98824300979FB0 /* SpotifyController.swift in Sources */,
 				118EBE292E946B3F00D54B5A /* ShareServiceFinder.swift in Sources */,
 				B19424092CD0FF01003E5DC2 /* LottieAnimationView.swift in Sources */,

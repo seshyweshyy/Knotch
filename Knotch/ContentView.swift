@@ -707,6 +707,11 @@ struct ContentView: View {
     
     @State private var bluetoothHUDExpanded: Bool = false
     @State private var airdropHUDExpanded: Bool = false
+    // The timer pill's expanded card (TimerExpandedCard). Unlike the HUD
+    // cards it has no lifecycle of its own: a hover/tap on the timer pill
+    // expands it (see activateNotch), and it collapses the moment the cursor
+    // leaves (see handleHover), or when its own X is pressed.
+    @State private var timerCardExpanded: Bool = false
 
     // Alcove-style collapse/expand between the closed-notch HUD and the
     // persistent live activities (music/timer) — see desiredRowFamily below.
@@ -830,7 +835,10 @@ struct ContentView: View {
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
             return isStandardBanner ? 26 : activeCornerRadiusInsets.closed.top
-        case .timer, .none, .lock:
+        case .timer:
+            // Same concave top the expanded Bluetooth/AirDrop cards get.
+            return timerCardExpanded ? 26 : activeCornerRadiusInsets.closed.top
+        case .none, .lock:
             return activeCornerRadiusInsets.closed.top
         }
     }
@@ -864,6 +872,19 @@ struct ContentView: View {
             && !TimerManager.shared.allTimers.isEmpty
             && !TimerManager.shared.isPausedIdle
             && !vm.hideOnClosed
+    }
+
+    // The expanded card stays up while the cursor is on it even if every
+    // timer is paused long enough to go idle (timerLiveActivityShowing turns
+    // false then) — it only needs a timer to still exist. A finished timer's
+    // alert needs no running timer at all, and stays until it's dismissed.
+    // Always keyed off timerCardExpanded: the card is only up while that's
+    // set, so collapsing it (flag false) is what hands the row back.
+    private var timerCardShowing: Bool {
+        timerCardExpanded
+            && vm.notchState == .closed
+            && !vm.hideOnClosed
+            && (!TimerManager.shared.allTimers.isEmpty || !TimerManager.shared.finishedTimers.isEmpty)
     }
 
     // Matches the condition that shows LockNotchOverlay below — it's driven
@@ -936,6 +957,8 @@ struct ContentView: View {
         }
         if lockActivityShowing { return .lock }
         if batteryBannerShowing { return .battery }
+        // Outranks music: an expanded card was asked for directly.
+        if timerCardShowing { return .timer }
         if musicLiveActivityShowing { return .music }
         if timerLiveActivityShowing { return .timer }
         return .none
@@ -1015,7 +1038,12 @@ struct ContentView: View {
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
             return isStandardBanner ? 28 : plain
-        case .timer, .none, .lock:
+        case .timer:
+            // Island: half the card's own 64pt height (44 content + 10 top +
+            // 10 bottom), i.e. a true capsule like the iOS timer card — same
+            // value the expanded Bluetooth card uses.
+            return timerCardExpanded ? (isIslandAppearance ? 32 : 28) : plain
+        case .none, .lock:
             return plain
         }
     }
@@ -1081,6 +1109,7 @@ struct ContentView: View {
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
             airdropHUDExpanded: airdropHUDExpanded,
+            timerCardExpanded: timerCardExpanded,
             isHovering: isHovering
         )
         return bare + (resting - bare) * rowMorph
@@ -1207,7 +1236,7 @@ struct ContentView: View {
                     )
                     .background {
                         ZStack {
-                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || lockActivityShowing
+                            let glassVisible = vm.notchState == .open || coordinator.sneakPeek.show || musicLiveActivityShowing || batteryBannerShowing || timerLiveActivityShowing || timerCardShowing || lockActivityShowing
                             let semiGlassActive = notchAppearanceStyle == .semiLiquidGlass && glassVisible
                             let fullGlassActive = notchAppearanceStyle == .fullLiquidGlass && glassVisible
 
@@ -1384,7 +1413,7 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        doOpen()
+                        activateNotch()
                     }
                     .conditionalModifier(Defaults[.enableGestures]) { view in
                         view
@@ -1433,12 +1462,21 @@ struct ContentView: View {
                         // flips, before its handler can run. This lives on
                         // mainLayout, which stays mounted, so it reliably fires.
                         if newState == .open {
+                            // The panel took over — drop the timer card so it
+                            // doesn't come back expanded once this closes.
+                            collapseTimerCard(animated: false)
                             handleRowFamilyChange(to: .none)
                         }
+                        // A finished timer's alert is still waiting — bring it
+                        // back once the close spring has settled.
+                        if newState == .closed { restoreFinishedTimerCard() }
                         syncStandardContent(to: newState)
                     }
                     .onChange(of: enableCompactUI) {
                         syncStandardContent(to: vm.notchState)
+                    }
+                    .onChange(of: timerCardTimerState) { old, new in
+                        handleTimerCardTimerStateChange(from: old, to: new)
                     }
                     .onChange(of: vm.notchSize.width) { _, newWidth in
                         if vm.notchState == .open { standardContentWidth = newWidth }
@@ -1616,6 +1654,7 @@ struct ContentView: View {
                         isUnlockAnimating: $isUnlockAnimating,
                         bluetoothHUDExpanded: $bluetoothHUDExpanded,
                         airdropHUDExpanded: $airdropHUDExpanded,
+                        timerCardExpanded: $timerCardExpanded,
                         sneakPeekTitleScrolling: $sneakPeekTitleScrolling,
                         albumArtNamespace: albumArtNamespace,
                         isHovering: $isHovering,
@@ -1917,6 +1956,91 @@ struct ContentView: View {
         vm.open()
     }
 
+    // What a hover (after minimumHoverDuration) or a tap on the closed notch
+    // does. Nothing else about the closed notch changed — drops, gestures
+    // and everything else still call doOpen() directly — except that when
+    // the timer pill is the only thing showing, it expands into its own card
+    // (TimerExpandedCard) instead of opening the full panel, and while that
+    // card is up hover/tap leave it alone.
+    private func activateNotch() {
+        guard !vm.isScreenLocked else { return }
+        if timerCardExpanded { return }
+        if vm.notchState == .closed, desiredRowFamily == .timer {
+            setTimerCard(expanded: true)
+            return
+        }
+        doOpen()
+    }
+
+    private func setTimerCard(expanded: Bool) {
+        guard timerCardExpanded != expanded else { return }
+        // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
+        // works around — the card resizes the panel just like an open/close.
+        NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+        // Same springs as the full panel's own open()/close(), so the card
+        // grows with the same overshoot and closes critically damped.
+        withAnimation(expanded ? notchOpenSpring : notchCloseSpring) {
+            timerCardExpanded = expanded
+            // The card taking the row over from something else (the
+            // finished alert arriving over music, or over nothing) morphs
+            // straight into place in this same animation, like the running
+            // card does out of the timer pill — instead of the row-family
+            // swap's collapse-then-expand, which would run the card's reveal
+            // only after the old content had already shrunk away.
+            if expanded, desiredRowFamily == .timer, displayedRowFamily != .timer {
+                displayedRowFamily = .timer
+                rowMorph = 1
+            }
+        }
+    }
+
+    // What the timer card reacts to from TimerManager — folded into one
+    // value so ContentView's already long modifier chain gets a single
+    // .onChange for it.
+    private struct TimerCardTimerState: Equatable {
+        var hasNoTimers: Bool
+        var finishedCount: Int
+    }
+
+    private var timerCardTimerState: TimerCardTimerState {
+        TimerCardTimerState(
+            hasNoTimers: timerManager.allTimers.isEmpty,
+            finishedCount: timerManager.finishedTimers.count
+        )
+    }
+
+    private func handleTimerCardTimerStateChange(from old: TimerCardTimerState, to new: TimerCardTimerState) {
+        // A Knotch timer just ran out: its alert expands over whatever the
+        // closed notch is showing (music included).
+        if new.finishedCount > old.finishedCount, vm.notchState == .closed {
+            setTimerCard(expanded: true)
+        } else if new.hasNoTimers, new.finishedCount == 0 {
+            collapseTimerCard(animated: false)
+        }
+    }
+
+    // A finished timer's alert that was waiting while the panel was open
+    // comes back once the close spring has settled.
+    private func restoreFinishedTimerCard() {
+        guard !timerManager.finishedTimers.isEmpty else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard vm.notchState == .closed, !timerManager.finishedTimers.isEmpty else { return }
+            setTimerCard(expanded: true)
+        }
+    }
+
+    private func collapseTimerCard(animated: Bool) {
+        guard timerCardExpanded else { return }
+        if animated {
+            setTimerCard(expanded: false)
+            return
+        }
+        var noAnim = Transaction()
+        noAnim.disablesAnimations = true
+        withTransaction(noAnim) { timerCardExpanded = false }
+    }
+
     // MARK: - Closed-notch row family transitions (HUD <-> live activity)
 
     // Drives the Alcove-style collapse/expand whenever the closed-notch row's
@@ -1978,6 +2102,10 @@ struct ContentView: View {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
 
+        // Straight away, not behind the 100ms hover-out debounce below. A
+        // finished timer's alert stays until it's dismissed or restarted.
+        if !hovering, timerManager.finishedTimers.isEmpty { collapseTimerCard(animated: true) }
+
         if hovering {
             withAnimation(animationSpring) {
                 isHovering = true
@@ -2001,19 +2129,19 @@ struct ContentView: View {
                           self.isHovering,
                           !self.coordinator.sneakPeek.show else { return }
                     
-                    self.doOpen()
+                    self.activateNotch()
                 }
             }
         } else {
             hoverTask = Task {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard !Task.isCancelled else { return }
-                
+
                 await MainActor.run {
                     withAnimation(animationSpring) {
                         self.isHovering = false
                     }
-                    
+
                     if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !self.vm.isMediaOutputPopoverActive && !SharingStateManager.shared.preventNotchClose {
                         self.vm.close()
                     }
@@ -2119,6 +2247,11 @@ struct ContentView: View {
             withAnimation(animationSpring) { gestureProgress = .zero }
             return
         }
+
+        // The timer card owns the closed notch while it's up (its buttons
+        // need a still target, and the finished alert has to be dismissed
+        // deliberately) — a down-swipe neither stretches it nor opens the panel.
+        guard !timerCardExpanded else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * 20

@@ -47,6 +47,7 @@ func restingRowWidth(
     effectiveClosedNotchHeight: CGFloat,
     bluetoothHUDExpanded: Bool,
     airdropHUDExpanded: Bool,
+    timerCardExpanded: Bool = false,
     isHovering: Bool = false
 ) -> CGFloat {
     // InlineHUD's own leading/trailing blocks (sideWidth) each widen by 12pt
@@ -143,6 +144,9 @@ func restingRowWidth(
         // the formula islandPlainWidth itself is derived from.
         return isIsland ? islandPlainWidth : base
     case .timer:
+        // The expanded card (TimerExpandedCard) is the same flat width the
+        // expanded Bluetooth card uses.
+        if timerCardExpanded { return TimerExpandedCard.width + islandExtra }
         return isIsland ? islandPlainWidth : closedNotchWidth - 20 + timerCompactPillExtraWidth
     case .battery:
         // Matches BatteryNotchBanner's own two forms: the low/full-battery
@@ -188,6 +192,7 @@ struct ClosedNotchRowContent: View {
     @Binding var isUnlockAnimating: Bool
     @Binding var bluetoothHUDExpanded: Bool
     @Binding var airdropHUDExpanded: Bool
+    @Binding var timerCardExpanded: Bool
     @Binding var sneakPeekTitleScrolling: Bool
     let albumArtNamespace: Namespace.ID
     @Binding var isHovering: Bool
@@ -228,6 +233,7 @@ struct ClosedNotchRowContent: View {
             effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight,
             bluetoothHUDExpanded: bluetoothHUDExpanded,
             airdropHUDExpanded: airdropHUDExpanded,
+            timerCardExpanded: timerCardExpanded,
             isHovering: isHovering
         )
     }
@@ -250,9 +256,12 @@ struct ClosedNotchRowContent: View {
     // pixels but keep reporting the original tall size to mainLayout, which
     // is why the background narrowed first and shortened only at the swap.
     private var expandedHUDRestingHeight: CGFloat? {
+        let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
+        if family == .timer {
+            return timerCardExpanded ? TimerExpandedCard.contentHeight + topInset + 10 : nil
+        }
         guard family == .hud else { return nil }
 
-        let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
         switch coordinator.sneakPeek.type {
         case .airdropReceive where airdropHUDExpanded:
             return 92 + topInset + 10
@@ -264,6 +273,15 @@ struct ClosedNotchRowContent: View {
     }
 
     private var rowHeight: CGFloat? {
+        // Unlike the HUD cards, the timer's pill <-> card change is a direct
+        // in-place morph (no family swap), so its height is never nil while
+        // closed — SwiftUI can't interpolate a frame height from nil to a
+        // value, and this has to animate smoothly in both directions.
+        if family == .timer, vm.notchState != .open {
+            let closedHeight = vm.effectiveClosedNotchHeight
+            guard let restingHeight = expandedHUDRestingHeight else { return closedHeight }
+            return closedHeight + (restingHeight - closedHeight) * morph
+        }
         guard let restingHeight = expandedHUDRestingHeight else { return nil }
         if vm.notchState == .open { return restingHeight }
         return vm.effectiveClosedNotchHeight
@@ -358,14 +376,37 @@ struct ClosedNotchRowContent: View {
             // sync with it, which is exactly what left TimerCompactPill's
             // own internal layout badly squeezed once the island's version
             // of that outer width changed to something narrower.
-            TimerCompactPill()
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: vm.effectiveClosedNotchHeight,
-                    maxHeight: vm.effectiveClosedNotchHeight,
-                    alignment: .center
-                )
-                .transition(.opacity)
+            //
+            // Pill and expanded card swap in place, driven by ContentView
+            // flipping timerCardExpanded inside withAnimation (notchOpenSpring
+            // / notchCloseSpring, same as the panel's own open/close) — the
+            // row's width/height/corner radii all derive from that same flag.
+            // The card reveals with the same scale/blur/fade Compact and
+            // Standard mode's open content uses; the transition clips the
+            // card itself after the blur (bottom corners, matching the
+            // shape's own radius) to keep the haze from spilling outside the
+            // pill — on the card only, since a clip around the whole group
+            // cut into the compact pill's own content.
+            Group {
+                if timerCardExpanded {
+                    TimerExpandedCard(onDismiss: {
+                        withAnimation(notchCloseSpring) { timerCardExpanded = false }
+                    })
+                    .transition(.notchOpenReveal(bottomCornerRadius: isIslandAppearance ? 32 : 28))
+                } else {
+                    TimerCompactPill()
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: vm.effectiveClosedNotchHeight,
+                            maxHeight: vm.effectiveClosedNotchHeight,
+                            alignment: .center
+                        )
+                        // Leaves the way the closed live activity does when the
+                        // notch opens — down into the growing shape as it
+                        // blurs and fades — while the card reveals on top.
+                        .transition(.asymmetric(insertion: .opacity, removal: .liveActivityOpenExit))
+                }
+            }
         case .battery:
             BatteryNotchBanner()
                 .transition(.opacity)

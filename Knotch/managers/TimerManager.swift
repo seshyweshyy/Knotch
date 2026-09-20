@@ -23,6 +23,11 @@ final class TimerManager: ObservableObject {
     @Published var isCreatingTimer: Bool = false   // drives the full-notch slider takeover (image 1)
     @Published var showTimerList: Bool = false     // drives the open-notch popup (image 3)
     @Published private(set) var isPausedIdle: Bool = false   // true once every timer has sat paused for pauseDismissDelay
+    // Knotch timers that just ran out, oldest first — kept (in memory only,
+    // never persisted) until dismissed or restarted, so the expanded timer
+    // card can show its "finished" alert. Mirrored Clock timers never land
+    // here: their finish can't be told apart from a cancel.
+    @Published private(set) var finishedTimers: [KnotchTimer] = []
 
     private var tickCancellable: AnyCancellable?
     private var systemTimerProvider: SystemTimerProvider?
@@ -108,12 +113,28 @@ final class TimerManager: ObservableObject {
         }
     }
 
+    // Clears a finished timer's alert without running it again.
+    func dismissFinished(id: UUID) {
+        withAnimation {
+            finishedTimers.removeAll { $0.id == id }
+        }
+    }
+
+    // Starts a fresh timer with a finished one's name and duration, and
+    // clears its alert.
+    func restartFinished(id: UUID) {
+        guard let finished = finishedTimers.first(where: { $0.id == id }) else { return }
+        dismissFinished(id: id)
+        start(name: finished.name, duration: finished.duration)
+    }
+
     private func tick() {
         let expired = timers.filter { $0.isExpired }
         if !expired.isEmpty {
             expired.forEach(fireCompletionNotification)
             withAnimation {
                 timers.removeAll { $0.isExpired }
+                finishedTimers.append(contentsOf: expired)
             }
             persist()
             updatePausedIdleState()

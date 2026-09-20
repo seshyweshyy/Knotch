@@ -50,7 +50,7 @@ struct TimerCompactPill: View {
 
                 Spacer()
 
-                Text(formatted(timer.remaining()))
+                Text(timer.remaining().timerClockString)
                     .font(.system(size: 14, weight: .light, design: .rounded))
                     .contentTransition(.numericText(value: timer.remaining()))
             }
@@ -65,16 +65,5 @@ struct TimerCompactPill: View {
             // hand every time it changes (island vs. physical notch, etc).
             .frame(maxWidth: .infinity, minHeight: vm.effectiveClosedNotchHeight, maxHeight: vm.effectiveClosedNotchHeight, alignment: .center)
         }
-    }
-
-    private func formatted(_ seconds: TimeInterval) -> String {
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-        guard hours > 0 else {
-            return String(format: "%d:%02d", minutes, secs)
-        }
-        return String(format: "%d:%02d:%02d", hours, minutes, secs)
     }
 }
