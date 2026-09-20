@@ -151,6 +151,7 @@
 		43D15ED6305F7CB1007B648B /* SpotifyArtistLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D15ED5305F7CB1007B648B /* SpotifyArtistLookup.swift */; };
 		4783473D4E4B8588FC2B35B1 /* FileConverterViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6DC6976CD68FD72BBA3BDC2 /* FileConverterViewModel.swift */; };
 		4DB0A3E8BAEE4F68AECEA6A4 /* LockScreenMiniWidgetRowWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */; };
+		A1B2C3D4E5F60718293A4B5D /* LockScreenLyrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */; };
 		4F1793338DBF4A32A4E269A7 /* LockScreenMiniWidgetsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DB67F8AA294F03B01DAADB /* LockScreenMiniWidgetsSection.swift */; };
 		507266DB2C908E2E00A2D00D /* HoverButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507266DA2C908E2E00A2D00D /* HoverButton.swift */; };
 		5917FD112E57891600E87F1C /* MediaKeyInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5917FD102E57891600E87F1C /* MediaKeyInterceptor.swift */; };
@@ -441,6 +442,7 @@
 		E1588802E00106CDC39856C9 /* CompactTrayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactTrayView.swift; sourceTree = "<group>"; };
 		E1C0BA205B1B48CEEA465D5A /* UpdateFlowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateFlowState.swift; sourceTree = "<group>"; };
 		E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMiniWidgetRowWindow.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenLyrics.swift; sourceTree = "<group>"; };
 		F033F9AC62494E578B2143F2 /* WeatherManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherManager.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
 		F6DC6976CD68FD72BBA3BDC2 /* FileConverterViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileConverterViewModel.swift; sourceTree = "<group>"; };
@@ -884,6 +886,7 @@
 			isa = PBXGroup;
 			children = (
 				E9797A34E6C4496E80E7D8EE /* LockScreenMiniWidgetRowWindow.swift */,
+				A1B2C3D4E5F60718293A4B5C /* LockScreenLyrics.swift */,
 			);
 			path = LockScreen;
 			sourceTree = "<group>";
@@ -1175,6 +1178,7 @@
 			files = (
 				23DE785AC1C649C684F9C892 /* WeatherManager.swift in Sources */,
 				4DB0A3E8BAEE4F68AECEA6A4 /* LockScreenMiniWidgetRowWindow.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5D /* LockScreenLyrics.swift in Sources */,
 				4F1793338DBF4A32A4E269A7 /* LockScreenMiniWidgetsSection.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchHUD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* KnotchCalendar.swift in Sources */,

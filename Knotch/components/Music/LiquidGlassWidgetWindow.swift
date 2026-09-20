@@ -76,8 +76,22 @@ class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
 /// Clicks outside the widget rect pass through to the desktop.
 private struct LiquidGlassWidgetRoot: View {
     @ObservedObject var musicManager = MusicManager.shared
+    @ObservedObject private var lyricsStore = LockScreenLyricsStore.shared
+    @Default(.lockScreenExpandedLyrics) private var lyricsEnabled
     @State private var isExpanded: Bool = false
     @Namespace private var artNamespace
+
+    /// nil (collapsed, feature off, nothing playing) tears the store down;
+    /// any change in track identity or duration re-fetches.
+    private var lyricsQuery: LRCLIBLyricsProvider.Query? {
+        guard isExpanded, lyricsEnabled, musicManager.hasActiveSession, !musicManager.isLiveBrowserStream else { return nil }
+        return LRCLIBLyricsProvider.Query(
+            title: musicManager.songTitle,
+            artist: musicManager.artistName,
+            album: musicManager.album,
+            duration: Int(musicManager.songDuration.rounded())
+        )
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -116,19 +130,44 @@ private struct LiquidGlassWidgetRoot: View {
                 }
                 .frame(width: geo.size.width)
 
-                // Layer 2: expanded album art — hidden while motion art is
-                // filling the background, since that replaces this tile
-                // rather than sitting behind it.
-                if isExpanded && musicManager.lockScreenMotionArtURL == nil {
+                // Layer 2: expanded album art + lyrics. The art is hidden
+                // while motion art is filling the background, since that
+                // replaces this tile rather than sitting behind it.
+                if isExpanded {
                     let artSize = min(geo.size.width, geo.size.height) * 0.42
-                    ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
-                        .frame(width: artSize, height: artSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                        .shadow(color: .black.opacity(0.6), radius: 60, x: 0, y: 20)
-                        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
-                        .allowsHitTesting(true)
-                        .transition(.scale(scale: 0.85).combined(with: .opacity))
+                    let hasMotionArt = musicManager.lockScreenMotionArtURL != nil
+                    let showsLyrics = lyricsStore.showsColumn
+                    let lyricsWidth = min(geo.size.width * 0.34, 640)
+                    let lyricsSpacing: CGFloat = 80
+                    // Art + gap + lyrics are centred as one group; with no
+                    // lyrics (or none found) the art returns to dead centre.
+                    let artCenterX = geo.size.width / 2 - (showsLyrics ? (lyricsWidth + lyricsSpacing) / 2 : 0)
+                    let lyricsCenterX = hasMotionArt
+                        ? geo.size.width / 2
+                        : geo.size.width / 2 + (artSize + lyricsSpacing) / 2
+
+                    if !hasMotionArt {
+                        ExpandedAlbumArtView(isExpanded: $isExpanded, artNamespace: artNamespace)
+                            .frame(width: artSize, height: artSize)
+                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .shadow(color: .black.opacity(0.6), radius: 60, x: 0, y: 20)
+                            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                            .position(x: artCenterX, y: geo.size.height * 0.48)
+                            .allowsHitTesting(true)
+                            .transition(.scale(scale: 0.85).combined(with: .opacity))
+                    }
+
+                    if showsLyrics {
+                        LockScreenLyricsView(
+                            store: lyricsStore,
+                            width: lyricsWidth,
+                            height: artSize * 1.15,
+                            fontSize: min(max(artSize * 0.085, 22), 34),
+                            overArtwork: hasMotionArt
+                        )
+                        .position(x: lyricsCenterX, y: geo.size.height * 0.48)
+                        .transition(.opacity.combined(with: .offset(x: 30)))
+                    }
                 }
             }
             .coordinateSpace(name: "widgetRootSpace")
@@ -142,6 +181,10 @@ private struct LiquidGlassWidgetRoot: View {
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.82), value: isExpanded)
             .animation(.spring(response: 0.4, dampingFraction: 0.82), value: musicManager.lockScreenMotionArtURL)
+            .animation(.spring(response: 0.55, dampingFraction: 0.86), value: lyricsStore.showsColumn)
+            .onChange(of: lyricsQuery, initial: true) { _, query in
+                lyricsStore.sync(query: query)
+            }
             .onChange(of: isExpanded) { _, expanded in
                 if expanded {
                     AlbumArtBackgroundWindowController.shared.show()
@@ -253,18 +296,19 @@ class LiquidGlassWidgetWindowController {
         // is what we need here since loginwindow is frontmost during lock.
         clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak win] event in
             guard let win, event.window === win else { return event }
-            let region = AlbumArtHitRegion.shared.frameInWindow
-            guard region != .zero else { return event }
 
             // NSEvent.locationInWindow is bottom-left-origin AppKit coordinates;
-            // AlbumArtHitRegion stores a top-left-origin SwiftUI frame — flip Y.
+            // the hit regions store top-left-origin SwiftUI frames — flip Y.
             let windowHeight = win.frame.height
             let point = CGPoint(x: event.locationInWindow.x, y: windowHeight - event.locationInWindow.y)
 
-            if region.contains(point) {
+            let region = AlbumArtHitRegion.shared.frameInWindow
+            if region != .zero, region.contains(point) {
                 NotificationCenter.default.post(name: .albumArtHitRegionTapped, object: nil)
                 return nil
             }
+            // Expanded lyrics lines (seek on click).
+            if LyricsHitRegions.shared.handleClick(at: point) { return nil }
             return event
         }
     }

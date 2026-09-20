@@ -242,6 +242,7 @@ extension Defaults.Keys {
     )
     static let lockScreenMusicWidget = Key<Bool>("lockScreenMusicWidget", default: true)
     static let lockScreenExpandedAlbumArt = Key<Bool>("lockScreenExpandedAlbumArt", default: true)
+    static let lockScreenExpandedLyrics = Key<Bool>("lockScreenExpandedLyrics", default: true)
     static let motionArtLockScreen = Key<Bool>("motionArtLockScreen", default: false)
     static let keepAwakeOnExpandedArt = Key<Bool>("keepAwakeOnExpandedArt", default: true)
     static let lockScreenTimerWidget = Key<Bool>("lockScreenTimerWidget", default: true)

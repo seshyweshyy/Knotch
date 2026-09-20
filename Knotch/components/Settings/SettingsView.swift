@@ -571,6 +571,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "LockScreen", title: "Show music widget on lock screen", keywords: ["lock screen", "music", "widget"], highlightID: "LockScreen-Show album art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show timer widget on lock screen", keywords: ["lock screen", "timer", "widget"], highlightID: "LockScreen-Show timer widget"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Enable expanded album art", keywords: ["expanded", "album", "art", "lock screen", "background"], highlightID: "LockScreen-Expanded album art"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Show synced lyrics beside expanded album art", keywords: ["lyrics", "synced", "expanded", "lock screen", "lrclib"], highlightID: "LockScreen-Expanded lyrics"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "LockScreen-Keep awake expanded art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "LockScreen-Show on lock screen"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
@@ -2164,6 +2165,17 @@ struct LockScreen: View {
                 }
                 .disabled(!lockScreenMusicWidget)
                 .settingsHighlight(id: "LockScreen-Expanded album art")
+
+                Defaults.Toggle(key: .lockScreenExpandedLyrics) {
+                    HStack(spacing: 6) {
+                        Text("Show synced lyrics beside expanded album art")
+                        Image(systemName: "text.quote")
+                            .modifier(HoverTooltip(text: "Fetched from LRCLIB when available"))
+                    }
+                }
+                .disabled(!lockScreenMusicWidget || !lockScreenExpandedAlbumArt)
+                .opacity(lockScreenMusicWidget && lockScreenExpandedAlbumArt ? 1 : 0.4)
+                .settingsHighlight(id: "LockScreen-Expanded lyrics")
 
                 Defaults.Toggle(key: .motionArtLockScreen) {
                     HStack(spacing: 6) {
