@@ -723,19 +723,33 @@ private struct KnotchContrastOutlineStroke: View {
     var color: Color
     var opacity: Double
     var forceVisible: Bool
+    @State private var displayedVisibility: Double = 0
 
     // Room for the outer half of the stroke past the shape's frame.
     private static let overhang: CGFloat = 8
     private static let topFade: CGFloat = 3
+
+    private var shouldShow: Bool {
+        forceVisible || !visibleEdges.isEmpty
+    }
 
     var body: some View {
         shape
             .stroke(color.opacity(opacity), lineWidth: KnotchContrastOutline.outlineWidth * 2)
             .mask { outsideMask }
             .mask { topMask }
-            .opacity(forceVisible || !visibleEdges.isEmpty ? 1 : 0)
-            .animation(KnotchContrastOutline.outlineFade, value: visibleEdges)
-            .animation(KnotchContrastOutline.outlineFade, value: forceVisible)
+            // Fade only the alpha. An animation modifier on this shape also
+            // captures notchSize/corner-radius changes when opening, causing
+            // the outline to take a delayed, curved route around the panel.
+            .opacity(displayedVisibility)
+            .onAppear {
+                displayedVisibility = shouldShow ? 1 : 0
+            }
+            .onChange(of: shouldShow) { _, isVisible in
+                withAnimation(KnotchContrastOutline.outlineFade) {
+                    displayedVisibility = isVisible ? 1 : 0
+                }
+            }
             .allowsHitTesting(false)
     }
 
@@ -779,9 +793,7 @@ extension View {
             .background {
                 if isSampling {
                     KnotchContrastOutlineSampler(shape: shape) { edges in
-                        withAnimation(KnotchContrastOutline.outlineFade) {
-                            visibleEdges.wrappedValue = edges
-                        }
+                        visibleEdges.wrappedValue = edges
                     }
                     .allowsHitTesting(false)
                 }
@@ -799,9 +811,7 @@ extension View {
             }
             .onChange(of: isSampling) { _, sampling in
                 if !sampling {
-                    withAnimation(KnotchContrastOutline.outlineFade) {
-                        visibleEdges.wrappedValue = []
-                    }
+                    visibleEdges.wrappedValue = []
                 }
             }
     }
