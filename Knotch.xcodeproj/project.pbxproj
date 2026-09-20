@@ -134,6 +134,7 @@
 		435517EB2FF7594C00696038 /* QuickShareProviderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */; };
 		435D85EC2FFCDE3E00803FF3 /* NotchStylePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */; };
 		435D85ED2FFCDE5F00803FF3 /* KnotchLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */; };
+		7C0A11D02FFD00000A11CE02 /* KnotchContrastOutline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */; };
 		4379EE0830028AFD004E3F0F /* ReleaseNotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */; };
 		437B18F22FFA9603000E4E6B /* KnotchTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F12FFA9603000E4E6B /* KnotchTimer.swift */; };
 		437B18F42FFA9612000E4E6B /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437B18F32FFA9612000E4E6B /* TimerManager.swift */; };
@@ -373,6 +374,7 @@
 		435517E82FF7537F00696038 /* LocalSendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSendService.swift; sourceTree = "<group>"; };
 		435517EA2FF7594C00696038 /* QuickShareProviderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickShareProviderRow.swift; sourceTree = "<group>"; };
 		435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchLiquidGlass.swift; sourceTree = "<group>"; };
+		7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchContrastOutline.swift; sourceTree = "<group>"; };
 		435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchStylePreview.swift; sourceTree = "<group>"; };
 		437B18F12FFA9603000E4E6B /* KnotchTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchTimer.swift; sourceTree = "<group>"; };
 		437B18F32FFA9612000E4E6B /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
@@ -944,6 +946,7 @@
 			children = (
 				435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */,
 				435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */,
+				7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */,
 				43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */,
 				1194E8862EA6DDA7009C82D6 /* KnotchSkyLightWindow.swift */,
 				1160F8D72DD98230006FBB94 /* NotchShape.swift */,
@@ -1323,6 +1326,7 @@
 				14D570D22C5F6C6A0011E668 /* KnotchExtrasMenu.swift in Sources */,
 				11D58EA22E760AE100FA8377 /* ImageService.swift in Sources */,
 				435D85ED2FFCDE5F00803FF3 /* KnotchLiquidGlass.swift in Sources */,
+				7C0A11D02FFD00000A11CE02 /* KnotchContrastOutline.swift in Sources */,
 				432A89E02F8A7C7500237ABF /* BottomRoundedRectangle.swift in Sources */,
 				11F748822ECB07A400F841DB /* MusicControlButton.swift in Sources */,
 				432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */,

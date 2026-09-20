@@ -730,6 +730,10 @@ struct ContentView: View {
     // purpose — they run outside body evaluation and need no dependency.
     @Default(.enableCompactUI) var enableCompactUI
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.contrastOutline) var contrastOutline
+    @Default(.contrastOutlineMatchesAlbumArt) var contrastOutlineMatchesAlbumArt
+    @Default(.alwaysShowContrastOutline) var alwaysShowContrastOutline
+    @State private var contrastOutlineDarkEdges: Set<KnotchContrastOutline.Edge> = []
     @Default(.forceSimulatedNotch) var forceSimulatedNotch
     @Default(.debugForceDynamicIslandAppearance) var debugForceDynamicIslandAppearance
     @Default(.dynamicIslandTopInset) var dynamicIslandTopInset
@@ -1013,6 +1017,38 @@ struct ContentView: View {
         )
     }
 
+    // Keep the bare resting notch/pill unoutlined even over black content.
+    // The displayed family remains active through its exit animation, while
+    // the desired family catches a new activity before that animation starts.
+    private var contrastOutlineHasContent: Bool {
+        vm.notchState == .open
+            || desiredRowFamily != .none
+            || displayedRowFamily != .none
+            || defaultStyleHUDShowing
+            || coordinator.helloAnimationRunning
+    }
+
+    private var contrastOutlineHasAlbumArt: Bool {
+        guard musicManager.hasActiveSession,
+              musicManager.albumArt !== noArtworkPlaceholderImage else { return false }
+        if vm.notchState == .open {
+            // Compact mode always shows the media view; standard mode has a
+            // separate tray, which should keep the ordinary white outline.
+            return enableCompactUI || coordinator.currentView == .home
+        }
+        // Follow the visible media activity through its row transition.
+        return displayedRowFamily == .music
+            || (displayedRowFamily == .none && desiredRowFamily == .music)
+    }
+
+    private var contrastOutlineUsesAlbumArt: Bool {
+        contrastOutlineMatchesAlbumArt && contrastOutlineHasAlbumArt
+    }
+
+    private var contrastOutlineColor: Color {
+        contrastOutlineUsesAlbumArt ? Color(nsColor: musicManager.avgColor) : .white
+    }
+
     // The closed-notch row's own current width — continuously interpolated
     // between the bare notch width and displayedRowFamily's resting width by
     // rowMorph (this now covers the locked/lock-icon state too, via
@@ -1247,6 +1283,22 @@ struct ContentView: View {
                         }
                     }
                     .clipShape(currentNotchShape)
+                    // Keep the stroke mounted during the idle transition so
+                    // its last visible state can fade out smoothly.
+                    .knotchContrastOutline(
+                        isEnabled: KnotchContrastOutline.isActive(
+                            enabled: contrastOutline,
+                            style: notchAppearanceStyle
+                        ),
+                        isActivityActive: contrastOutlineHasContent,
+                        visibleEdges: $contrastOutlineDarkEdges,
+                        shape: currentNotchShape,
+                        color: contrastOutlineColor,
+                        opacity: contrastOutlineUsesAlbumArt
+                            ? KnotchContrastOutline.albumArtOutlineOpacity
+                            : KnotchContrastOutline.outlineOpacity,
+                        forceVisible: alwaysShowContrastOutline
+                    )
                     .overlay(alignment: .top) {
                         // Hides the seam against the real camera housing —
                         // meaningless (and visibly wrong, cutting across the

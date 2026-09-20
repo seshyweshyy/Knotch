@@ -543,6 +543,9 @@ struct SettingsView: View {
             // Appearance
             SettingsSearchEntry(tabID: "Appearance", title: "Notch appearance", keywords: ["notch appearance", "solid black", "semi liquid glass", "full liquid glass", "style"], highlightID: "Appearance-Notch appearance style"),
             SettingsSearchEntry(tabID: "Appearance", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Contrast outline", keywords: ["outline", "border", "dark", "contrast", "edge"], highlightID: "Appearance-Contrast outline"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Always show contrast outline", keywords: ["outline", "always", "album art", "media"], highlightID: "Appearance-Always show contrast outline"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Match contrast outline colour to album art", keywords: ["outline", "album art", "media", "colour", "color", "tint"], highlightID: "Appearance-Match contrast outline colour to album art"),
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
@@ -2359,6 +2362,7 @@ struct Appearance: View {
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
+    @Default(.contrastOutline) var contrastOutline
     @Default(.semiLiquidGlassTransition) var semiLiquidGlassTransition
     @Default(.enableCompactUI) var enableCompactUI
 
@@ -2370,6 +2374,18 @@ struct Appearance: View {
             NotchAppearance()
 
             Section {
+                Defaults.Toggle(key: .contrastOutline) {
+                    Text("Contrast outline")
+                }
+                .settingsDisabled(!contrastOutlineAvailable)
+                .settingsHighlight(id: "Appearance-Contrast outline")
+                if contrastOutline {
+                    Defaults.Toggle(key: .alwaysShowContrastOutline) {
+                        Text("Always show contrast outline")
+                    }
+                    .settingsDisabled(!contrastOutlineAvailable)
+                    .settingsHighlight(id: "Appearance-Always show contrast outline")
+                }
                 Toggle("Always show tab bar", isOn: $coordinator.alwaysShowTabs)
                     .settingsDisabled(enableCompactUI)
                     .settingsHighlight(id: "Appearance-Always show tab bar")
@@ -2380,9 +2396,25 @@ struct Appearance: View {
                 .settingsHighlight(id: "Appearance-Show settings icon in notch")
             } header: {
                 Text("General")
+            } footer: {
+                if let note = contrastOutlineNote {
+                    Text(note)
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+                if contrastOutline && contrastOutlineAvailable {
+                    Text("Always show applies while Knotch is open or an activity or HUD is visible.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section {
+                Defaults.Toggle(key: .contrastOutlineMatchesAlbumArt) {
+                    Text("Match contrast outline colour to album art")
+                }
+                .settingsDisabled(!contrastOutline || !contrastOutlineAvailable)
+                .settingsHighlight(id: "Appearance-Match contrast outline colour to album art")
                 Defaults.Toggle("Player tinting", key: .playerColorTinting)
                     .settingsHighlight(id: "Appearance-Player tinting")
                 Defaults.Toggle(key: .lightingEffect) {
@@ -2455,6 +2487,22 @@ struct Appearance: View {
         .onAppear {
             webcamManager.checkAndRequestVideoAuthorization()
         }
+    }
+
+    // Disabled (not hidden, and the saved choice is untouched) when the
+    // selected style can't host it or the private luma API is missing.
+    private var contrastOutlineAvailable: Bool {
+        KnotchContrastOutline.isEligible(notchAppearanceStyle) && KnotchContrastOutline.isSamplingAvailable
+    }
+
+    private var contrastOutlineNote: String? {
+        if !KnotchContrastOutline.isSamplingAvailable {
+            return "Contrast outline isn't supported on this version of macOS."
+        }
+        if !KnotchContrastOutline.isEligible(notchAppearanceStyle) {
+            return "Contrast outline is only available with Solid Black or Semi Liquid Glass."
+        }
+        return "Draws a thin outline around the notch over dark content, or while active when Always show is enabled."
     }
 
     func checkVideoInput() -> Bool {

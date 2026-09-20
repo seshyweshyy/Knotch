@@ -178,7 +178,16 @@ extension Defaults.Keys {
     static let enableShadow = Key<Bool>("enableShadow", default: true)
     static let notchAppearanceStyle = Key<NotchAppearanceStyle>("notchAppearanceStyle", default: .solidBlack)
     static let semiLiquidGlassTransition = Key<Double>("semiLiquidGlassTransition", default: 0.4)
-    
+    // On by default for new users. Only takes effect for Solid Black / Semi
+    // Liquid Glass; keep the saved choice when switching styles.
+    static let contrastOutline = Key<Bool>("contrastOutline", default: true)
+    // Optional media-only tint; the master outline toggle still controls
+    // whether any outline can appear. Keep this choice when the master is off.
+    static let contrastOutlineMatchesAlbumArt = Key<Bool>("contrastOutlineMatchesAlbumArt", default: false)
+    // Keep the original storage key so existing Always show choices survive
+    // its expansion from media activity to every active activity and HUD.
+    static let alwaysShowContrastOutline = Key<Bool>("alwaysShowAlbumArtContrastOutline", default: false)
+
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: true)
     static let calendarApp = Key<CalendarApp>("calendarApp", default: .apple)
