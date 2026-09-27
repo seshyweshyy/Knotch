@@ -60,8 +60,14 @@ struct LiquidGlassMusicWidget: View {
             // lock-screen glass using .regular, not .clear. controlActiveState
             // forced active since this window never becomes the frontmost
             // app, which otherwise makes AppKit dim materials as "inactive".
-            innerContent
-                .background(KnotchLiquidGlass(shape: .roundedRect(cornerRadius: 22), adaptiveAppearance: true, style: 0))
+            KnotchLiquidGlassContainer(
+                shape: .roundedRect(cornerRadius: 22),
+                adaptiveAppearance: true,
+                contentLensing: !isExpanded,
+                style: 0
+            ) {
+                innerContent
+            }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.22), radius: 30, x: 0, y: 12)
                 .environment(\.controlActiveState, .active)

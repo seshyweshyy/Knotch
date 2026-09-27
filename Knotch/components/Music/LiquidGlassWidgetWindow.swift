@@ -30,6 +30,8 @@ extension Notification.Name {
 }
 
 class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
+    private var holdsActiveAppearanceLease = false
+
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -60,14 +62,75 @@ class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
         ignoresMouseEvents = passThrough
     }
 
-    // KnotchSkyLightWindow.canBecomeMain is false (correctly, for the main
-    // notch, which must never steal main-window status system-wide while
-    // the user's using another app). This subclass is lock-screen-only —
-    // only ever shown while the screen is locked — so there's no other app
-    // whose main-window status it could steal. A confirmed-working
-    // reference project makes its lock-screen glass window both key and
-    // main (not just briefly key), which this mirrors.
-    override var canBecomeMain: Bool { true }
+    // Mouse interaction does not require this panel to own keyboard focus.
+    // Keeping both false preserves loginwindow's password-field focus while
+    // FirstMouseHostingView and SwiftUI continue to receive pointer events.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
+    /// Gives NSGlassEffectView the visual state of a key/main window without
+    /// changing WindowServer keyboard routing. The lease is held for the
+    /// lifetime of this lock-screen window and released during teardown.
+    func acquireActiveGlassAppearance() {
+        setPrivateBool(true, selectorName: "_setForceActiveControls:")
+        setPrivateBool(true, selectorName: "_setHasActiveAppearance:")
+        setPrivateBool(true, selectorName: "_setForceMainAppearance:")
+
+        if !holdsActiveAppearanceLease {
+            callPrivateVoid("acquireKeyAppearance")
+            callPrivateVoid("acquireMainAppearance")
+            holdsActiveAppearanceLease = true
+        }
+
+        callPrivateVoid("_sendForcedWindowChangedKeyState")
+        NotificationCenter.default.post(name: .knotchGlassAppearanceNeedsRefresh, object: self)
+    }
+
+    func releaseActiveGlassAppearance() {
+        guard holdsActiveAppearanceLease else { return }
+        callPrivateVoid("resignKeyAppearance")
+        callPrivateVoid("resignMainAppearance")
+        holdsActiveAppearanceLease = false
+        setPrivateBool(false, selectorName: "_setForceMainAppearance:")
+        setPrivateBool(false, selectorName: "_setHasActiveAppearance:")
+        setPrivateBool(false, selectorName: "_setForceActiveControls:")
+    }
+
+    // KnotchSkyLightWindow normally refreshes glass by briefly becoming the
+    // real key window. This subclass must never do that on the Lock Screen.
+    override func refreshGlassBackdrop() {
+        guard isVisible else { return }
+        acquireActiveGlassAppearance()
+    }
+
+    // The superclass listens to the main notch's open/close notifications.
+    // For this independent lock-screen panel those are refresh opportunities,
+    // not reasons to take or relinquish real key status.
+    override func holdGlassBackdropKey() {
+        refreshGlassBackdrop()
+    }
+
+    override func releaseGlassBackdropKey() {
+        refreshGlassBackdrop()
+    }
+
+    private func setPrivateBool(_ value: Bool, selectorName: String) {
+        let selector = NSSelectorFromString(selectorName)
+        guard responds(to: selector),
+              let method = class_getInstanceMethod(type(of: self), selector) else { return }
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        let function = unsafeBitCast(method_getImplementation(method), to: Setter.self)
+        function(self, selector, value)
+    }
+
+    private func callPrivateVoid(_ selectorName: String) {
+        let selector = NSSelectorFromString(selectorName)
+        guard responds(to: selector),
+              let method = class_getInstanceMethod(type(of: self), selector) else { return }
+        typealias Action = @convention(c) (AnyObject, Selector) -> Void
+        let function = unsafeBitCast(method_getImplementation(method), to: Action.self)
+        function(self, selector)
+    }
 }
 
 // MARK: - Root SwiftUI host
@@ -117,8 +180,6 @@ private struct LiquidGlassWidgetRoot: View {
                             AlbumArtHitRegion.shared.frameInWindow = frame
                         }
                     )
-                        .compositingGroup()
-                        .shadow(color: .black.opacity(isExpanded ? 0.5 : 0), radius: isExpanded ? 60 : 0, x: 0, y: isExpanded ? 20 : 0)
                         .transition(
                             .asymmetric(
                                 insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
@@ -214,9 +275,8 @@ private struct LiquidGlassWidgetRoot: View {
 
 // MARK: - Controller
 
-/// NSHostingView that accepts the very first click even before the window
-/// has actually become key (there's a brief window between orderFront and
-/// the explicit makeKey() call in show() below).
+/// NSHostingView that lets pointer controls act on the first click even though
+/// the nonactivating lock-screen panel deliberately never becomes key.
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
@@ -253,12 +313,7 @@ class LiquidGlassWidgetWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
-        // Holds key/main persistently rather than the brief 50ms grab
-        // refreshGlassBackdrop() does elsewhere — this window only exists
-        // while the screen is locked (see hide()'s full-teardown comment),
-        // so there's no other app's focus to protect here.
-        win.makeKey()
-        win.makeMain()
+        win.acquireActiveGlassAppearance()
         installClickMonitor()
     }
 
@@ -272,6 +327,7 @@ class LiquidGlassWidgetWindowController {
     func hide() {
         guard let win = window else { return }
         removeClickMonitor()
+        win.releaseActiveGlassAppearance()
         win.disableSkyLight()
         win.orderOut(nil)
         win.contentView = nil

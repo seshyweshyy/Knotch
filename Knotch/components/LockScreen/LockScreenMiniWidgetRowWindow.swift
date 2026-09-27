@@ -396,11 +396,7 @@ final class LockScreenMiniWidgetRowWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
-        // See LiquidGlassWidgetWindowController.show's matching comment —
-        // holds key/main persistently since this window only exists while
-        // the screen is locked.
-        win.makeKey()
-        win.makeMain()
+        win.acquireActiveGlassAppearance()
     }
 
     // See LiquidGlassWidgetWindowController.hide's matching comment — fully
@@ -410,6 +406,7 @@ final class LockScreenMiniWidgetRowWindowController {
     // stale instance from an earlier lock that no longer updates.
     private func hide() {
         guard let win = window else { return }
+        win.releaseActiveGlassAppearance()
         win.disableSkyLight()
         win.orderOut(nil)
         win.contentView = nil

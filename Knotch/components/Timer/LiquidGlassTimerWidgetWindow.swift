@@ -106,10 +106,12 @@ final class LiquidGlassTimerWidgetWindowController {
         win.setFrame(screen.frame, display: false)
         win.enableSkyLight()
         win.orderFrontRegardless()
+        win.acquireActiveGlassAppearance()
     }
 
     private func hide() {
         guard let win = window else { return }
+        win.releaseActiveGlassAppearance()
         win.disableSkyLight()
         win.orderOut(nil)
     }

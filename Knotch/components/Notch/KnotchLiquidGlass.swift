@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+extension Notification.Name {
+    /// Posted by a focus-safe lock-screen panel after it acquires appearance-
+    /// only key/main state. Observers refresh only their known glass instance;
+    /// never walk SwiftUI's private wrapper hierarchy looking for class names.
+    static let knotchGlassAppearanceNeedsRefresh = Notification.Name("com.Knotch.glassAppearanceNeedsRefresh")
+}
+
 /// Reads macOS's live system-wide Liquid Glass Clear↔Tinted preference
 /// directly — `NSGlassTintAmount` in the global preferences domain,
 /// confirmed via `defaults read -g NSGlassTintAmount` to update live the
@@ -35,6 +42,9 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
     // main notch had been opened/interacted with before locking. Defaults
     // to false to leave the main notch's already-working look untouched.
     var adaptiveAppearance: Bool = false
+    // Controls whether foreground pixels are refracted into the boundary.
+    // Dense surfaces can disable this while retaining backdrop sampling.
+    var contentLensing: Bool = true
     // NSGlassEffectViewStyle: .regular (0) vs .clear (1). Defaults to .clear
     // to preserve the main notch's already-working look. A confirmed-working
     // reference project (LiquidGlassWidget, see git history/handoff notes)
@@ -77,6 +87,22 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
     }
 
     func makeNSView(context: Context) -> NSView {
+        makeGlassView(coordinator: context.coordinator)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        updateGlassView(nsView, coordinator: context.coordinator)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        dismantleGlassView(nsView, coordinator: coordinator)
+    }
+
+    /// Shared by the background-only bridge above and the content-hosting
+    /// bridge below. The latter matters for NSGlassEffectView: foreground
+    /// pixels only count as content (rather than backdrop input) when they
+    /// live in the glass view's real `contentView` hierarchy.
+    fileprivate func makeGlassView(coordinator: Coordinator) -> NSView {
         guard let glassClass = NSClassFromString("NSGlassEffectView") as? NSView.Type else {
             return NSView()
         }
@@ -122,30 +148,50 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
         // Selector-based observers are invoked synchronously at post time,
         // matching the mask's per-frame animation.
         glass.postsFrameChangedNotifications = true
-        context.coordinator.glassView = glass
-        context.coordinator.shape = shape
+        coordinator.glassView = glass
+        coordinator.shape = shape
+        coordinator.adaptiveAppearance = adaptiveAppearance
+        coordinator.contentLensing = contentLensing
         NotificationCenter.default.addObserver(
-            context.coordinator,
+            coordinator,
             selector: #selector(Coordinator.handleFrameChange),
             name: NSView.frameDidChangeNotification,
             object: glass
         )
-        context.coordinator.configureBackdropLayer()
+        NotificationCenter.default.addObserver(
+            coordinator,
+            selector: #selector(Coordinator.handleActiveAppearanceRefresh),
+            name: .knotchGlassAppearanceNeedsRefresh,
+            object: nil
+        )
+        coordinator.configureBackdropLayer()
+
+        DispatchQueue.main.async { [weak coordinator] in
+            coordinator?.refreshActiveAppearance()
+        }
 
         return glass
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    fileprivate func updateGlassView(_ nsView: NSView, coordinator: Coordinator) {
         applyProperties(to: nsView)
-        context.coordinator.shape = shape
-        context.coordinator.applyPath()
+        coordinator.shape = shape
+        coordinator.adaptiveAppearance = adaptiveAppearance
+        coordinator.contentLensing = contentLensing
+        coordinator.applyPath()
+        coordinator.configureBackdropLayer()
     }
 
-    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+    fileprivate static func dismantleGlassView(_ nsView: NSView, coordinator: Coordinator) {
         NotificationCenter.default.removeObserver(
             coordinator,
             name: NSView.frameDidChangeNotification,
             object: nsView
+        )
+        NotificationCenter.default.removeObserver(
+            coordinator,
+            name: .knotchGlassAppearanceNeedsRefresh,
+            object: nil
         )
     }
 
@@ -157,21 +203,51 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
     // updateNSView call (not just once in makeNSView): NSGlassEffectView
     // resets several of these back to its own defaults once the view is
     // actually attached to a window, which happens after makeNSView returns.
-    private func applyProperties(to view: NSView) {
+    fileprivate func applyProperties(to view: NSView) {
         view.setValue(adaptiveAppearance, forKey: "_adaptiveAppearance")
         view.setValue(0, forKey: "_scrimState")
         view.setValue(false, forKey: "_subduedState")
-        view.setValue(true, forKey: "_contentLensing")
+        if adaptiveAppearance {
+            view.setValue(false, forKey: "_tintOpacityReduced")
+        }
         view.setValue(style, forKey: "style")
         view.setValue(variant, forKey: "_variant")
+        // `style` also resets content lensing, so this must be last. In the
+        // expanded music card, leaving it enabled mirrors the progress fill
+        // and timestamps into the rounded edge.
+        view.setValue(contentLensing, forKey: "_contentLensing")
     }
 
     final class Coordinator: NSObject {
         weak var glassView: NSView?
         var shape: GlassShape = .capsule
+        var adaptiveAppearance = false
+        var contentLensing = true
 
         @objc func handleFrameChange(_ notification: Notification) {
             applyPath()
+            configureBackdropLayer()
+        }
+
+        @objc func handleActiveAppearanceRefresh(_ notification: Notification) {
+            guard let sourceWindow = notification.object as? NSWindow,
+                  glassView?.window === sourceWindow else { return }
+            refreshActiveAppearance()
+        }
+
+        /// NSGlassEffectView normally recomputes these values from a real
+        /// key-window transition. Focus-safe lock-screen panels provide only
+        /// the appearance lease, so refresh the known glass object directly
+        /// and then reassert the clear, non-subdued profile.
+        func refreshActiveAppearance() {
+            guard adaptiveAppearance, let glassView else { return }
+            let selector = NSSelectorFromString("_windowChangedKeyState")
+            if glassView.responds(to: selector) {
+                glassView.perform(selector)
+            }
+            glassView.setValue(false, forKey: "_subduedState")
+            glassView.setValue(false, forKey: "_tintOpacityReduced")
+            glassView.setValue(contentLensing, forKey: "_contentLensing")
             configureBackdropLayer()
         }
 
@@ -257,6 +333,81 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
             CATransaction.setDisableActions(true)
             function(view, selector, path)
             CATransaction.commit()
+        }
+    }
+}
+
+/// Hosts SwiftUI inside NSGlassEffectView's actual contentView. Using the
+/// glass only as `.background` leaves AppKit unaware of the foreground view,
+/// so bright controls (notably the expanded player's progress fill) can be
+/// sampled and refracted into the glass boundary as coloured edge fragments.
+struct KnotchLiquidGlassContainer<Content: View>: NSViewRepresentable {
+    private let configuration: KnotchLiquidGlass
+    private let content: Content
+
+    init(
+        variant: Int = 9,
+        shape: KnotchLiquidGlass.GlassShape,
+        adaptiveAppearance: Bool = false,
+        contentLensing: Bool = true,
+        style: Int = 1,
+        @ViewBuilder content: () -> Content
+    ) {
+        configuration = KnotchLiquidGlass(
+            variant: variant,
+            shape: shape,
+            adaptiveAppearance: adaptiveAppearance,
+            contentLensing: contentLensing,
+            style: style
+        )
+        self.content = content()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(glassCoordinator: configuration.makeCoordinator())
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let glass = configuration.makeGlassView(coordinator: context.coordinator.glassCoordinator)
+        let hostingView = NSHostingView(rootView: content)
+
+        // The private view exposes a normal Objective-C contentView setter.
+        // It pins the supplied view to all four edges and places it above the
+        // internal effect holder, while keeping controls fully interactive.
+        glass.setValue(hostingView, forKey: "contentView")
+        context.coordinator.hostingView = hostingView
+        return glass
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.hostingView?.rootView = content
+        configuration.updateGlassView(nsView, coordinator: context.coordinator.glassCoordinator)
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView: NSView,
+        context: Context
+    ) -> CGSize? {
+        // This representable sits in a screen-sized overlay, so SwiftUI often
+        // proposes the entire window here. Accepting that proposal stretches
+        // the glass across the lock screen. The hosted widget already has its
+        // intended 320pt width and intrinsic height; preserve those dimensions
+        // exactly, just as the original SwiftUI `.background` implementation
+        // did.
+        context.coordinator.hostingView?.fittingSize ?? nsView.fittingSize
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        KnotchLiquidGlass.dismantleGlassView(nsView, coordinator: coordinator.glassCoordinator)
+    }
+
+    final class Coordinator {
+        let glassCoordinator: KnotchLiquidGlass.Coordinator
+        var hostingView: NSHostingView<Content>?
+
+        init(glassCoordinator: KnotchLiquidGlass.Coordinator) {
+            self.glassCoordinator = glassCoordinator
         }
     }
 }
