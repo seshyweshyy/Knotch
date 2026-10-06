@@ -64,9 +64,11 @@ extension AnyTransition {
         )
     }
 
-    /// Compact-presentation live-activity transition — squished to 0.4x/0.2y,
-    /// blurred by 20pt, faded out, anchored center. Pair with
-    /// `liveActivityPopSpring` via `.animation(_:value:)`.
+    /// Closed-notch live-activity transition — squished to 0.4x/0.2y,
+    /// blurred by 20pt, faded out, anchored center. Used both by the compact
+    /// drag overlay and the Default-style system HUD row. Pair with
+    /// `liveActivityPopSpring` via `.animation(_:value:)` when the caller
+    /// does not already supply an explicit presentation transaction.
     static var liveActivityPop: AnyTransition {
         .modifier(
             active: NotchPopModifier(blur: 20, opacity: 0, scaleX: 0.4, scaleY: 0.2, anchor: .center),

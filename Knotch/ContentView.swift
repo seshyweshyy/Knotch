@@ -1804,7 +1804,14 @@ struct ContentView: View {
                     .padding(.bottom, 10)
                     .padding(.leading, 5)
                     .padding(.trailing, 12)
-                    .transition(.opacity)
+                    // This row sits outside ClosedNotchRowContent so it can
+                    // coexist with music/timer, but it should still enter and
+                    // leave like every other closed-notch activity: blurred
+                    // and compressed into the centre, then unsquished on
+                    // appearance. The old opacity-only transition was most
+                    // noticeable on Focus, whose short label otherwise just
+                    // popped into the newly-grown notch.
+                    .transition(.liveActivityPop)
                 }
             }
               // Always apply the same modifier type and vary only its values,
