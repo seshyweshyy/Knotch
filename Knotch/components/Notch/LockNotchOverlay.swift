@@ -24,16 +24,30 @@ final class LockAnimationHost: ObservableObject {
         return v
     }()
 
+    private var generation = 0
+
+    /// Always runs `onComplete` exactly once for the latest call. A newer call
+    /// (e.g. unlock arriving mid lock-animation) supersedes the running one
+    /// instead of being dropped, and a fallback fires if Lottie never reports
+    /// completion (view unmounted/paused while a HUD owns the row).
     func play(forward: Bool, onComplete: (() -> Void)? = nil) {
-        guard !animationView.isAnimationPlaying else { return }
-        if forward {
-            animationView.play(fromFrame: 0, toFrame: 90, loopMode: .playOnce) { finished in
-                if finished { onComplete?() }
-            }
-        } else {
-            animationView.play(fromFrame: 90, toFrame: 0, loopMode: .playOnce) { finished in
-                if finished { onComplete?() }
-            }
+        generation += 1
+        let gen = generation
+        var done = false
+        let finish: () -> Void = { [weak self] in
+            guard let self, !done, gen == self.generation else { return }
+            done = true
+            onComplete?()
+        }
+        if animationView.isAnimationPlaying { animationView.stop() }
+        animationView.animationSpeed = forward ? 3.4 : 2.8
+        let range: (CGFloat, CGFloat) = forward ? (0, 90) : (90, 0)
+        animationView.play(fromFrame: range.0, toFrame: range.1, loopMode: .playOnce) { finished in
+            if finished { finish() }
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            finish()
         }
     }
 }
