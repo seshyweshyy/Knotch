@@ -9,10 +9,6 @@ import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct SendableThumbnailImage: @unchecked Sendable {
-    let cgImage: CGImage
-}
-
 /// Three-phase incoming-transfer HUD, structurally mirroring BluetoothHUDView
 /// but driven by real progress instead of a fixed timer:
 ///
@@ -145,12 +141,13 @@ struct AirDropReceiveHUD: View {
         let size = CGSize(width: 88, height: 88)
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
-            guard let representation else { return }
-            let image = SendableThumbnailImage(cgImage: representation.cgImage)
-            Task { @MainActor in
+        Task { @MainActor in
+            do {
+                let representation = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
                 guard self.fileURL == url else { return }
-                self.thumbnail = NSImage(cgImage: image.cgImage, size: size)
+                self.thumbnail = NSImage(cgImage: representation.cgImage, size: size)
+            } catch {
+                NSLog("AirDrop thumbnail generation failed for \(url.path): \(error.localizedDescription)")
             }
         }
     }

@@ -976,11 +976,12 @@ final class MusicManager: ObservableObject {
         let workspace = NSWorkspace.shared
         if let appURL = workspace.urlForApplication(withBundleIdentifier: bundleID) {
             let configuration = NSWorkspace.OpenConfiguration()
-            workspace.openApplication(at: appURL, configuration: configuration) { (app, error) in
-                if let error = error {
-                    print("Failed to launch app with bundle ID: \(bundleID), error: \(error)")
-                } else {
+            Task { @MainActor in
+                do {
+                    _ = try await workspace.openApplication(at: appURL, configuration: configuration)
                     print("Launched app with bundle ID: \(bundleID)")
+                } catch {
+                    print("Failed to launch app with bundle ID: \(bundleID), error: \(error)")
                 }
             }
         } else {

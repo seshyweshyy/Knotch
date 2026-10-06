@@ -81,18 +81,13 @@ actor ThumbnailService {
             )
             request.iconMode = true
 
-            return await withCheckedContinuation { (continuation: CheckedContinuation<NSImage?, Never>) in
-                thumbnailGenerator.generateBestRepresentation(for: request) { representation, error in
-                    if let rep = representation {
-                        NSLog("🔍 ThumbnailService: generated thumbnail for \(scopedURL.path)")
-                        continuation.resume(returning: rep.nsImage)
-                    } else {
-                        if let err = error { 
-                            NSLog("⚠️ ThumbnailService: thumbnail error for \(scopedURL.path): \(err.localizedDescription)") 
-                        }
-                        continuation.resume(returning: nil)
-                    }
-                }
+            do {
+                let representation = try await thumbnailGenerator.generateBestRepresentation(for: request)
+                NSLog("🔍 ThumbnailService: generated thumbnail for \(scopedURL.path)")
+                return representation.nsImage
+            } catch {
+                NSLog("⚠️ ThumbnailService: thumbnail error for \(scopedURL.path): \(error.localizedDescription)")
+                return nil
             }
         }
     }

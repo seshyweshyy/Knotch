@@ -89,12 +89,12 @@ final class WebcamManager: NSObject, ObservableObject {
     
     /// Requests access to the camera
     private func requestVideoAccess() {
-        AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-            Task { @MainActor in
-                self?.authorizationStatus = granted ? .authorized : .denied
-                if granted {
-                    self?.checkCameraAvailability() // Check availability if access granted
-                }
+        Task { @MainActor [weak self] in
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            guard let self else { return }
+            self.authorizationStatus = granted ? .authorized : .denied
+            if granted {
+                self.checkCameraAvailability() // Check availability if access granted
             }
         }
     }
@@ -105,12 +105,12 @@ final class WebcamManager: NSObject, ObservableObject {
     /// if status is .denied. AVFoundation simply won't show a dialog once
     /// the OS has truly decided.
     func requestVideoAccessAlways() {
-        AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-            Task { @MainActor in
-                self?.authorizationStatus = granted ? .authorized : AVCaptureDevice.authorizationStatus(for: .video)
-                if granted {
-                    self?.checkCameraAvailability()
-                }
+        Task { @MainActor [weak self] in
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            guard let self else { return }
+            self.authorizationStatus = granted ? .authorized : AVCaptureDevice.authorizationStatus(for: .video)
+            if granted {
+                self.checkCameraAvailability()
             }
         }
     }
@@ -224,19 +224,28 @@ final class WebcamManager: NSObject, ObservableObject {
         }
     }
 
-    @objc private func deviceWasDisconnected(notification: Notification) {
+    // AVFoundation posts device connection notifications on an unspecified
+    // queue. Keep the Objective-C selector nonisolated, then explicitly hop
+    // to the main actor before touching observable/UI state.
+    @objc nonisolated private func deviceWasDisconnected(notification: Notification) {
         if AudioHardwareReconfig.isLikelyBounce {
             NSLog("Camera device was disconnected — ignoring, likely a CoreAudio aggregate device bounce")
             return
         }
-        NSLog("Camera device was disconnected")
-        stopSession()
-        cameraAvailable = false
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            NSLog("Camera device was disconnected")
+            self.stopSession()
+            self.cameraAvailable = false
+        }
     }
 
-    @objc private func deviceWasConnected(notification: Notification) {
-        NSLog("Camera device was connected")
-        checkCameraAvailability()
+    @objc nonisolated private func deviceWasConnected(notification: Notification) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            NSLog("Camera device was connected")
+            self.checkCameraAvailability()
+        }
     }
 
     nonisolated private func updateSessionState() {

@@ -72,8 +72,10 @@ final class BatteryActivityManager {
     }
 
     /// Called when low power mode is enabled or disabled
-    @objc private func lowPowerModeChanged() {
-        notifyBatteryChanges()
+    @objc nonisolated private func lowPowerModeChanged() {
+        Task { @MainActor [weak self] in
+            self?.notifyBatteryChanges()
+        }
     }
     
     /// Starts monitoring battery changes
