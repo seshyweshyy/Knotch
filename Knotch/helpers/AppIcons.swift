@@ -40,7 +40,10 @@ struct AppIcons {
 // AppIcon(for:) gets called from view bodies that re-render far more often
 // than the resolved icon actually changes (e.g. every track-change tick in
 // NotchHomeView). Cache by bundle ID so repeat lookups are instant.
-private final class AppIconCache {
+// NSImage itself predates Sendable. Every cache access, including image
+// creation, is serialized by lock, so the cache provides the synchronization
+// boundary for its legacy AppKit payloads.
+private final class AppIconCache: @unchecked Sendable {
     static let shared = AppIconCache()
     private var cache: [String: NSImage] = [:]
     private let lock = NSLock()
@@ -174,7 +177,7 @@ private func pearsonCorrelation(_ a: [UInt8], _ b: [UInt8]) -> Double {
     return numerator / (denomA * denomB).squareRoot()
 }
 
-private final class AppIconFingerprintCache {
+private final class AppIconFingerprintCache: @unchecked Sendable {
     static let shared = AppIconFingerprintCache()
     // Two renders per bundle ID — white- and black-backed — since we don't know
     // which backdrop MediaRemote flattened its substituted icon onto.
@@ -212,4 +215,3 @@ func isLikelyBrowserAppIconArtwork(_ artwork: NSImage, forBundleIdentifier bundl
         .max() ?? -1
     return bestCorrelation > 0.6
 }
-

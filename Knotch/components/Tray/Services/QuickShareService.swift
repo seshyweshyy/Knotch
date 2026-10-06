@@ -16,7 +16,8 @@ struct QuickShareProvider: Identifiable, Hashable, Sendable {
     var supportsRawText: Bool
 }
 
-class QuickShareService: ObservableObject {
+@MainActor
+final class QuickShareService: ObservableObject {
     static let shared = QuickShareService()
     
     @Published var availableProviders: [QuickShareProvider] = []
@@ -266,10 +267,10 @@ private class SharingServiceDelegate: NSObject {}
     }
 
     private func resolveTrayItemBookmark(for fileURL: URL) async -> URL? {
-        let items = await TrayStateViewModel.shared.items
+        let items = TrayStateViewModel.shared.items
 
         for itm in items {
-            if let resolved = await TrayStateViewModel.shared.resolveAndUpdateBookmark(for: itm) {
+            if let resolved = TrayStateViewModel.shared.resolveAndUpdateBookmark(for: itm) {
                 if resolved.standardizedFileURL.path == fileURL.standardizedFileURL.path {
                     return resolved
                 }
@@ -277,18 +278,5 @@ private class SharingServiceDelegate: NSObject {}
         }
         print("❌ Failed to resolve bookmark for tray item")
         return nil
-    }
-}
-
-// MARK: - App Storage Extension for Provider Selection
-
-extension QuickShareProvider {
-    static var defaultProvider: QuickShareProvider {
-        let svc = QuickShareService.shared
-
-        if let airdrop = svc.availableProviders.first(where: { $0.id == "AirDrop" }) {
-            return airdrop
-        }
-        return svc.availableProviders.first ?? QuickShareProvider(id: "Share Menu", imageData: nil, supportsRawText: true)
     }
 }

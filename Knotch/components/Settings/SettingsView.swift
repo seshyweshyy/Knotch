@@ -2609,7 +2609,7 @@ struct HoverTooltipPreferenceKey: PreferenceKey {
         let text: String
         let anchor: Anchor<CGPoint>
     }
-    static var defaultValue: Request? = nil
+    static let defaultValue: Request? = nil
     static func reduce(value: inout Request?, nextValue: () -> Request?) {
         if let next = nextValue() { value = next }
     }

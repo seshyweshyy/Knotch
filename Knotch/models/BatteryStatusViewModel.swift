@@ -12,7 +12,8 @@ enum MiniWidgetBatteryMetric: String, CaseIterable, Identifiable, Defaults.Seria
 }
 
 /// A view model that manages and monitors the battery status of the device
-class BatteryStatusViewModel: ObservableObject {
+@MainActor
+final class BatteryStatusViewModel: ObservableObject {
 
     private var wasCharging: Bool = false
     private var powerSourceChangedCallback: IOPowerSourceCallbackType?
@@ -138,13 +139,6 @@ class BatteryStatusViewModel: ObservableObject {
         Task {
             try? await Task.sleep(for: .seconds(delay))
             self.coordinator.toggleExpandingView(status: true, type: .battery)
-        }
-    }
-
-    deinit {
-        print("🔌 Cleaning up battery monitoring...")
-        if let managerBatteryId: Int = managerBatteryId {
-            managerBattery.removeObserver(byId: managerBatteryId)
         }
     }
 

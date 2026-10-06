@@ -7,7 +7,8 @@
 
 import Foundation
 
-class NotchSpaceManager {
+@MainActor
+final class NotchSpaceManager {
     static let shared = NotchSpaceManager()
     let notchSpace: CGSSpace
     private var eventTap: CFMachPort?

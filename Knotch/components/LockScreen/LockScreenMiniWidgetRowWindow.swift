@@ -282,6 +282,7 @@ private final class FirstMouseMiniWidgetHostingView<Content: View>: NSHostingVie
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
+@MainActor
 final class LockScreenMiniWidgetRowWindowController {
     static let shared = LockScreenMiniWidgetRowWindowController()
 
@@ -310,7 +311,7 @@ final class LockScreenMiniWidgetRowWindowController {
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
-            DispatchQueue.main.async { self?.refresh() }
+            Task { @MainActor in self?.refresh() }
         }
         .store(in: &cancellables)
 

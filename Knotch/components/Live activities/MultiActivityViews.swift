@@ -405,7 +405,7 @@ private enum BubbleMotion {
 /// Animates the motion input itself, rather than independently interpolating
 /// the already-derived scale/offset endpoints. This is what lets the bubble's
 /// non-linear mid-flight stretch exactly match MetaballNeck's geometry.
-private struct BubbleMotionEffect: ViewModifier, Animatable {
+private struct BubbleMotionEffect: ViewModifier, @preconcurrency Animatable {
     var progress: CGFloat
     let slideDistance: CGFloat
 
@@ -650,7 +650,7 @@ private struct MetaballNeck: Shape {
 /// does when a live activity collapses to idle — blur, fade and a slight
 /// shrink — while the bubble's own shape stays opaque and simply slides
 /// back into (or out of) the attached shape.
-private struct BubbleContentReveal: ViewModifier, Animatable {
+private struct BubbleContentReveal: ViewModifier, @preconcurrency Animatable {
     var progress: CGFloat
 
     var animatableData: CGFloat {
@@ -673,7 +673,7 @@ private struct BubbleContentReveal: ViewModifier, Animatable {
 /// bubble is entirely tucked inside the attached shape, and waiting for the
 /// animation's long tail to reach exactly 0 left an empty circle lingering
 /// (and drifting with the row) after the merge was visually done.
-private struct BubbleHiddenWhenMerged: ViewModifier, Animatable {
+private struct BubbleHiddenWhenMerged: ViewModifier, @preconcurrency Animatable {
     var progress: CGFloat
 
     var animatableData: CGFloat {

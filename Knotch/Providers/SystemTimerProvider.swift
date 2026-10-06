@@ -21,11 +21,12 @@ import Foundation
 // raw file read/watch is reading stale data even right after a pause/cancel.
 // CFPreferences reads hit that same in-memory cache cfprefsd updates the
 // instant mobiletimerd writes, so it reflects state changes immediately.
+@MainActor
 final class SystemTimerProvider {
     private static let plistURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Preferences/com.apple.mobiletimerd.plist")
-    private static let domain = "com.apple.mobiletimerd" as CFString
-    private static let timersKey = "MTTimers" as CFString
+    nonisolated(unsafe) private static let domain = "com.apple.mobiletimerd" as CFString
+    nonisolated(unsafe) private static let timersKey = "MTTimers" as CFString
 
     // How often to poll as a backstop. The kqueue watcher below delivers
     // most changes instantly, but mobiletimerd replaces the plist atomically
@@ -49,21 +50,21 @@ final class SystemTimerProvider {
     private static let activePollInterval: TimeInterval = 1.0
     private static let idlePollInterval: TimeInterval = 60.0
 
-    private let onUpdate: ([KnotchTimer]) -> Void
+    private let onUpdate: @MainActor ([KnotchTimer]) -> Void
     private var fileDescriptor: CInt = -1
     private var watcher: DispatchSourceFileSystemObject?
     private var pollTimer: DispatchSourceTimer?
     private var currentPollInterval: TimeInterval?
     private var lastMirrored: [KnotchTimer]?
 
-    init(onUpdate: @escaping ([KnotchTimer]) -> Void) {
+    init(onUpdate: @escaping @MainActor ([KnotchTimer]) -> Void) {
         self.onUpdate = onUpdate
         reload()
         startWatching()
         startPolling()
     }
 
-    deinit {
+    isolated deinit {
         watcher?.cancel()
         pollTimer?.cancel()
     }
@@ -135,9 +136,7 @@ final class SystemTimerProvider {
         // Crossing between "no timers" and "some timers" is what changes the
         // backstop rate, so retune before publishing.
         applyPollInterval()
-        DispatchQueue.main.async { [onUpdate] in
-            onUpdate(mirrored)
-        }
+        onUpdate(mirrored)
     }
 
     private static func parse() -> [KnotchTimer] {

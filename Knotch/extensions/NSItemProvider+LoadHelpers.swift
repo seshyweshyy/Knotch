@@ -10,6 +10,7 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+@MainActor
 extension NSItemProvider {
     
     func extractItem() async -> URL? {

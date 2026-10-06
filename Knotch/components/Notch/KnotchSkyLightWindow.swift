@@ -11,6 +11,7 @@ import Defaults
 import Combine
 
 extension SkyLightOperator {
+    @MainActor
     func undelegateWindow(_ window: NSWindow) {
         typealias F_SLSRemoveWindowsFromSpaces = @convention(c) (Int32, CFArray, CFArray) -> Int32
 

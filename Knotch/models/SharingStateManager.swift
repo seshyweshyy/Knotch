@@ -78,7 +78,8 @@ final class SharingStateManager: ObservableObject {
 	}
 }
 
-final class SharingLifecycleDelegate: NSObject, NSSharingServiceDelegate, NSSharingServicePickerDelegate {
+@MainActor
+final class SharingLifecycleDelegate: NSObject, NSSharingServiceDelegate, @preconcurrency NSSharingServicePickerDelegate {
 	let id: UUID
 	private let onEnd: () -> Void
 	private let onBegin: () -> Void
@@ -115,7 +116,7 @@ final class SharingLifecycleDelegate: NSObject, NSSharingServiceDelegate, NSShar
 	
 	private func startTimeoutFallback() {
 		timeoutTask?.cancel()
-		timeoutTask = Task { @MainActor [weak self] in
+		timeoutTask = Task { [weak self] in
 			try? await Task.sleep(for: .seconds(2))
 			guard let self = self, !Task.isCancelled else { return }
 			if !self.finished {
@@ -164,4 +165,3 @@ final class SharingLifecycleDelegate: NSObject, NSSharingServiceDelegate, NSShar
 		finishIfNeeded()
 	}
 }
-

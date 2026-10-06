@@ -65,7 +65,7 @@ private struct MusicControlsWithVisualizer: View {
 private let audioOutputAnchorSpaceName = "audioOutputAnchorSpace"
 
 private struct AudioOutputAnchorFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
+    static let defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         let next = nextValue()
         if next != .zero {
@@ -356,7 +356,7 @@ struct AlbumArtView: View {
 }
 
 private struct LyricRowHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 

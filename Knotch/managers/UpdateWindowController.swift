@@ -13,7 +13,7 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let onWindowClosedWithoutChoice: () -> Void
     private var choiceMade = false
-    private var resizeObserver: Any?
+    nonisolated(unsafe) private var resizeObserver: Any?
 
     init(state: UpdateFlowState, onWindowClosedWithoutChoice: @escaping () -> Void) {
         self.onWindowClosedWithoutChoice = onWindowClosedWithoutChoice
@@ -42,7 +42,9 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification, object: window, queue: .main
         ) { [weak self] _ in
-            self?.positionWindow()
+            Task { @MainActor in
+                self?.positionWindow()
+            }
         }
 
         // Lighter, more see-through material than Settings' `.sidebar`.

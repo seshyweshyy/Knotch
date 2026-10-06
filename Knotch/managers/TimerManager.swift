@@ -15,6 +15,7 @@ extension Defaults.Keys {
     static let persistedTimers = Key<[KnotchTimer]>("persistedTimers", default: [])
 }
 
+@MainActor
 final class TimerManager: ObservableObject {
     static let shared = TimerManager()
 
@@ -41,18 +42,15 @@ final class TimerManager: ObservableObject {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
         systemTimerProvider = SystemTimerProvider { [weak self] mirrored in
-            withAnimation {
-                self?.systemTimers = mirrored
+            Task { @MainActor in
+                withAnimation {
+                    self?.systemTimers = mirrored
+                }
+                self?.updatePausedIdleState()
             }
-            self?.updatePausedIdleState()
         }
 
         updatePausedIdleState()
-    }
-
-    deinit {
-        tickTimer?.invalidate()
-        pauseDismissTask?.cancel()
     }
 
     var allTimers: [KnotchTimer] { timers + systemTimers }
@@ -112,9 +110,7 @@ final class TimerManager: ObservableObject {
         persist()
         updatePausedIdleState()
         if allTimers.isEmpty {
-            DispatchQueue.main.async { [weak self] in
-                self?.showTimerList = false
-            }
+            showTimerList = false
         }
     }
 
@@ -144,9 +140,7 @@ final class TimerManager: ObservableObject {
             persist()
             updatePausedIdleState()
             if allTimers.isEmpty {
-                DispatchQueue.main.async { [weak self] in
-                    self?.showTimerList = false
-                }
+                showTimerList = false
             }
         }
         // Only broadcast while a countdown is actually advancing — this is
@@ -171,7 +165,9 @@ final class TimerManager: ObservableObject {
         guard tickTimer == nil else { return }
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            self?.tick()
+            Task { @MainActor in
+                self?.tick()
+            }
         }
         timer.tolerance = 0.15
         RunLoop.main.add(timer, forMode: .common)

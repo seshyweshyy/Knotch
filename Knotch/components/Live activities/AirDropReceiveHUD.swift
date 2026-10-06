@@ -9,6 +9,10 @@ import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct SendableThumbnailImage: @unchecked Sendable {
+    let cgImage: CGImage
+}
+
 /// Three-phase incoming-transfer HUD, structurally mirroring BluetoothHUDView
 /// but driven by real progress instead of a fixed timer:
 ///
@@ -143,9 +147,10 @@ struct AirDropReceiveHUD: View {
         let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
             guard let representation else { return }
+            let image = SendableThumbnailImage(cgImage: representation.cgImage)
             Task { @MainActor in
                 guard self.fileURL == url else { return }
-                self.thumbnail = representation.nsImage
+                self.thumbnail = NSImage(cgImage: image.cgImage, size: size)
             }
         }
     }

@@ -384,7 +384,10 @@ final class LocalSendService: NSObject, ObservableObject {
             )
             guard result == 0 else { continue }
 
-            let ip = String(cString: hostBuffer)
+            let ip = String(
+                decoding: hostBuffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) },
+                as: UTF8.self
+            )
             if isValidIPv4(ip) {
                 return ip
             }
@@ -614,7 +617,7 @@ final class LocalSendService: NSObject, ObservableObject {
     }()
 }
 
-private class LocalSendTLSDelegate: NSObject, URLSessionDelegate {
+private final class LocalSendTLSDelegate: NSObject, URLSessionDelegate {
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
         if let trust = challenge.protectionSpace.serverTrust {
             return (.useCredential, URLCredential(trust: trust))

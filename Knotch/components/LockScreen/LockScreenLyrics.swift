@@ -349,6 +349,7 @@ final class LockScreenLyricsStore: ObservableObject {
 /// monitor), so line taps are resolved the same way: rows report their frames
 /// here and LiquidGlassWidgetWindowController's mouse-down monitor asks
 /// `handleClick` before AppKit dispatches the event.
+@MainActor
 final class LyricsHitRegions {
     static let shared = LyricsHitRegions()
 
@@ -373,7 +374,7 @@ final class LyricsHitRegions {
 }
 
 private struct LineFramesKey: PreferenceKey {
-    static var defaultValue: [Int: CGRect] = [:]
+    static let defaultValue: [Int: CGRect] = [:]
     static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
         value.merge(nextValue()) { $1 }
     }
@@ -481,7 +482,7 @@ struct LockScreenLyricsView: View {
     }
 }
 
-private struct LyricsScrollContent: View, Equatable {
+private struct LyricsScrollContent: View, @preconcurrency Equatable {
     let lyrics: SyncedLyrics
     let activeIndex: Int?
     let fontSize: CGFloat

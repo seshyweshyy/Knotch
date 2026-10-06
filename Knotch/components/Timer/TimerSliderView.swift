@@ -268,7 +268,7 @@ private extension Color {
 /// mirroring the monitor pattern used in extensions/PanGesture.swift.
 private struct RulerScrollCapture: NSViewRepresentable {
     /// (deltaX, isEnded)
-    let onScroll: (CGFloat, Bool) -> Void
+    let onScroll: @MainActor @Sendable (CGFloat, Bool) -> Void
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -281,11 +281,12 @@ private struct RulerScrollCapture: NSViewRepresentable {
     }
     func makeCoordinator() -> Coordinator { Coordinator(onScroll: onScroll) }
 
+    @MainActor
     final class Coordinator: NSObject {
-        private let onScroll: (CGFloat, Bool) -> Void
+        private let onScroll: @MainActor (CGFloat, Bool) -> Void
         private var monitor: Any?
 
-        init(onScroll: @escaping (CGFloat, Bool) -> Void) {
+        init(onScroll: @escaping @MainActor @Sendable (CGFloat, Bool) -> Void) {
             self.onScroll = onScroll
         }
 

@@ -15,7 +15,7 @@ struct TabModel: Identifiable {
     let view: NotchViews
 }
 
-let tabs = [
+@MainActor let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
     TabModel(label: "Tray", icon: "tray.fill", view: .tray)
 ]

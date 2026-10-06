@@ -87,10 +87,8 @@ final class TrayStateViewModel: ObservableObject {
         isLoading = true
         Task { [weak self] in
             let dropped = await TrayDropService.items(from: providers)
-            await MainActor.run {
-                self?.add(dropped)
-                self?.isLoading = false
-            }
+            self?.add(dropped)
+            self?.isLoading = false
         }
     }
 

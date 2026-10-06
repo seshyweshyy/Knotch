@@ -46,12 +46,6 @@ final class NSScreenUUIDCache {
         setupObserver()
     }
     
-    deinit {
-        if let observer = observer {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-    
     private func setupObserver() {
         observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,

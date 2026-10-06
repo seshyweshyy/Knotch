@@ -7,29 +7,33 @@
 
 import Cocoa
 
-class ShareServiceFinder: NSObject, NSSharingServicePickerDelegate {
+@MainActor
+final class ShareServiceFinder: NSObject, @preconcurrency NSSharingServicePickerDelegate {
 
-    @MainActor
+    /// AppKit sharing services are main-thread objects but predate Sendable.
+    /// This value never leaves MainActor; the box only bridges the checked
+    /// continuation's generic `sending` requirement.
+    private struct ServiceList: @unchecked Sendable {
+        let services: [NSSharingService]
+    }
+
     private var onServicesCaptured: (([NSSharingService]) -> Void)?
 
     /// Returns share services asynchronously without blocking the UI
-    @MainActor
     func findApplicableServices(for items: [Any], timeout: TimeInterval = 2.0) async -> [NSSharingService] {
 
         let dummyView = NSView(frame: .zero)
         let picker = NSSharingServicePicker(items: items)
         picker.delegate = self
 
-        return await withCheckedContinuation { continuation in
+        let result: ServiceList = await withCheckedContinuation { continuation in
             var didResume = false
 
             // Capture services callback
-            Task { @MainActor in
-                self.onServicesCaptured = { services in
-                    guard !didResume else { return }
-                    didResume = true
-                    continuation.resume(returning: services)
-                }
+            onServicesCaptured = { services in
+                guard !didResume else { return }
+                didResume = true
+                continuation.resume(returning: ServiceList(services: services))
             }
 
             picker.show(relativeTo: dummyView.bounds, of: dummyView, preferredEdge: .minY)
@@ -41,9 +45,10 @@ class ShareServiceFinder: NSObject, NSSharingServicePickerDelegate {
                 guard !didResume else { return }
                 didResume = true
                 print("Warning: timed out waiting for sharing services")
-                continuation.resume(returning: [])
+                continuation.resume(returning: ServiceList(services: []))
             }
         }
+        return result.services
     }
 
     // MARK: NSSharingServicePickerDelegate
@@ -51,9 +56,7 @@ class ShareServiceFinder: NSObject, NSSharingServicePickerDelegate {
     func sharingServicePicker(_ picker: NSSharingServicePicker,
                               sharingServicesForItems items: [Any],
                               proposedSharingServices proposed: [NSSharingService]) -> [NSSharingService] {
-        Task { @MainActor in
-            self.onServicesCaptured?(proposed)
-        }
+        onServicesCaptured?(proposed)
         return proposed
     }
 }

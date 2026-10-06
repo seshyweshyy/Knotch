@@ -21,7 +21,8 @@ enum CompactPage: Equatable {
     case converter
 }
 
-class KnotchViewModel: NSObject, ObservableObject {
+@MainActor
+final class KnotchViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var detector = FullscreenMediaDetector.shared
 
@@ -298,7 +299,7 @@ class KnotchViewModel: NSObject, ObservableObject {
         )
     }
     
-    deinit {
+    isolated deinit {
         destroy()
     }
 

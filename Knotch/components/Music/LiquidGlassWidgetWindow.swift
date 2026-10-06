@@ -19,6 +19,7 @@ import AlbumArtBackgroundWindow
 /// Tracks the album art thumbnail's current on-screen frame so a window-level
 /// event monitor can detect taps directly, bypassing AppKit's normal view
 /// hit-testing/dispatch entirely.
+@MainActor
 final class AlbumArtHitRegion {
     static let shared = AlbumArtHitRegion()
     /// Frame in the SwiftUI top-left-origin coordinate space of the widget root.
@@ -281,7 +282,8 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-class LiquidGlassWidgetWindowController {
+@MainActor
+final class LiquidGlassWidgetWindowController {
     static let shared = LiquidGlassWidgetWindowController()
     private var window: LiquidGlassWidgetWindow?
     private var clickMonitor: Any?

@@ -15,6 +15,7 @@ import SwiftUI
 /// mini-widget preview card below, the same source NotchStylePreview uses
 /// for the notch appearance cards (NSWorkspace.desktopImageURL), just cached
 /// once instead of per-card since several cards render at once here.
+@MainActor
 private final class MiniWidgetPreviewWallpaper: ObservableObject {
     static let shared = MiniWidgetPreviewWallpaper()
     @Published private(set) var image: NSImage?

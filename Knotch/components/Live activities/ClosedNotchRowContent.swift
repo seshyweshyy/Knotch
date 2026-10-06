@@ -38,6 +38,7 @@ enum ClosedRowFamily: Equatable {
 /// `ClosedNotchRowContent`'s own visible frame, so the two can't drift apart,
 /// and so the collapse always has a real, continuous width to blend from/to
 /// instead of snapping straight from one family's width to another's.
+@MainActor
 func restingRowWidth(
     for family: ClosedRowFamily,
     sneakPeekType: SneakContentType,

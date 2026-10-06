@@ -9,13 +9,14 @@ import Foundation
 import AppKit
 import UniformTypeIdentifiers
 
-enum TempFileType {
+enum TempFileType: Sendable {
     case data(Data, suggestedName: String?)
     case text(String)
     case url(URL)
 }
 
-class TemporaryFileStorageService {
+/// Stateless; every operation uses method-local URLs/processes only.
+final class TemporaryFileStorageService: Sendable {
     static let shared = TemporaryFileStorageService()
     
     // MARK: - Public Interface

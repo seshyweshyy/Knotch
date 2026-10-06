@@ -2,8 +2,9 @@ import Foundation
 import Cocoa
 @preconcurrency import AsyncXPCConnection
 
-final class XPCHelperClient: NSObject, @unchecked Sendable {
-    nonisolated static let shared = XPCHelperClient()
+@MainActor
+final class XPCHelperClient: NSObject {
+    static let shared = XPCHelperClient()
     
     private let serviceName = "seshyweshyy.Knotch.KnotchXPCHelper"
     
@@ -12,14 +13,8 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     private var lastKnownAuthorization: Bool?
     private var monitoringTask: Task<Void, Never>?
     
-    deinit {
-        connection?.invalidate()
-        stopMonitoringAccessibilityAuthorization()
-    }
+    // MARK: - Connection Management
     
-    // MARK: - Connection Management (Main Actor Isolated)
-    
-    @MainActor
     private func ensureRemoteService() -> RemoteXPCService<KnotchXPCHelperProtocol> {
         if let existing = remoteService {
             return existing
@@ -53,12 +48,10 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         return service
     }
     
-    @MainActor
     private func getRemoteService() -> RemoteXPCService<KnotchXPCHelperProtocol>? {
         remoteService
     }
     
-    @MainActor
     private func notifyAuthorizationChange(_ granted: Bool) {
         guard lastKnownAuthorization != granted else { return }
         lastKnownAuthorization = granted
@@ -70,10 +63,10 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     }
 
     // MARK: - Monitoring
-    nonisolated func startMonitoringAccessibilityAuthorization(every interval: TimeInterval = 3.0) {
+    func startMonitoringAccessibilityAuthorization(every interval: TimeInterval = 3.0) {
         // Ensure only one monitor exists
         stopMonitoringAccessibilityAuthorization()
-        monitoringTask = Task.detached { [weak self] in
+        monitoringTask = Task { [weak self] in
             guard let self = self else { return }
             while !Task.isCancelled {
                 // Call the helper method periodically which will notify on change
@@ -85,7 +78,7 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         }
     }
 
-    nonisolated func stopMonitoringAccessibilityAuthorization() {
+    func stopMonitoringAccessibilityAuthorization() {
         monitoringTask?.cancel()
         monitoringTask = nil
     }
@@ -97,49 +90,39 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     
     // MARK: - Accessibility
     
-    nonisolated func requestAccessibilityAuthorization() {
+    func requestAccessibilityAuthorization() {
         Task {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             try? await service.withService { service in
                 service.requestAccessibilityAuthorization()
             }
         }
     }
     
-    nonisolated func isAccessibilityAuthorized() async -> Bool {
+    func isAccessibilityAuthorized() async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             let result: Bool = try await service.withContinuation { service, continuation in
                 service.isAccessibilityAuthorized { authorized in
                     continuation.resume(returning: authorized)
                 }
             }
-            await MainActor.run {
-                notifyAuthorizationChange(result)
-            }
+            notifyAuthorizationChange(result)
             return result
         } catch {
             return false
         }
     }
     
-    nonisolated func ensureAccessibilityAuthorization(promptIfNeeded: Bool) async -> Bool {
+    func ensureAccessibilityAuthorization(promptIfNeeded: Bool) async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             let result: Bool = try await service.withContinuation { service, continuation in
                 service.ensureAccessibilityAuthorization(promptIfNeeded) { authorized in
                     continuation.resume(returning: authorized)
                 }
             }
-            await MainActor.run {
-                notifyAuthorizationChange(result)
-            }
+            notifyAuthorizationChange(result)
             return result
         } catch {
             return false
@@ -148,11 +131,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     
     // MARK: - Keyboard Brightness
     
-    nonisolated func isKeyboardBrightnessAvailable() async -> Bool {
+    func isKeyboardBrightnessAvailable() async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             return try await service.withContinuation { service, continuation in
                 service.isKeyboardBrightnessAvailable { available in
                     continuation.resume(returning: available)
@@ -163,11 +144,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         }
     }
     
-    nonisolated func currentKeyboardBrightness() async -> Float? {
+    func currentKeyboardBrightness() async -> Float? {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             let result: NSNumber? = try await service.withContinuation { service, continuation in
                 service.currentKeyboardBrightness { value in
                     continuation.resume(returning: value)
@@ -179,11 +158,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         }
     }
     
-    nonisolated func setKeyboardBrightness(_ value: Float) async -> Bool {
+    func setKeyboardBrightness(_ value: Float) async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             return try await service.withContinuation { service, continuation in
                 service.setKeyboardBrightness(value) { success in
                     continuation.resume(returning: success)
@@ -196,11 +173,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     
     // MARK: - Screen Brightness
     
-    nonisolated func isScreenBrightnessAvailable() async -> Bool {
+    func isScreenBrightnessAvailable() async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             return try await service.withContinuation { service, continuation in
                 service.isScreenBrightnessAvailable { available in
                     continuation.resume(returning: available)
@@ -211,11 +186,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         }
     }
     
-    nonisolated func currentScreenBrightness() async -> Float? {
+    func currentScreenBrightness() async -> Float? {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             let result: NSNumber? = try await service.withContinuation { service, continuation in
                 service.currentScreenBrightness { value in
                     continuation.resume(returning: value)
@@ -227,11 +200,9 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         }
     }
     
-    nonisolated func setScreenBrightness(_ value: Float) async -> Bool {
+    func setScreenBrightness(_ value: Float) async -> Bool {
         do {
-            let service = await MainActor.run {
-                ensureRemoteService()
-            }
+            let service = ensureRemoteService()
             return try await service.withContinuation { service, continuation in
                 service.setScreenBrightness(value) { success in
                     continuation.resume(returning: success)
@@ -246,5 +217,3 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
 extension Notification.Name {
     static let accessibilityAuthorizationChanged = Notification.Name("accessibilityAuthorizationChanged")
 }
-
-

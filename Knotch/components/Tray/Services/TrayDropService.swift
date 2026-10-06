@@ -9,6 +9,7 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+@MainActor
 struct TrayDropService {
     static func items(from providers: [NSItemProvider]) async -> [TrayItem] {
         var results: [TrayItem] = []
@@ -25,7 +26,7 @@ struct TrayDropService {
     private static func processProvider(_ provider: NSItemProvider) async -> TrayItem? {
         if let actualFileURL = await provider.extractFileURL() {
             if let bookmark = createBookmark(for: actualFileURL) {
-                return await TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                return TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
             }
             return nil
         }
@@ -33,29 +34,29 @@ struct TrayDropService {
         if let url = await provider.extractURL() {
             if url.isFileURL {
                 if let bookmark = createBookmark(for: url) {
-                    return await TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                    return TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
                 }
             } else {
-                return await TrayItem(kind: .link(url: url), isTemporary: false)
+                return TrayItem(kind: .link(url: url), isTemporary: false)
             }
             return nil
         }
         
         if let text = await provider.extractText() {
-            return await TrayItem(kind: .text(string: text), isTemporary: false)
+            return TrayItem(kind: .text(string: text), isTemporary: false)
         }
         
         if let data = await provider.loadData() {
             if let tempDataURL = await TemporaryFileStorageService.shared.createTempFile(for: .data(data, suggestedName: provider.suggestedName)),
                let bookmark = createBookmark(for: tempDataURL) {
-                return await TrayItem(kind: .file(bookmark: bookmark), isTemporary: true)
+                return TrayItem(kind: .file(bookmark: bookmark), isTemporary: true)
             }
             return nil
         }
         
         if let fileURL = await provider.extractItem() {
             if let bookmark = createBookmark(for: fileURL) {
-                return await TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                return TrayItem(kind: .file(bookmark: bookmark), isTemporary: false)
             }
         }
         
@@ -66,4 +67,3 @@ struct TrayDropService {
         return (try? Bookmark(url: url))?.data
     }
 }
-

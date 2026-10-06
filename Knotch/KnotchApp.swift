@@ -51,7 +51,8 @@ struct KnotchApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var updater: SPUUpdater?
     var windows: [String: NSWindow] = [:] // UUID -> NSWindow
@@ -134,7 +135,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let lockAnimationHost = LockAnimationHost()
 
     @MainActor
-    func onScreenLocked(_ notification: Notification) {
+    func onScreenLocked() {
         isScreenLocked = true
         closeOpenNotches()
         broadcastLockState(true)
@@ -146,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         lockAnimationHost.play(forward: false)
     }
     @MainActor
-    func onScreenUnlocked(_ notification: Notification) {
+    func onScreenUnlocked() {
         isScreenLocked = false
         broadcastLockState(false)
         disableSkyLightOnAllWindows()
@@ -433,7 +434,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         window.orderFrontRegardless()
-        (window as? KnotchSkyLightWindow)?.refreshGlassBackdrop()
+        window.refreshGlassBackdrop()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
 
         // Observe when the window's screen changes so we can update drag detectors
@@ -495,8 +496,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             forName: Notification.Name.automaticallySwitchDisplayChanged, object: nil, queue: nil
         ) { [weak self] _ in
-            guard let self = self, let window = self.window else { return }
             Task { @MainActor in
+                guard let self, let window = self.window else { return }
                 window.alphaValue = self.coordinator.selectedScreenUUID == self.coordinator.preferredScreenUUID ? 1 : 0
             }
         }
@@ -532,17 +533,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Use closure-based observers for DistributedNotificationCenter and keep tokens for removal
         screenLockedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(rawValue: "com.apple.screenIsLocked"),
-            object: nil, queue: .main) { [weak self] notification in
+            object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    self?.onScreenLocked(notification)
+                    self?.onScreenLocked()
                 }
         }
 
         screenUnlockedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(rawValue: "com.apple.screenIsUnlocked"),
-            object: nil, queue: .main) { [weak self] notification in
+            object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    self?.onScreenUnlocked(notification)
+                    self?.onScreenUnlocked()
                 }
         }
         

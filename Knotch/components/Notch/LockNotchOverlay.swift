@@ -10,6 +10,7 @@
 import SwiftUI
 import Lottie
 
+@MainActor
 final class LockAnimationHost: ObservableObject {
     let animationView: LottieAnimationView = {
         let v = LottieAnimationView(name: "lock-unlock")

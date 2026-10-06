@@ -143,6 +143,7 @@ enum AudioSpectrum {
 /// One coalesced animation heartbeat shared by every mounted spectrum. The
 /// notch can show the same visualizer in several surfaces at once; previously
 /// each copy owned its own 30 Hz timer.
+@MainActor
 final class MusicVisualizerClock: ObservableObject {
     static let shared = MusicVisualizerClock()
 
@@ -157,17 +158,12 @@ final class MusicVisualizerClock: ObservableObject {
         let center = NotificationCenter.default
         notificationTokens = [
             center.addObserver(forName: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in
-                self?.refreshCadence()
+                Task { @MainActor in self?.refreshCadence() }
             },
             center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-                self?.refreshCadence()
+                Task { @MainActor in self?.refreshCadence() }
             },
         ]
-    }
-
-    deinit {
-        timer?.invalidate()
-        notificationTokens.forEach(NotificationCenter.default.removeObserver)
     }
 
     func acquire(_ id: UUID) {
@@ -197,7 +193,7 @@ final class MusicVisualizerClock: ObservableObject {
         let framesPerSecond = isEnergyConstrained ? 15.0 : 30.0
         let interval = 1.0 / framesPerSecond
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            self?.time += interval
+            Task { @MainActor in self?.time += interval }
         }
         timer.tolerance = interval * 0.1
         RunLoop.main.add(timer, forMode: .common)

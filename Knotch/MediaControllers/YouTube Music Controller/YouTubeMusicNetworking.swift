@@ -8,11 +8,9 @@
 import Foundation
 
 // MARK: - HTTP Client
-final class YouTubeMusicHTTPClient: ObservableObject {
+final class YouTubeMusicHTTPClient: Sendable {
     private let session: URLSession
     private let baseURL: String
-    private static let decoder = JSONDecoder()
-    private static let encoder = JSONEncoder()
     
     init(baseURL: String) {
         self.baseURL = baseURL
@@ -38,7 +36,7 @@ final class YouTubeMusicHTTPClient: ObservableObject {
         let (data, response) = try await session.data(for: request)
         try validateResponse(response)
 
-        let authResponse: AuthResponse = try Self.decoder.decode(AuthResponse.self, from: data)
+        let authResponse: AuthResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
         return authResponse.accessToken
     }
     
@@ -49,7 +47,7 @@ final class YouTubeMusicHTTPClient: ObservableObject {
             method: "GET",
             token: token
         )
-        return try Self.decoder.decode(PlaybackResponse.self, from: data)
+        return try JSONDecoder().decode(PlaybackResponse.self, from: data)
     }
 
     // MARK: - Like / Favourites
@@ -60,7 +58,7 @@ final class YouTubeMusicHTTPClient: ObservableObject {
 
     func getLikeState(token: String) async throws -> LikeStateResponse {
         let data = try await sendCommand(endpoint: "/like-state", method: "GET", token: token)
-        return try Self.decoder.decode(LikeStateResponse.self, from: data)
+        return try JSONDecoder().decode(LikeStateResponse.self, from: data)
     }
 
     func toggleLike(token: String) async throws -> Data {
@@ -107,7 +105,7 @@ final class YouTubeMusicHTTPClient: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         if let body = body {
-            request.httpBody = try Self.encoder.encode(body)
+            request.httpBody = try JSONEncoder().encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         

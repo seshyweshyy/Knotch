@@ -326,11 +326,6 @@ private enum FileConverterProcessRunner {
     }
 }
 
-private final class FileConverterExportSessionBox: @unchecked Sendable {
-    let session: AVAssetExportSession
-    init(_ session: AVAssetExportSession) { self.session = session }
-}
-
 @MainActor
 final class FileConverterViewModel: ObservableObject {
     static let shared = FileConverterViewModel()
@@ -532,26 +527,8 @@ final class FileConverterViewModel: ObservableObject {
             throw NSError(domain: "Knotch.FileConverter", code: 9, userInfo: [NSLocalizedDescriptionKey: "\(format.title) is not available for this file."])
         }
 
-        exportSession.outputURL = outputURL
-        exportSession.outputFileType = outputFileType
         exportSession.shouldOptimizeForNetworkUse = true
-
-        let exportSessionBox = FileConverterExportSessionBox(exportSession)
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            exportSession.exportAsynchronously {
-                let exportSession = exportSessionBox.session
-                switch exportSession.status {
-                case .completed:
-                    continuation.resume(returning: ())
-                case .failed:
-                    continuation.resume(throwing: exportSession.error ?? NSError(domain: "Knotch.FileConverter", code: 10, userInfo: [NSLocalizedDescriptionKey: "Could not export this media file."]))
-                case .cancelled:
-                    continuation.resume(throwing: CancellationError())
-                default:
-                    continuation.resume(throwing: NSError(domain: "Knotch.FileConverter", code: 11, userInfo: [NSLocalizedDescriptionKey: "Media export finished in an unknown state."]))
-                }
-            }
-        }
+        try await exportSession.export(to: outputURL, as: outputFileType)
 
         return outputURL
     }

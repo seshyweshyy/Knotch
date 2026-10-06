@@ -19,8 +19,8 @@ import os
 /// bounces we caused ourselves, rather than a real unplug.
 enum AudioHardwareReconfig {
     private static let lock = NSLock()
-    private static var _isLikelyBounce = false
-    private static var resetWorkItem: DispatchWorkItem?
+    nonisolated(unsafe) private static var _isLikelyBounce = false
+    nonisolated(unsafe) private static var resetWorkItem: DispatchWorkItem?
 
     static var isLikelyBounce: Bool {
         lock.lock(); defer { lock.unlock() }
@@ -30,15 +30,15 @@ enum AudioHardwareReconfig {
     static func markPending(for duration: TimeInterval = 1.5) {
         lock.lock()
         _isLikelyBounce = true
-        lock.unlock()
-
         resetWorkItem?.cancel()
         let work = DispatchWorkItem {
             lock.lock()
             _isLikelyBounce = false
+            resetWorkItem = nil
             lock.unlock()
         }
         resetWorkItem = work
+        lock.unlock()
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 }
@@ -198,7 +198,7 @@ private final class FFTProcessor {
 }
 
 @available(macOS 14.2, *)
-final class LiveAudioMeter {
+final class LiveAudioMeter: @unchecked Sendable {
     static let shared = LiveAudioMeter()
 
     // Number of amplitude values published (matches AudioSpectrum bar count)

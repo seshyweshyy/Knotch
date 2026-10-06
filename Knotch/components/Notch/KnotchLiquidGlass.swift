@@ -24,7 +24,7 @@ enum KnotchSystemGlassTint {
     }
 }
 
-struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
+struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
     enum GlassShape {
         case notch(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat)
         case capsule
@@ -218,6 +218,7 @@ struct KnotchLiquidGlass: NSViewRepresentable, Animatable {
         view.setValue(contentLensing, forKey: "_contentLensing")
     }
 
+    @MainActor
     final class Coordinator: NSObject {
         weak var glassView: NSView?
         var shape: GlassShape = .capsule
@@ -402,6 +403,7 @@ struct KnotchLiquidGlassContainer<Content: View>: NSViewRepresentable {
         KnotchLiquidGlass.dismantleGlassView(nsView, coordinator: coordinator.glassCoordinator)
     }
 
+    @MainActor
     final class Coordinator {
         let glassCoordinator: KnotchLiquidGlass.Coordinator
         var hostingView: NSHostingView<Content>?

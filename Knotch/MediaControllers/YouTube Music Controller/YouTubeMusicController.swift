@@ -10,7 +10,7 @@ import Foundation
 import Combine
 import SwiftUI
 
-final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable {
+final class YouTubeMusicController: MediaControllerProtocol {
     // MARK: - Published Properties
     @Published var playbackState = PlaybackState(
         bundleIdentifier: YouTubeMusicConfiguration.default.bundleIdentifier
@@ -100,7 +100,7 @@ final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable
     func toggleShuffle() async { await sendCommand(endpoint: "/shuffle", method: "POST") }
     func toggleRepeat() async { await sendCommand(endpoint: "/switch-repeat", method: "POST") }
 
-    nonisolated func isActive() -> Bool {
+    func isActive() -> Bool {
         NSWorkspace.shared.runningApplications.contains {
             $0.bundleIdentifier == configuration.bundleIdentifier
         }
@@ -146,6 +146,7 @@ final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable
     
     // MARK: - Private Methods
     private func setupAppStateObserver() {
+        let targetBundleIdentifier = configuration.bundleIdentifier
         appStateObserver = Task { [weak self] in
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {
@@ -154,7 +155,9 @@ final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable
                     )
                     
                     for await notification in launchNotifications {
-                        await self?.handleAppLaunched(notification)
+                        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                              app.bundleIdentifier == targetBundleIdentifier else { continue }
+                        await self?.handleAppLaunched()
                     }
                 }
                 
@@ -164,32 +167,22 @@ final class YouTubeMusicController: MediaControllerProtocol, @unchecked Sendable
                     )
                     
                     for await notification in terminateNotifications {
-                        await self?.handleAppTerminated(notification)
+                        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                              app.bundleIdentifier == targetBundleIdentifier else { continue }
+                        await self?.handleAppTerminated()
                     }
                 }
             }
         }
     }
     
-    private func handleAppLaunched(_ notification: Notification) async {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == configuration.bundleIdentifier else {
-            return
-        }
-        
+    private func handleAppLaunched() async {
         await initializeIfAppActive()
     }
     
-    private func handleAppTerminated(_ notification: Notification) async {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == configuration.bundleIdentifier else {
-            return
-        }
-        
-        Task { @MainActor in
-            stopPeriodicUpdates()
-            appStateObserver?.cancel()
-        }
+    private func handleAppTerminated() async {
+        stopPeriodicUpdates()
+        appStateObserver?.cancel()
         
         Task {
             await webSocketClient?.disconnect()

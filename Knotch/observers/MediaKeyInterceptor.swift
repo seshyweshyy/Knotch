@@ -12,6 +12,7 @@ import AVFoundation
 
 private let kSystemDefinedEventType = CGEventType(rawValue: 14)!
 
+@MainActor
 final class MediaKeyInterceptor {
     static let shared = MediaKeyInterceptor()
     

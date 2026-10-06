@@ -7,7 +7,7 @@ import AppKit
 import CoreAudio
 import Foundation
 
-struct AudioOutputDevice: Identifiable, Equatable {
+struct AudioOutputDevice: Identifiable, Equatable, Sendable {
     let id: AudioDeviceID
     let name: String
     let transportType: UInt32
@@ -85,6 +85,7 @@ struct AudioOutputDevice: Identifiable, Equatable {
     }()
 }
 
+@MainActor
 final class AudioRouteManager: ObservableObject {
     static let shared = AudioRouteManager()
 
@@ -115,15 +116,15 @@ final class AudioRouteManager: ObservableObject {
 
     func refreshDevices() {
         queue.async { [weak self] in
-            guard let self else { return }
-            let defaultID = self.fetchDefaultOutputDevice()
-            let infos = self.fetchOutputDeviceIDs().compactMap(self.makeDeviceInfo)
+            let defaultID = Self.fetchDefaultOutputDevice()
+            let infos = Self.fetchOutputDeviceIDs().compactMap(Self.makeDeviceInfo)
             let sorted = infos.sorted {
                 if $0.id == defaultID { return true }
                 if $1.id == defaultID { return false }
                 return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 self.activeDeviceID = defaultID
                 self.devices = sorted
             }
@@ -132,13 +133,17 @@ final class AudioRouteManager: ObservableObject {
 
     func select(device: AudioOutputDevice) {
         queue.async { [weak self] in
-            self?.setDefaultOutputDevice(device.id)
+            guard Self.setDefaultOutputDevice(device.id) else { return }
+            Task { @MainActor [weak self] in
+                self?.activeDeviceID = device.id
+                self?.refreshDevices()
+            }
         }
     }
 
     // MARK: - Private
 
-    private func fetchDefaultOutputDevice() -> AudioDeviceID {
+    nonisolated private static func fetchDefaultOutputDevice() -> AudioDeviceID {
         var deviceID = AudioDeviceID()
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         var address = AudioObjectPropertyAddress(
@@ -150,7 +155,7 @@ final class AudioRouteManager: ObservableObject {
         return status == noErr ? deviceID : 0
     }
 
-    private func fetchOutputDeviceIDs() -> [AudioDeviceID] {
+    nonisolated private static func fetchOutputDeviceIDs() -> [AudioDeviceID] {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -164,14 +169,14 @@ final class AudioRouteManager: ObservableObject {
         return ids
     }
 
-    private func makeDeviceInfo(for deviceID: AudioDeviceID) -> AudioOutputDevice? {
+    nonisolated private static func makeDeviceInfo(for deviceID: AudioDeviceID) -> AudioOutputDevice? {
         guard deviceHasOutputChannels(deviceID) else { return nil }
         guard let name = deviceName(for: deviceID) else { return nil }
         let transport = transportType(for: deviceID)
         return AudioOutputDevice(id: deviceID, name: name, transportType: transport)
     }
 
-    private func deviceHasOutputChannels(_ deviceID: AudioDeviceID) -> Bool {
+    nonisolated private static func deviceHasOutputChannels(_ deviceID: AudioDeviceID) -> Bool {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyStreamConfiguration,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -186,7 +191,7 @@ final class AudioRouteManager: ObservableObject {
         return list.reduce(0) { $0 + Int($1.mNumberChannels) } > 0
     }
 
-    private func deviceName(for deviceID: AudioDeviceID) -> String? {
+    nonisolated private static func deviceName(for deviceID: AudioDeviceID) -> String? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioObjectPropertyName,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -201,7 +206,7 @@ final class AudioRouteManager: ObservableObject {
         return cfName as String
     }
 
-    private func transportType(for deviceID: AudioDeviceID) -> UInt32 {
+    nonisolated private static func transportType(for deviceID: AudioDeviceID) -> UInt32 {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyTransportType,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -213,7 +218,7 @@ final class AudioRouteManager: ObservableObject {
         return type
     }
 
-    private func setDefaultOutputDevice(_ deviceID: AudioDeviceID) {
+    nonisolated private static func setDefaultOutputDevice(_ deviceID: AudioDeviceID) -> Bool {
         var target = deviceID
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
@@ -221,11 +226,6 @@ final class AudioRouteManager: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         let status = AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &target)
-        if status == noErr {
-            DispatchQueue.main.async { [weak self] in
-                self?.activeDeviceID = deviceID
-            }
-            refreshDevices()
-        }
+        return status == noErr
     }
 }

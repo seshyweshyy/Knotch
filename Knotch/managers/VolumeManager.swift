@@ -10,6 +10,7 @@ import Combine
 import CoreAudio
 import Foundation
 
+@MainActor
 final class VolumeManager: NSObject, ObservableObject {
     static let shared = VolumeManager()
 
@@ -34,7 +35,7 @@ final class VolumeManager: NSObject, ObservableObject {
     var shouldShowOverlay: Bool { Date().timeIntervalSince(lastChangeAt) < visibleDuration }
 
     // MARK: - Public Control API
-    @MainActor func increase(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
+    func increase(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
         let divisor = max(stepDivisor, 0.25)
         let delta = step / Float32(divisor)
         let current = readVolumeInternal() ?? rawVolume
@@ -43,7 +44,7 @@ final class VolumeManager: NSObject, ObservableObject {
         KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target), isRepeat: isKeyRepeat)
     }
 
-    @MainActor func decrease(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
+    func decrease(stepDivisor: Float = 1.0, isKeyRepeat: Bool = false) {
         let divisor = max(stepDivisor, 0.25)
         let delta = step / Float32(divisor)
         let current = readVolumeInternal() ?? rawVolume
@@ -52,7 +53,7 @@ final class VolumeManager: NSObject, ObservableObject {
         KnotchViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target), isRepeat: isKeyRepeat)
     }
 
-    @MainActor func toggleMuteAction() {
+    func toggleMuteAction() {
         // Determine expected resulting state immediately and show HUD with that value
         let deviceID = systemOutputDeviceID()
         var willBeMuted = false
@@ -84,7 +85,7 @@ final class VolumeManager: NSObject, ObservableObject {
         publish(volume: target, muted: isMutedInternal(), touchDate: true)
     }
 
-    @MainActor func setAbsolute(_ value: Float32) {
+    func setAbsolute(_ value: Float32) {
         let clamped = max(0, min(1, value))
         let currentlyMuted = isMutedInternal()
         if currentlyMuted && clamped > 0 {
@@ -133,16 +134,13 @@ final class VolumeManager: NSObject, ObservableObject {
         }
         if !volumes.isEmpty {
             let avg = max(0, min(1, volumes.reduce(0, +) / Float32(volumes.count)))
-            DispatchQueue.main.async {
-                if self.rawVolume != avg {  
-                    if self.didInitialFetch {
-                        self.lastChangeAt = Date()
-                    }
+            if rawVolume != avg {
+                if didInitialFetch {
+                    lastChangeAt = Date()
                 }
-                self.rawVolume = avg
-                self.didInitialFetch = true
-
             }
+            rawVolume = avg
+            didInitialFetch = true
         }
 
         var muteAddr = AudioObjectPropertyAddress(
@@ -160,10 +158,8 @@ final class VolumeManager: NSObject, ObservableObject {
                 if AudioObjectGetPropertyData(deviceID, &muteAddr, 0, nil, &mSize, &muted) == noErr
                 {
                     let newMuted = muted != 0
-                    DispatchQueue.main.async {
-                        if self.isMuted != newMuted { self.lastChangeAt = Date() }
-                        self.isMuted = newMuted
-                    }
+                    if isMuted != newMuted { lastChangeAt = Date() }
+                    isMuted = newMuted
                 }
             }
         }
@@ -180,8 +176,8 @@ final class VolumeManager: NSObject, ObservableObject {
         )
         AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject), &defaultDevAddr, nil
-        ) { _, _ in
-            self.fetchCurrentVolume()
+        ) { [weak self] _, _ in
+            Task { @MainActor in self?.fetchCurrentVolume() }
         }
 
         var masterAddr = AudioObjectPropertyAddress(
@@ -190,8 +186,8 @@ final class VolumeManager: NSObject, ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         if AudioObjectHasProperty(deviceID, &masterAddr) {
-            AudioObjectAddPropertyListenerBlock(deviceID, &masterAddr, nil) { _, _ in
-                self.fetchCurrentVolume()
+            AudioObjectAddPropertyListenerBlock(deviceID, &masterAddr, nil) { [weak self] _, _ in
+                Task { @MainActor in self?.fetchCurrentVolume() }
             }
         } else {
             for ch in [UInt32(1), UInt32(2)] {
@@ -201,8 +197,8 @@ final class VolumeManager: NSObject, ObservableObject {
                     mElement: ch
                 )
                 if AudioObjectHasProperty(deviceID, &chAddr) {
-                    AudioObjectAddPropertyListenerBlock(deviceID, &chAddr, nil) { _, _ in
-                        self.fetchCurrentVolume()
+                    AudioObjectAddPropertyListenerBlock(deviceID, &chAddr, nil) { [weak self] _, _ in
+                        Task { @MainActor in self?.fetchCurrentVolume() }
                     }
                 }
             }
@@ -215,8 +211,8 @@ final class VolumeManager: NSObject, ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         if AudioObjectHasProperty(deviceID, &muteAddr) {
-            AudioObjectAddPropertyListenerBlock(deviceID, &muteAddr, nil) { _, _ in
-                self.fetchCurrentVolume()
+            AudioObjectAddPropertyListenerBlock(deviceID, &muteAddr, nil) { [weak self] _, _ in
+                Task { @MainActor in self?.fetchCurrentVolume() }
             }
         }
     }
@@ -363,16 +359,13 @@ final class VolumeManager: NSObject, ObservableObject {
     }
 
     private func publish(volume: Float32, muted: Bool, touchDate: Bool) {
-        DispatchQueue.main.async {
-            if touchDate { self.lastChangeAt = Date() }
-            self.rawVolume = volume
-            self.isMuted = muted
-        }
+        if touchDate { lastChangeAt = Date() }
+        rawVolume = volume
+        isMuted = muted
     }
 }
 
 extension Array where Element == Float32 {
     fileprivate var average: Float32? { isEmpty ? nil : reduce(0, +) / Float32(count) }
 }
-
 

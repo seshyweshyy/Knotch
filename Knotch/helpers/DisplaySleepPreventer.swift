@@ -5,6 +5,7 @@
 
 import IOKit.pwr_mgt
 
+@MainActor
 final class DisplaySleepPreventer {
     static let shared = DisplaySleepPreventer()
     private var assertionID: IOPMAssertionID = 0

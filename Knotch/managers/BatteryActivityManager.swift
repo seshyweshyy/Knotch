@@ -4,7 +4,8 @@ import IOKit.ps
 
 /// Manages and monitors battery status changes on the device
 /// - Note: This class uses the IOKit framework to monitor battery status
-class BatteryActivityManager {
+@MainActor
+final class BatteryActivityManager {
 
     static let shared = BatteryActivityManager()
 
@@ -28,7 +29,7 @@ class BatteryActivityManager {
     private var notificationQueue: [BatteryEvent] = []
     private var isProcessingNotifications = false
 
-    enum BatteryEvent {
+    enum BatteryEvent: Sendable {
         case powerSourceChanged(isPluggedIn: Bool)
         case batteryLevelChanged(level: Float)
         case lowPowerModeChanged(isEnabled: Bool)
@@ -80,7 +81,7 @@ class BatteryActivityManager {
         guard let powerSource = IOPSNotificationCreateRunLoopSource({ context in
             guard let context = context else { return }
             let manager = Unmanaged<BatteryActivityManager>.fromOpaque(context).takeUnretainedValue()
-            manager.notifyBatteryChanges()
+            Task { @MainActor in manager.notifyBatteryChanges() }
         }, Unmanaged.passUnretained(self).toOpaque())?.takeRetainedValue() else {
             return
         }
@@ -171,16 +172,13 @@ class BatteryActivityManager {
         previousBatteryInfo = batteryInfo
 
         // Trigger optional callbacks
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.onBatteryLevelChange?(batteryInfo.currentCapacity)
-            self.onPowerSourceChange?(batteryInfo.isPluggedIn)
-            self.onChargingChange?(batteryInfo.isCharging)
-            self.onPowerModeChange?(batteryInfo.isInLowPowerMode)
-            self.onTimeToFullChargeChange?(batteryInfo.timeToFullCharge)
-            self.onTimeToEmptyChange?(batteryInfo.timeToEmpty)
-            self.onMaxCapacityChange?(batteryInfo.maxCapacity)
-        }
+        onBatteryLevelChange?(batteryInfo.currentCapacity)
+        onPowerSourceChange?(batteryInfo.isPluggedIn)
+        onChargingChange?(batteryInfo.isCharging)
+        onPowerModeChange?(batteryInfo.isInLowPowerMode)
+        onTimeToFullChargeChange?(batteryInfo.timeToFullCharge)
+        onTimeToEmptyChange?(batteryInfo.timeToEmpty)
+        onMaxCapacityChange?(batteryInfo.maxCapacity)
     }
 
     /// Enqueues a notification to be processed
@@ -352,17 +350,9 @@ class BatteryActivityManager {
     /// Notifies all observers of a battery event
     /// - Parameter event: The battery event to notify
     private func notifyObservers(event: BatteryEvent) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            for observer in self.observers {
-                observer(event)
-            }
+        for observer in observers {
+            observer(event)
         }
-    }
-    
-    deinit {
-        stopMonitoring()
-        NotificationCenter.default.removeObserver(self)
     }
     
 }

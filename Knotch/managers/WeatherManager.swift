@@ -7,7 +7,7 @@
 //  feature ships without an Apple Developer portal capability step.
 //
 
-import CoreLocation
+@preconcurrency import CoreLocation
 import Combine
 import Defaults
 import Foundation
@@ -21,7 +21,7 @@ enum MiniWidgetWeatherMetric: String, CaseIterable, Identifiable, Defaults.Seria
     var id: String { rawValue }
 }
 
-struct WeatherSnapshot {
+struct WeatherSnapshot: Sendable {
     var temperatureC: Double
     var conditionSymbol: String
     var conditionDescription: String
@@ -31,6 +31,7 @@ struct WeatherSnapshot {
     var sunsetDate: Date
 }
 
+@MainActor
 final class WeatherManager: NSObject, ObservableObject {
     static let shared = WeatherManager()
 
@@ -49,7 +50,7 @@ final class WeatherManager: NSObject, ObservableObject {
         locationManager.desiredAccuracy = kCLLocationAccuracyReduced
         preferenceCancellable = Defaults.publisher(.lockScreenWeatherMiniWidget)
             .sink { [weak self] change in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     if change.newValue {
                         self?.refreshIfNeeded()
                     } else {
@@ -78,7 +79,9 @@ final class WeatherManager: NSObject, ObservableObject {
 
         if refreshTimer == nil {
             let timer = Timer(timeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
-                self?.locationManager.requestLocation()
+                Task { @MainActor in
+                    self?.locationManager.requestLocation()
+                }
             }
             timer.tolerance = 5 * 60
             RunLoop.main.add(timer, forMode: .common)
@@ -119,7 +122,7 @@ final class WeatherManager: NSObject, ObservableObject {
                     sunriseDate: Self.parseISODate(sunrise) ?? Date(),
                     sunsetDate: Self.parseISODate(sunset) ?? Date()
                 )
-                await MainActor.run { self.snapshot = newSnapshot }
+                snapshot = newSnapshot
             } catch {
                 print("[Weather] Fetch failed: \(error)")
             }
@@ -192,7 +195,7 @@ final class WeatherManager: NSObject, ObservableObject {
     }
 }
 
-extension WeatherManager: CLLocationManagerDelegate {
+extension WeatherManager: @preconcurrency CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else { return }
         fetchSnapshot(latitude: coordinate.latitude, longitude: coordinate.longitude)
@@ -211,8 +214,8 @@ extension WeatherManager: CLLocationManagerDelegate {
 
 // MARK: - Open-Meteo response models
 
-private struct OpenMeteoForecastResponse: Decodable {
-    struct Current: Decodable {
+private struct OpenMeteoForecastResponse: Decodable, Sendable {
+    struct Current: Decodable, Sendable {
         let temperature2m: Double
         let weatherCode: Int
 
@@ -221,7 +224,7 @@ private struct OpenMeteoForecastResponse: Decodable {
             case weatherCode = "weather_code"
         }
     }
-    struct Daily: Decodable {
+    struct Daily: Decodable, Sendable {
         let sunrise: [String]
         let sunset: [String]
     }
@@ -229,8 +232,8 @@ private struct OpenMeteoForecastResponse: Decodable {
     let daily: Daily?
 }
 
-private struct OpenMeteoAirQualityResponse: Decodable {
-    struct Current: Decodable {
+private struct OpenMeteoAirQualityResponse: Decodable, Sendable {
+    struct Current: Decodable, Sendable {
         let usAqi: Int?
         enum CodingKeys: String, CodingKey {
             case usAqi = "us_aqi"

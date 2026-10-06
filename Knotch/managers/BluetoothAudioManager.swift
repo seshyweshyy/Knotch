@@ -9,7 +9,7 @@ import Defaults
 import Foundation
 import IOKit
 import IOBluetooth
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 
 /// The currently connected Bluetooth output device, for consumers (e.g. the
 /// lock-screen "Connectivity" mini-widget) that need to read persistent
@@ -20,7 +20,9 @@ struct ConnectedBluetoothDevice: Equatable {
     var batteryLevel: Int?
 }
 
-final class BluetoothAudioManager: ObservableObject {
+// Mutable discovery state is confined to `queue`; the sole published value
+// is assigned on the main queue. CoreAudio's callback API predates Sendable.
+final class BluetoothAudioManager: ObservableObject, @unchecked Sendable {
     static let shared = BluetoothAudioManager()
 
     /// Published on the main thread only, even though detection runs on `queue`.
@@ -404,6 +406,7 @@ final class BluetoothAudioManager: ObservableObject {
             let rawName = nsOutput.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
             guard namesFuzzyMatch(normalizeBluetoothName(rawName), target),
                   let level = Int(nsOutput.substring(with: match.range(at: 2))) else { return }
+            bestMatch = level
         }
         return bestMatch
     }

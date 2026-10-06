@@ -10,13 +10,15 @@
 import Foundation
 @preconcurrency import EventKit
 
+@MainActor
 protocol CalendarServiceProviding {
     func requestAccess(to type: EKEntityType) async throws -> Bool
     func calendars() async -> [CalendarModel]
     func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
 }
 
-class CalendarService: CalendarServiceProviding {
+@MainActor
+final class CalendarService: CalendarServiceProviding {
     // A single EKEventStore per process — Apple's EventKit engineers have
     // flagged multiple live instances as a source of flaky authorization
     // callbacks on macOS 14+ (requestFullAccessTo... silently returning
@@ -26,7 +28,6 @@ class CalendarService: CalendarServiceProviding {
 
     private let store = EKEventStore()
     
-    @MainActor
     func requestAccess(to type: EKEntityType) async throws -> Bool {
         if #available(macOS 14.0, *) {
             // The very first EventKit full-access call on a freshly-created
@@ -52,7 +53,6 @@ class CalendarService: CalendarServiceProviding {
         }
     }
 
-    @MainActor
     @available(macOS 14.0, *)
     private func requestFullAccess(to type: EKEntityType) async throws -> Bool {
         switch type {
@@ -127,23 +127,25 @@ class CalendarService: CalendarServiceProviding {
             }
 
             store.fetchReminders(matching: predicate) { reminders in
-                guard !resumed else { return }
-                resumed = true
-                timeoutTask.cancel()
+                Task { @MainActor in
+                    guard !resumed else { return }
+                    resumed = true
+                    timeoutTask.cancel()
 
-                guard let reminders else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                let filtered = reminders.compactMap { reminder -> EventModel? in
-                    guard let dueDate = reminder.dueDateComponents?.date,
-                          dueDate >= start,
-                          dueDate <= end else {
-                        return nil
+                    guard let reminders else {
+                        continuation.resume(returning: [])
+                        return
                     }
-                    return EventModel(from: reminder)
+                    let filtered = reminders.compactMap { reminder -> EventModel? in
+                        guard let dueDate = reminder.dueDateComponents?.date,
+                              dueDate >= start,
+                              dueDate <= end else {
+                            return nil
+                        }
+                        return EventModel(from: reminder)
+                    }
+                    continuation.resume(returning: filtered)
                 }
-                continuation.resume(returning: filtered)
             }
         }
     }

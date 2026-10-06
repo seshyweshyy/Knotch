@@ -7,6 +7,7 @@
 import SwiftUI
 import Defaults
 
+@MainActor
 struct BouncingButtonStyle: ButtonStyle {
     let vm: KnotchViewModel
     @State private var isPressed = false
@@ -29,6 +30,7 @@ struct BouncingButtonStyle: ButtonStyle {
 }
 
 extension Button {
+    @MainActor
     func bouncingStyle(vm: KnotchViewModel) -> some View {
         self.buttonStyle(BouncingButtonStyle(vm: vm))
     }

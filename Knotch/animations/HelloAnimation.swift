@@ -47,7 +47,7 @@ extension ShapeStyle where Self == Color {
 struct GlowingSnake<
     Content: Shape,
     Fill: ShapeStyle
->: View, Animatable {
+>: View, @preconcurrency Animatable {
     
     var progress: Double
     var delay: Double = 1.0

@@ -22,7 +22,8 @@ struct ArtFlipSignal: Equatable {
     }
 }
 
-class MusicManager: ObservableObject {
+@MainActor
+final class MusicManager: ObservableObject {
     // MARK: - Properties
     static let shared = MusicManager()
 
@@ -30,7 +31,7 @@ class MusicManager: ObservableObject {
     // Now Playing API as native apps, but for these sites there's no real track duration or
     // artwork to report — MediaRemote fills that gap with a generic/blank image rather than
     // omitting it outright. Bundle IDs of browsers whose "now playing" info can carry this.
-    private static let browserBundleIdentifiers: Set<String> = [
+    nonisolated private static let browserBundleIdentifiers: Set<String> = [
         "com.apple.Safari",
         "com.apple.SafariTechnologyPreview",
         "com.google.Chrome",
@@ -237,10 +238,6 @@ class MusicManager: ObservableObject {
         // .store(in: &cancellables)
     }
 
-    deinit {
-        destroy()
-    }
-    
     public func destroy() {
         debounceIdleTask?.cancel()
         cancellables.removeAll()
@@ -326,7 +323,6 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Update Methods
-    @MainActor
     private func updateFromPlaybackState(_ state: PlaybackState) {
         // Check for playback state changes (playing/paused)
         var shouldIgnoreThisPlaybackFlip = false
@@ -820,10 +816,8 @@ class MusicManager: ObservableObject {
 
     func calculateAverageColor() {
         albumArt.averageColor { [weak self] color in
-            DispatchQueue.main.async {
-                withAnimation(.smooth) {
-                    self?.avgColor = color ?? .white
-                }
+            withAnimation(.smooth) {
+                self?.avgColor = color ?? .white
             }
         }
     }
@@ -850,8 +844,8 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Public Methods for controlling playback
-    @MainActor private var pendingOptimisticPlayState: Bool?
-    @MainActor private var optimisticPlayStateSetAt: Date = .distantPast
+    private var pendingOptimisticPlayState: Bool?
+    private var optimisticPlayStateSetAt: Date = .distantPast
 
     func playPause() {
         togglePlay()

@@ -151,9 +151,10 @@ final class TrayItemViewModel: ObservableObject {
             sharingAccessingURLs = fileURLs.filter { $0.startAccessingSecurityScopedResource() }
             
             // Create and retain lifecycle delegate for the entire share operation
-            let lifecycle = SharingStateManager.shared.makeDelegate { [weak self] in
-                self?.sharingLifecycle = nil
-                self?.stopSharingAccessingURLs()
+            weak let owner = self
+            let lifecycle = SharingStateManager.shared.makeDelegate {
+                owner?.sharingLifecycle = nil
+                owner?.stopSharingAccessingURLs()
             }
             self.sharingLifecycle = lifecycle
             
@@ -417,7 +418,7 @@ final class TrayItemViewModel: ObservableObject {
         unowned let viewModel: TrayItemViewModel
 
         // Keep associated objects (like accessory view handlers) without magic keys
-        private static var sliderHandlerAssoc = AssociatedObject<AnyObject>()
+        nonisolated(unsafe) private static var sliderHandlerAssoc = AssociatedObject<AnyObject>()
 
         init(item: TrayItem, view: NSView, viewModel: TrayItemViewModel) {
             self.item = item
@@ -533,11 +534,13 @@ final class TrayItemViewModel: ObservableObject {
                 
                 pb.clearContents()
                 Task {
-                    let fileURLs = await selected.asyncCompactMap { item -> URL? in
+                    var fileURLs: [URL] = []
+                    for item in selected {
                         if case .file = item.kind {
-                            return TrayStateViewModel.shared.resolveAndUpdateBookmark(for: item)
+                            if let url = TrayStateViewModel.shared.resolveAndUpdateBookmark(for: item) {
+                                fileURLs.append(url)
+                            }
                         }
-                        return nil
                     }
                     if !fileURLs.isEmpty {
                         // Start security-scoped access for all URLs and keep them active

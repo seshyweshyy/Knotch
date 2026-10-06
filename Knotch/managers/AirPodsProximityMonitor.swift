@@ -3,7 +3,7 @@
 //  Knotch
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import Foundation
 
 /// Passively listens for Apple's undocumented "Proximity Pairing" BLE
@@ -15,7 +15,8 @@ import Foundation
 /// Byte layout reverse-engineered by the community (furiousMAC/continuity,
 /// LibrePods) — undocumented and unversioned, so Apple could change it
 /// without notice; this stays best-effort.
-final class AirPodsProximityMonitor: NSObject, ObservableObject, CBCentralManagerDelegate {
+@MainActor
+final class AirPodsProximityMonitor: NSObject, ObservableObject, @preconcurrency CBCentralManagerDelegate {
     static let shared = AirPodsProximityMonitor()
 
     /// Set only when exactly one bud is in-ear and its model has a
@@ -103,8 +104,10 @@ final class AirPodsProximityMonitor: NSObject, ObservableObject, CBCentralManage
     private func scheduleStaleCheck() {
         staleTimer?.invalidate()
         staleTimer = Timer.scheduledTimer(withTimeInterval: Self.staleAfter, repeats: false) { [weak self] _ in
-            self?.activeBud = nil
-            self?.combinedBatteryLevel = nil
+            Task { @MainActor in
+                self?.activeBud = nil
+                self?.combinedBatteryLevel = nil
+            }
         }
     }
 

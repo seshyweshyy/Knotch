@@ -309,7 +309,10 @@ extension Defaults.Keys {
     static let knotchTray = Key<Bool>("knotchShelf", default: true)
     static let openTrayByDefault = Key<Bool>("openShelfByDefault", default: true)
     static let trayTapToOpen = Key<Bool>("shelfTapToOpen", default: true)
-    static let quickShareProvider = Key<String>("quickShareProvider", default: QuickShareProvider.defaultProvider.id)
+    // Provider discovery is asynchronous; before it runs the former dynamic
+    // default always fell back to Share Menu anyway. Keep the schema default
+    // deterministic and avoid initializing AppKit sharing services at launch.
+    static let quickShareProvider = Key<String>("quickShareProvider", default: "Share Menu")
     static let localSendSelectedDeviceID = Key<String>("localSendSelectedDeviceID", default: "")
     static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
     static let autoRemoveTrayItems = Key<Bool>("autoRemoveShelfItems", default: false)
@@ -330,7 +333,12 @@ extension Defaults.Keys {
     static let hideNotchWhileSourceAppActive = Key<Bool>("hideNotchWhileSourceAppActive", default: false)
     
     // MARK: Media Controller
-    static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
+    // The deprecation probe completes asynchronously after launch. The old
+    // dynamic default therefore always observed its initial `false` value and
+    // resolved to Now Playing; make that stable without eagerly constructing
+    // MusicManager while Defaults registers its keys. MusicManager still
+    // applies the runtime fallback after the probe finishes.
+    static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
     static let defaultPlayer = Key<MediaControllerType>("defaultPlayer", default: .appleMusic)
     static let liveWaveform = Key<Bool>("liveWaveform", default: false)
     
@@ -340,14 +348,5 @@ extension Defaults.Keys {
     // Show or hide the title bar
     static let hideTitleBar = Key<Bool>("hideTitleBar", default: true)
     
-    // Helper to determine the default media controller based on NowPlaying deprecation status
-    static var defaultMediaController: MediaControllerType {
-        if MusicManager.shared.isNowPlayingDeprecated {
-            return .appleMusic
-        } else {
-            return .nowPlaying
-        }
-    }
-
     static let didClearLegacyURLCacheV1 = Key<Bool>("didClearLegacyURLCache_v1", default: false)
 }

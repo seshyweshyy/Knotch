@@ -6,6 +6,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 private func applyLocalSendPanelCornerMask(_ view: NSView, radius: CGFloat) {
     view.wantsLayer = true
     view.layer?.masksToBounds = true

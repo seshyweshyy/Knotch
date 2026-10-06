@@ -208,17 +208,15 @@ private final class LumaStripView: NSView {
     @objc(backdropLayer:didChangeLuma:)
     func backdropLayer(_ layer: AnyObject, didChangeLuma luma: Double) {
         let value = min(max(luma, 0), 1)
-        let apply: () -> Void = { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self, !self.isProtected else { return }
             self.setReading(.luma(value))
         }
-        if Thread.isMainThread { apply() }
-        else { DispatchQueue.main.async(execute: apply) }
     }
 
     @objc(backdropLayer:didSampleProtectedLuma:)
     func backdropLayer(_ layer: AnyObject, didSampleProtectedLuma protected: Bool) {
-        let apply: () -> Void = { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.isProtected = protected
             if protected {
@@ -229,8 +227,6 @@ private final class LumaStripView: NSView {
                 self.setReading(.unknown)
             }
         }
-        if Thread.isMainThread { apply() }
-        else { DispatchQueue.main.async(execute: apply) }
     }
 }
 
@@ -368,7 +364,12 @@ private final class ContrastOutlineSamplerView: NSView {
             return
         }
         // Anything that can drop or invalidate tracking → fresh strips.
-        let rebuild: (Notification) -> Void = { [weak self] _ in self?.rebuildStrips() }
+        // All registrations below explicitly deliver on the main queue.
+        let rebuild: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.rebuildStrips()
+            }
+        }
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWindow.didChangeScreenNotification, NSWindow.didChangeOcclusionStateNotification] {

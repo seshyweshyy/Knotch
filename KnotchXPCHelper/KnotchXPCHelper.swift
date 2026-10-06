@@ -17,11 +17,14 @@ class KnotchXPCHelper: NSObject, KnotchXPCHelperProtocol {
     }
 
     @objc func requestAccessibilityAuthorization() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        // The imported kAXTrustedCheckOptionPrompt C global is exposed as
+        // mutable and therefore unavailable under Swift 6 strict concurrency.
+        // Its documented CFString value is stable.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 
-    @objc func ensureAccessibilityAuthorization(_ promptIfNeeded: Bool, with reply: @escaping (Bool) -> Void) {
+    @objc func ensureAccessibilityAuthorization(_ promptIfNeeded: Bool, with reply: @escaping @Sendable (Bool) -> Void) {
         if AXIsProcessTrusted() {
             reply(true)
             return
@@ -36,9 +39,10 @@ class KnotchXPCHelper: NSObject, KnotchXPCHelperProtocol {
         }
     }
     
-    private class KeyboardBrightnessClient {
+    private final class KeyboardBrightnessClient: @unchecked Sendable {
         private static let keyboardID: UInt64 = 1
         private var clientInstance: NSObject?
+        private let lock = NSLock()
         private let getSelector = NSSelectorFromString("brightnessForKeyboard:")
         private let setSelector = NSSelectorFromString("setBrightness:forKeyboard:")
 
@@ -58,9 +62,15 @@ class KnotchXPCHelper: NSObject, KnotchXPCHelperProtocol {
             }
         }
 
-        var isAvailable: Bool { clientInstance != nil }
+        var isAvailable: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return clientInstance != nil
+        }
 
         func currentBrightness() -> Float? {
+            lock.lock()
+            defer { lock.unlock() }
             guard let clientInstance,
                   let fn: BrightnessGetter = methodIMP(on: clientInstance, selector: getSelector, as: BrightnessGetter.self)
             else { return nil }
@@ -68,6 +78,8 @@ class KnotchXPCHelper: NSObject, KnotchXPCHelperProtocol {
         }
 
         func setBrightness(_ value: Float) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
             guard let clientInstance,
                   let fn: BrightnessSetter = methodIMP(on: clientInstance, selector: setSelector, as: BrightnessSetter.self)
             else { return false }
@@ -177,7 +189,9 @@ class KnotchXPCHelper: NSObject, KnotchXPCHelperProtocol {
 
     // MARK: - Helper handle for private framework
     private enum DisplayServicesHandle {
-        static let handle: UnsafeMutableRawPointer? = {
+        // dlopen returns a process-lifetime immutable handle and dlsym is
+        // thread-safe; the pointer is never mutated or closed.
+        nonisolated(unsafe) static let handle: UnsafeMutableRawPointer? = {
             let paths = [
                 "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
                 "/System/Library/PrivateFrameworks/DisplayServices.framework/Versions/Current/DisplayServices"

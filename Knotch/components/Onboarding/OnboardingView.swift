@@ -24,7 +24,7 @@ enum OnboardingStep {
     case finished
 }
 
-private let calendarService = CalendarService.shared
+@MainActor private let calendarService = CalendarService.shared
 
 private let onboardingStepAnimation: Animation = .spring(response: 0.45, dampingFraction: 0.86)
 

@@ -26,6 +26,7 @@ import SwiftUI
 /// expand/collapse, which the lock-screen mini widget row also follows) rather
 /// than in the root view: this window is only created once a timer is active,
 /// which can be after the art was already expanded.
+@MainActor
 private final class LockScreenArtExpansionState: ObservableObject {
     static let shared = LockScreenArtExpansionState()
 
@@ -83,6 +84,7 @@ private final class FirstMouseTimerHostingView<Content: View>: NSHostingView<Con
 
 // MARK: - Controller
 
+@MainActor
 final class LiquidGlassTimerWidgetWindowController {
     static let shared = LiquidGlassTimerWidgetWindowController()
 
@@ -98,7 +100,7 @@ final class LiquidGlassTimerWidgetWindowController {
             .sink { [weak self] _ in
                 // objectWillChange fires just before the value updates, so
                 // defer the check to the next runloop tick.
-                DispatchQueue.main.async { self?.refresh() }
+                Task { @MainActor in self?.refresh() }
             }
     }
 

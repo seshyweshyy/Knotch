@@ -12,7 +12,8 @@ public protocol ImageServiceProtocol {
     func fetchImageData(from url: URL) async throws -> Data
 }
 
-public final class ImageService: ImageServiceProtocol {
+// URLSession is safe for concurrent requests and is immutable after init.
+public final class ImageService: ImageServiceProtocol, @unchecked Sendable {
     public static let shared = ImageService()
 
     private let session: URLSession

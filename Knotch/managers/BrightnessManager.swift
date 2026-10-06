@@ -5,6 +5,7 @@
 
 import AppKit
 
+@MainActor
 final class BrightnessManager: ObservableObject {
 	static let shared = BrightnessManager()
 
@@ -27,7 +28,7 @@ final class BrightnessManager: ObservableObject {
 		}
 	}
 
-	@MainActor func setRelative(delta: Float, isKeyRepeat: Bool = false) {
+	func setRelative(delta: Float, isKeyRepeat: Bool = false) {
 		Task { @MainActor in
 			let starting = await client.currentScreenBrightness() ?? rawBrightness
 			let target = max(0, min(1, starting + delta))
@@ -54,12 +55,10 @@ final class BrightnessManager: ObservableObject {
 	}
 
 	private func publish(brightness: Float, touchDate: Bool) {
-		DispatchQueue.main.async {
-			if self.rawBrightness != brightness || touchDate {
-				if touchDate { self.lastChangeAt = Date() }
-				self.rawBrightness = brightness
-				self.animatedBrightness = brightness
-			}
+		if rawBrightness != brightness || touchDate {
+			if touchDate { lastChangeAt = Date() }
+			rawBrightness = brightness
+			animatedBrightness = brightness
 		}
 	}
 }
@@ -67,6 +66,7 @@ final class BrightnessManager: ObservableObject {
 // (DisplayServices helpers moved into XPC helper)
 
 // MARK: - Keyboard Backlight Controller
+@MainActor
 final class KeyboardBacklightManager: ObservableObject {
 	static let shared = KeyboardBacklightManager()
 
@@ -88,7 +88,7 @@ final class KeyboardBacklightManager: ObservableObject {
 		}
 	}
 
-	@MainActor func setRelative(delta: Float) {
+	func setRelative(delta: Float) {
 		Task { @MainActor in
 			let starting = await client.currentKeyboardBrightness() ?? rawBrightness
 			let target = max(0, min(1, starting + delta))
@@ -119,12 +119,9 @@ final class KeyboardBacklightManager: ObservableObject {
 	}
 
 	private func publish(brightness: Float, touchDate: Bool) {
-		DispatchQueue.main.async {
-			if self.rawBrightness != brightness || touchDate {
-				if touchDate { self.lastChangeAt = Date() }
-				self.rawBrightness = brightness
-			}
+		if rawBrightness != brightness || touchDate {
+			if touchDate { lastChangeAt = Date() }
+			rawBrightness = brightness
 		}
 	}
 }
-

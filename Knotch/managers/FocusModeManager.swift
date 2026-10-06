@@ -21,6 +21,7 @@ import SwiftUI
 ///   tintColorName: ...>` description when a mode changes. Knotch performs a
 ///   short, one-shot lookup after the distributed notification instead of
 ///   keeping a permanent debug-level `log stream` subprocess alive.
+@MainActor
 final class FocusModeManager: ObservableObject {
     static let shared = FocusModeManager()
 
@@ -53,7 +54,7 @@ final class FocusModeManager: ObservableObject {
     private init() {
         enabledCancellable = Defaults.publisher(.showFocusModeIndicator, options: [.initial])
             .sink { [weak self] change in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     if change.newValue {
                         self?.startMonitoring()
                     } else {
@@ -64,8 +65,8 @@ final class FocusModeManager: ObservableObject {
 
         detailCancellable = Defaults.publisher(.useDetailedFocusMetadata, options: [])
             .sink { [weak self] change in
-                guard let self, self.isMonitoring else { return }
-                DispatchQueue.main.async {
+                Task { @MainActor in
+                    guard let self, self.isMonitoring else { return }
                     if change.newValue {
                         self.seedInitialState()
                     }
@@ -122,9 +123,9 @@ final class FocusModeManager: ObservableObject {
     // state below is main-thread-only. The log lookup queue only ever hands
     // parsed results to `applyModeBegin`/`applyModeEnd` via `DispatchQueue.main`.
 
-    @objc private func handleFocusEnabled(_ notification: Notification) {
+    @objc nonisolated private func handleFocusEnabled(_ notification: Notification) {
         print("[Focus] _NSDoNotDisturbEnabledNotification received")
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.fallbackPresentTask?.cancel()
 
@@ -145,9 +146,9 @@ final class FocusModeManager: ObservableObject {
         }
     }
 
-    @objc private func handleFocusDisabled(_ notification: Notification) {
+    @objc nonisolated private func handleFocusDisabled(_ notification: Notification) {
         print("[Focus] _NSDoNotDisturbDisabledNotification received")
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.fallbackPresentTask?.cancel()
             self.fallbackPresentTask = nil
@@ -217,14 +218,13 @@ final class FocusModeManager: ObservableObject {
 
     // MARK: - One-shot log lookup (name / icon / colour, no FDA)
 
-    private static let logPredicate = #"process == "donotdisturbd" AND eventMessage CONTAINS "Biome event(s) donated for mode""#
+    nonisolated private static let logPredicate = #"process == "donotdisturbd" AND eventMessage CONTAINS "Biome event(s) donated for mode""#
 
     /// Resolves metadata only when Focus actually changes. This replaces the
     /// former always-running `/usr/bin/log stream --debug` process, which was
     /// one of Knotch's largest sources of idle wakeups.
     private func fetchRecentFocusMetadata() {
         logQueue.async { [weak self] in
-            guard let self else { return }
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
             process.arguments = ["show", "--last", "5s", "--debug", "--style", "compact", "--predicate", Self.logPredicate]
@@ -238,11 +238,11 @@ final class FocusModeManager: ObservableObject {
             let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             guard let line = output.components(separatedBy: "\n").last(where: {
                 $0.contains("mode begin") && $0.contains("Biome event(s) donated for mode")
-            }), let mode = self.parseDNDMode(from: line) else { return }
+            }) else { return }
 
-            DispatchQueue.main.async { [weak self] in
-                guard self?.isMonitoring == true else { return }
-                self?.applyModeBegin(mode)
+            Task { @MainActor [weak self] in
+                guard let self, self.isMonitoring, let mode = self.parseDNDMode(from: line) else { return }
+                self.applyModeBegin(mode)
             }
         }
     }
@@ -251,7 +251,6 @@ final class FocusModeManager: ObservableObject {
     /// Knotch launched, before the continuous stream picks up future events.
     private func seedInitialState() {
         logQueue.async { [weak self] in
-            guard let self else { return }
             print("[Focus] Seeding initial state from log history…")
             for window in ["5m", "1h", "24h"] {
                 let process = Process()
@@ -272,8 +271,9 @@ final class FocusModeManager: ObservableObject {
 
                 guard let lastLine = lines.last(where: { !$0.isEmpty }) else { continue }
 
-                if lastLine.contains("mode begin"), let mode = self.parseDNDMode(from: lastLine) {
-                    DispatchQueue.main.async {
+                if lastLine.contains("mode begin") {
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isMonitoring, let mode = self.parseDNDMode(from: lastLine) else { return }
                         self.applySeededState(mode)
                     }
                 } else {

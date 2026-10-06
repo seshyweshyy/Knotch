@@ -37,7 +37,7 @@ class CalendarManager: ObservableObject {
         }
     }
 
-    deinit {
+    isolated deinit {
         if let observer = eventStoreChangedObserver {
             NotificationCenter.default.removeObserver(observer)
         }
