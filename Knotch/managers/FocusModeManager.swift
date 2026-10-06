@@ -12,15 +12,18 @@ import SwiftUI
 /// turns on or off, and resolves its name, SF Symbol icon, and accent colour —
 /// all without Full Disk Access.
 ///
-/// Two sources are combined:
+/// Three sources are combined:
 /// - `DistributedNotificationCenter` posts `_NSDoNotDisturbEnabledNotification` /
-///   `_NSDoNotDisturbDisabledNotification` the instant Focus toggles. No
-///   entitlement required, but the notification payload rarely carries a
-///   usable name/icon for custom modes.
+///   `_NSDoNotDisturbDisabledNotification` on some macOS versions. No
+///   entitlement is required, but recent macOS releases do not reliably post
+///   them when Focus is toggled from Control Centre.
+/// - A low-frequency metadata-only check watches the modification date of
+///   `Assertions.json`. It never reads the protected file and only triggers
+///   further work when Focus actually changes.
 /// - `donotdisturbd` logs a full `<DNDMode: name: ...; symbolImageName: ...;
 ///   tintColorName: ...>` description when a mode changes. Knotch performs a
-///   short, one-shot lookup after the distributed notification instead of
-///   keeping a permanent debug-level `log stream` subprocess alive.
+///   short, one-shot lookup after either signal instead of keeping a permanent
+///   debug-level `log stream` subprocess alive.
 @MainActor
 final class FocusModeManager: ObservableObject {
     static let shared = FocusModeManager()
@@ -39,6 +42,8 @@ final class FocusModeManager: ObservableObject {
     private var isMonitoring = false
     private var enabledCancellable: AnyCancellable?
     private var detailCancellable: AnyCancellable?
+    private var stateMonitorTask: Task<Void, Never>?
+    private var lastAssertionsModificationDate: Date?
 
     /// The active state we last showed a toast for. `nil` means we haven't
     /// presented anything yet (e.g. right after launch). Comparing against
@@ -51,8 +56,11 @@ final class FocusModeManager: ObservableObject {
     private var currentSymbolName: String?
     private var currentTintColor: Color?
 
+    nonisolated private static let assertionsPath = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json").path
+
     private init() {
-        enabledCancellable = Defaults.publisher(.showFocusModeIndicator, options: [.initial])
+        enabledCancellable = Defaults.publisher(.showFocusModeIndicator, options: [])
             .sink { [weak self] change in
                 Task { @MainActor in
                     if change.newValue {
@@ -72,6 +80,12 @@ final class FocusModeManager: ObservableObject {
                     }
                 }
             }
+
+        // Start explicitly rather than relying on a synchronous `.initial`
+        // publisher emission while this singleton is still being initialized.
+        if Defaults[.showFocusModeIndicator] {
+            startMonitoring()
+        }
     }
 
     // MARK: - Lifecycle
@@ -96,6 +110,8 @@ final class FocusModeManager: ObservableObject {
             suspensionBehavior: .deliverImmediately
         )
 
+        startStateFallbackMonitor()
+
         if Defaults[.useDetailedFocusMetadata] {
             seedInitialState()
         }
@@ -109,6 +125,9 @@ final class FocusModeManager: ObservableObject {
         notificationCenter.removeObserver(self, name: .focusModeEnabled, object: nil)
         notificationCenter.removeObserver(self, name: .focusModeDisabled, object: nil)
 
+        stateMonitorTask?.cancel()
+        stateMonitorTask = nil
+        lastAssertionsModificationDate = nil
         fallbackPresentTask?.cancel()
         fallbackPresentTask = nil
         lastPresentedActiveState = nil
@@ -134,7 +153,7 @@ final class FocusModeManager: ObservableObject {
                 return
             }
 
-            self.fetchRecentFocusMetadata()
+            self.fetchRecentFocusTransition()
 
             // The log-stream line for this same transition usually lands within
             // a few milliseconds — give it a brief head start so the toast shows
@@ -200,6 +219,26 @@ final class FocusModeManager: ObservableObject {
         presentTransition(active: true)
     }
 
+    /// Applies a detected mode-end event. The log entry still contains the
+    /// mode that just ended, so preserve its icon for the Off toast before
+    /// clearing persistent state.
+    private func applyModeEnd(_ mode: ParsedDNDMode?) {
+        if Defaults[.useDetailedFocusMetadata], let mode {
+            currentName = mode.name
+            currentSymbolName = mode.symbolName
+            currentTintColor = mode.tintColor
+        }
+        print("[Focus] Log lookup: mode end")
+        presentTransition(active: false)
+        currentName = nil
+        currentSymbolName = nil
+        currentTintColor = nil
+        activeName = nil
+        activeSymbolName = nil
+        activeTintColor = nil
+        isActive = false
+    }
+
     /// Main-thread only. Silently seeds state from the one-shot lookback
     /// without presenting a toast — Focus may have already been active
     /// before Knotch launched. Still records the state so the *next* real
@@ -220,14 +259,52 @@ final class FocusModeManager: ObservableObject {
 
     nonisolated private static let logPredicate = #"process == "donotdisturbd" AND eventMessage CONTAINS "Biome event(s) donated for mode""#
 
-    /// Resolves metadata only when Focus actually changes. This replaces the
-    /// former always-running `/usr/bin/log stream --debug` process, which was
-    /// one of Knotch's largest sources of idle wakeups.
-    private func fetchRecentFocusMetadata() {
+    /// Recent macOS versions sometimes omit the distributed notifications.
+    /// Checking one file timestamp once per second is effectively idle work
+    /// compared with the former permanent debug log stream, and its tolerance
+    /// lets the system coalesce timer wakeups with Knotch's other updates.
+    private func startStateFallbackMonitor() {
+        stateMonitorTask?.cancel()
+        lastAssertionsModificationDate = assertionsModificationDate()
+        stateMonitorTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(
+                        for: .seconds(1),
+                        tolerance: .milliseconds(300),
+                        clock: .continuous
+                    )
+                } catch {
+                    return
+                }
+
+                guard let self, self.isMonitoring else { return }
+                let modificationDate = self.assertionsModificationDate()
+                guard modificationDate != self.lastAssertionsModificationDate else { continue }
+                self.lastAssertionsModificationDate = modificationDate
+
+                // Allow the daemon's matching log entry to land before the
+                // one-shot query; this still keeps end-to-end latency low.
+                try? await Task.sleep(for: .milliseconds(200), clock: .continuous)
+                guard !Task.isCancelled else { return }
+                self.fetchRecentFocusTransition()
+            }
+        }
+    }
+
+    private func assertionsModificationDate() -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: Self.assertionsPath)
+        return attributes?[.modificationDate] as? Date
+    }
+
+    /// Resolves the transition and optional metadata only when Focus actually
+    /// changes. This replaces the former always-running
+    /// `/usr/bin/log stream --debug` process.
+    private func fetchRecentFocusTransition() {
         logQueue.async { [weak self] in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
-            process.arguments = ["show", "--last", "5s", "--debug", "--style", "compact", "--predicate", Self.logPredicate]
+            process.arguments = ["show", "--last", "10s", "--debug", "--style", "compact", "--predicate", Self.logPredicate]
 
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -237,12 +314,23 @@ final class FocusModeManager: ObservableObject {
 
             let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             guard let line = output.components(separatedBy: "\n").last(where: {
-                $0.contains("mode begin") && $0.contains("Biome event(s) donated for mode")
+                $0.contains("Biome event(s) donated for mode")
+                    && ($0.contains("mode begin") || $0.contains("mode end"))
             }) else { return }
 
             Task { @MainActor [weak self] in
-                guard let self, self.isMonitoring, let mode = self.parseDNDMode(from: line) else { return }
-                self.applyModeBegin(mode)
+                guard let self, self.isMonitoring else { return }
+                let mode = self.parseDNDMode(from: line)
+                if line.contains("mode begin") {
+                    if Defaults[.useDetailedFocusMetadata], let mode {
+                        self.applyModeBegin(mode)
+                    } else {
+                        self.isActive = true
+                        self.presentTransition(active: true)
+                    }
+                } else {
+                    self.applyModeEnd(mode)
+                }
             }
         }
     }
