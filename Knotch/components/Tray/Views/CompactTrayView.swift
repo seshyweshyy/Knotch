@@ -204,6 +204,7 @@ struct CompactTrayDropZoneView: View {
         // instead centers this whole block within the panel's full height.
         .padding(.top, isIslandAppearance ? 2 : vm.effectiveClosedNotchHeight)
         .frame(maxHeight: isIslandAppearance ? .infinity : nil, alignment: .center)
+        .task { await quickShare.discoverAvailableProviders() }
     }
 
     // Dock-magnification-style layout: the targeted box claims a larger share

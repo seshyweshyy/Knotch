@@ -8,6 +8,7 @@
 //
 
 import CoreLocation
+import Combine
 import Defaults
 import Foundation
 
@@ -38,6 +39,7 @@ final class WeatherManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     private var refreshTimer: Timer?
     private var isFetching = false
+    private var preferenceCancellable: AnyCancellable?
 
     private static let refreshInterval: TimeInterval = 30 * 60
 
@@ -45,12 +47,25 @@ final class WeatherManager: NSObject, ObservableObject {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyReduced
+        preferenceCancellable = Defaults.publisher(.lockScreenWeatherMiniWidget)
+            .sink { [weak self] change in
+                DispatchQueue.main.async {
+                    if change.newValue {
+                        self?.refreshIfNeeded()
+                    } else {
+                        self?.stopRefreshing()
+                    }
+                }
+            }
     }
 
     /// Kicks off a location request (if authorized) and schedules periodic
     /// refreshes. Safe to call repeatedly — e.g. once on lock each time.
     func refreshIfNeeded() {
-        guard Defaults[.lockScreenWeatherMiniWidget] else { return }
+        guard Defaults[.lockScreenWeatherMiniWidget] else {
+            stopRefreshing()
+            return
+        }
 
         switch locationManager.authorizationStatus {
         case .notDetermined:
@@ -62,10 +77,18 @@ final class WeatherManager: NSObject, ObservableObject {
         }
 
         if refreshTimer == nil {
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
+            let timer = Timer(timeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
                 self?.locationManager.requestLocation()
             }
+            timer.tolerance = 5 * 60
+            RunLoop.main.add(timer, forMode: .common)
+            refreshTimer = timer
         }
+    }
+
+    private func stopRefreshing() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 
     private func fetchSnapshot(latitude: Double, longitude: Double) {

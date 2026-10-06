@@ -229,6 +229,7 @@ final class LiveAudioMeter {
     // processInputData's comment for why.
     private let processingQueue = DispatchQueue(label: "com.knotch.liveaudiometer.processing", qos: .utility)
     private let fftProcessor = FFTProcessor()
+    private var lastSubmittedHostTime: UInt64 = 0
 
     // CoreAudio objects
     private var processTapID: AudioObjectID = kAudioObjectUnknown
@@ -426,7 +427,11 @@ final class LiveAudioMeter {
         let procErr = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggID, nil) {
             [weak self] (inNow, inInputData, inInputTime, outOutputData, inOutputTime) in
             guard let self else { return }
-            self.processInputData(inInputData, channelCount: channelCount)
+            self.processInputData(
+                inInputData,
+                channelCount: channelCount,
+                hostTime: inNow.pointee.mHostTime
+            )
         }
         guard procErr == noErr else {
             teardownCoreAudio()
@@ -489,7 +494,22 @@ final class LiveAudioMeter {
     // HAL-owned buffer) and hands the copy to processingQueue, off the
     // real-time thread, for the actual filtering.
 
-    private func processInputData(_ inputData: UnsafePointer<AudioBufferList>?, channelCount: Int) {
+    private func processInputData(
+        _ inputData: UnsafePointer<AudioBufferList>?,
+        channelCount: Int,
+        hostTime: UInt64
+    ) {
+        // HAL may call substantially faster than the 30 fps visualizer. Gate
+        // before downmixing, allocating, and queueing so discarded frames are
+        // nearly free rather than doing all of that work only for FFTProcessor
+        // to reject them later.
+        if lastSubmittedHostTime != 0,
+           hostTime > lastSubmittedHostTime,
+           AudioConvertHostTimeToNanos(hostTime - lastSubmittedHostTime) < 33_333_333 {
+            return
+        }
+        lastSubmittedHostTime = hostTime
+
         guard let inputData else { return }
         let abl = inputData.pointee
         guard abl.mNumberBuffers > 0 else { return }
@@ -540,7 +560,7 @@ final class LiveAudioMeter {
     private func startDisplayLink() {
         guard displayTimer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: 1.0 / 60.0)
+        timer.schedule(deadline: .now(), repeating: 1.0 / 30.0, leeway: .milliseconds(2))
         timer.setEventHandler { [weak self] in
             self?.publishAmplitudes()
         }
@@ -565,18 +585,15 @@ final class LiveAudioMeter {
             next[i] = amplitudeBuffer[i]
         }
         os_unfair_lock_unlock(&amplitudeLock)
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            for i in 0..<Self.bandCount {
-                // amplitudeBuffer is already dB-normalized per band by
-                // FFTProcessor — this is just attack/decay envelope smoothing.
-                let normalized = next[i]
-                let attack = (i == 3 || i == 4) ? self.fastAttackCoeff : self.attackCoeff
-                let coeff = normalized > self.smoothed[i] ? attack : self.decayCoeff
-                self.smoothed[i] = self.smoothed[i] + coeff * (normalized - self.smoothed[i])
-            }
-            self.amplitudes = self.smoothed
+        for i in 0..<Self.bandCount {
+            // amplitudeBuffer is already dB-normalized per band by
+            // FFTProcessor — this is just attack/decay envelope smoothing.
+            let normalized = next[i]
+            let attack = (i == 3 || i == 4) ? fastAttackCoeff : attackCoeff
+            let coeff = normalized > smoothed[i] ? attack : decayCoeff
+            smoothed[i] = smoothed[i] + coeff * (normalized - smoothed[i])
         }
+        amplitudes = smoothed
     }
 
     // MARK: - Process lookup

@@ -29,7 +29,7 @@ final class TimerManager: ObservableObject {
     // here: their finish can't be told apart from a cancel.
     @Published private(set) var finishedTimers: [KnotchTimer] = []
 
-    private var tickCancellable: AnyCancellable?
+    private var tickTimer: Timer?
     private var systemTimerProvider: SystemTimerProvider?
     private var pauseDismissTask: Task<Void, Never>?
     private static let pauseDismissDelay: TimeInterval = 3
@@ -37,10 +37,6 @@ final class TimerManager: ObservableObject {
     private init() {
         // Restore persisted timers; silently drop any that already finished while we were closed/quit.
         timers = Defaults[.persistedTimers].filter { !$0.isExpired }
-
-        tickCancellable = Timer.publish(every: 1, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in self?.tick() }
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
@@ -54,7 +50,16 @@ final class TimerManager: ObservableObject {
         updatePausedIdleState()
     }
 
+    deinit {
+        tickTimer?.invalidate()
+        pauseDismissTask?.cancel()
+    }
+
     var allTimers: [KnotchTimer] { timers + systemTimers }
+
+    // Whether the timer's live activity is up (a timer exists and they aren't
+    // all sitting paused past the idle delay).
+    var hasLiveActivity: Bool { !allTimers.isEmpty && !isPausedIdle }
 
     var soonestActiveTimer: KnotchTimer? {
         allTimers.filter { !$0.isPaused }.min { $0.endDate < $1.endDate } ?? allTimers.first
@@ -153,11 +158,32 @@ final class TimerManager: ObservableObject {
         }
     }
 
+    /// A countdown needs a one-second UI heartbeat, but an idle or entirely
+    /// paused timer list does not. Keeping no run-loop timer in those states
+    /// avoids waking Knotch once a second for the lifetime of the app.
+    private func updateTickingState() {
+        let needsTicks = allTimers.contains { !$0.isPaused }
+        guard needsTicks else {
+            tickTimer?.invalidate()
+            tickTimer = nil
+            return
+        }
+        guard tickTimer == nil else { return }
+
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        timer.tolerance = 0.15
+        RunLoop.main.add(timer, forMode: .common)
+        tickTimer = timer
+    }
+
     // Mirrors MusicManager's play/pause idle debounce: once every timer is
     // paused (nothing counting down), wait pauseDismissDelay before hiding
     // the live activity, so a quick pause/resume doesn't cause a flicker.
     // Any timer running again cancels the countdown immediately.
     private func updatePausedIdleState() {
+        updateTickingState()
         let anyRunning = allTimers.contains { !$0.isPaused }
         if anyRunning || allTimers.isEmpty {
             pauseDismissTask?.cancel()

@@ -18,11 +18,9 @@ import SwiftUI
 ///   entitlement required, but the notification payload rarely carries a
 ///   usable name/icon for custom modes.
 /// - `donotdisturbd` logs a full `<DNDMode: name: ...; symbolImageName: ...;
-///   tintColorName: ...>` description to the unified system log every time a
-///   mode begins or ends (category `BiomeDonation`, debug level). That log is
-///   not a TCC-protected resource, so tailing it via `/usr/bin/log stream`
-///   gives the same icon/colour data Full Disk Access would otherwise be
-///   needed for (`~/Library/DoNotDisturb/DB/ModeConfigurations.json`).
+///   tintColorName: ...>` description when a mode changes. Knotch performs a
+///   short, one-shot lookup after the distributed notification instead of
+///   keeping a permanent debug-level `log stream` subprocess alive.
 final class FocusModeManager: ObservableObject {
     static let shared = FocusModeManager()
 
@@ -41,18 +39,10 @@ final class FocusModeManager: ObservableObject {
     private var enabledCancellable: AnyCancellable?
     private var detailCancellable: AnyCancellable?
 
-    private var logProcess: Process?
-    private var logPipe: Pipe?
-    private var logBuffer = Data()
-    private var restartWorkItem: DispatchWorkItem?
-
     /// The active state we last showed a toast for. `nil` means we haven't
     /// presented anything yet (e.g. right after launch). Comparing against
     /// this — rather than a one-shot "have we shown it" flag — is what makes
-    /// re-arming symmetric: whichever signal (notification or log line)
-    /// reports a transition first wins, and the *next* transition is always
-    /// a fresh comparison, so there's no separate "reset" step that can be
-    /// skipped if one signal doesn't fire.
+    /// re-arming symmetric across successive on/off notifications.
     private var lastPresentedActiveState: Bool?
     private var fallbackPresentTask: DispatchWorkItem?
 
@@ -77,9 +67,7 @@ final class FocusModeManager: ObservableObject {
                 guard let self, self.isMonitoring else { return }
                 DispatchQueue.main.async {
                     if change.newValue {
-                        self.startLogStream()
-                    } else {
-                        self.stopLogStream()
+                        self.seedInitialState()
                     }
                 }
             }
@@ -108,7 +96,7 @@ final class FocusModeManager: ObservableObject {
         )
 
         if Defaults[.useDetailedFocusMetadata] {
-            startLogStream()
+            seedInitialState()
         }
     }
 
@@ -120,7 +108,6 @@ final class FocusModeManager: ObservableObject {
         notificationCenter.removeObserver(self, name: .focusModeEnabled, object: nil)
         notificationCenter.removeObserver(self, name: .focusModeDisabled, object: nil)
 
-        stopLogStream()
         fallbackPresentTask?.cancel()
         fallbackPresentTask = nil
         lastPresentedActiveState = nil
@@ -132,7 +119,7 @@ final class FocusModeManager: ObservableObject {
     // MARK: - Notification handlers
 
     // All of the `current*`/`lastPresentedActiveState`/`fallbackPresentTask`
-    // state below is main-thread-only. The log-stream queue only ever hands
+    // state below is main-thread-only. The log lookup queue only ever hands
     // parsed results to `applyModeBegin`/`applyModeEnd` via `DispatchQueue.main`.
 
     @objc private func handleFocusEnabled(_ notification: Notification) {
@@ -146,13 +133,15 @@ final class FocusModeManager: ObservableObject {
                 return
             }
 
+            self.fetchRecentFocusMetadata()
+
             // The log-stream line for this same transition usually lands within
             // a few milliseconds — give it a brief head start so the toast shows
             // the real name/icon/colour instead of the generic fallback. If it
             // hasn't arrived in time, present with whatever's known anyway.
             let task = DispatchWorkItem { [weak self] in self?.presentTransition(active: true) }
             self.fallbackPresentTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: task)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: task)
         }
     }
 
@@ -177,7 +166,7 @@ final class FocusModeManager: ObservableObject {
 
     /// Main-thread only. Shows the "On"/"Off" toast, but only once per
     /// transition — `lastPresentedActiveState` guards against the
-    /// notification and the log-stream line for the *same* transition both
+    /// notification and the metadata lookup for the *same* transition both
     /// triggering a toast.
     private func presentTransition(active: Bool) {
         guard lastPresentedActiveState != active else { return }
@@ -196,7 +185,7 @@ final class FocusModeManager: ObservableObject {
         }
     }
 
-    /// Main-thread only. Applies a parsed "mode begin" line from the log stream.
+    /// Main-thread only. Applies a parsed "mode begin" line from a log lookup.
     private func applyModeBegin(_ mode: ParsedDNDMode) {
         print("[Focus] Log stream: mode begin -> name: \(mode.name ?? "nil"), symbolImageName: \(mode.symbolName ?? "nil"), tintColor: \(mode.tintColor.map(String.init(describing:)) ?? "nil")")
         currentName = mode.name
@@ -208,22 +197,6 @@ final class FocusModeManager: ObservableObject {
         isActive = true
         fallbackPresentTask?.cancel()
         presentTransition(active: true)
-    }
-
-    /// Main-thread only. Applies a parsed "mode end" line from the log stream.
-    /// This is also what saves us if `_NSDoNotDisturbDisabledNotification`
-    /// fails to fire — a known macOS quirk — since it independently re-arms
-    /// `lastPresentedActiveState` for the next "on" transition.
-    private func applyModeEnd() {
-        print("[Focus] Log stream: mode end")
-        presentTransition(active: false)
-        currentName = nil
-        currentSymbolName = nil
-        currentTintColor = nil
-        activeName = nil
-        activeSymbolName = nil
-        activeTintColor = nil
-        isActive = false
     }
 
     /// Main-thread only. Silently seeds state from the one-shot lookback
@@ -242,95 +215,35 @@ final class FocusModeManager: ObservableObject {
         lastPresentedActiveState = true
     }
 
-    // MARK: - Log stream (name / icon / colour, no FDA)
+    // MARK: - One-shot log lookup (name / icon / colour, no FDA)
 
     private static let logPredicate = #"process == "donotdisturbd" AND eventMessage CONTAINS "Biome event(s) donated for mode""#
 
-    private func startLogStream() {
-        guard logProcess == nil else { return }
-        seedInitialState()
-
-        logQueue.async { [weak self] in
-            self?.launchLogStreamProcess()
-        }
-    }
-
-    private func stopLogStream() {
-        restartWorkItem?.cancel()
-        restartWorkItem = nil
-
+    /// Resolves metadata only when Focus actually changes. This replaces the
+    /// former always-running `/usr/bin/log stream --debug` process, which was
+    /// one of Knotch's largest sources of idle wakeups.
+    private func fetchRecentFocusMetadata() {
         logQueue.async { [weak self] in
             guard let self else { return }
-            self.logPipe?.fileHandleForReading.readabilityHandler = nil
-            if self.logProcess?.isRunning == true {
-                self.logProcess?.terminate()
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+            process.arguments = ["show", "--last", "5s", "--debug", "--style", "compact", "--predicate", Self.logPredicate]
+
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            guard (try? process.run()) != nil else { return }
+            process.waitUntilExit()
+
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            guard let line = output.components(separatedBy: "\n").last(where: {
+                $0.contains("mode begin") && $0.contains("Biome event(s) donated for mode")
+            }), let mode = self.parseDNDMode(from: line) else { return }
+
+            DispatchQueue.main.async { [weak self] in
+                guard self?.isMonitoring == true else { return }
+                self?.applyModeBegin(mode)
             }
-            self.logProcess = nil
-            self.logPipe = nil
-            self.logBuffer.removeAll(keepingCapacity: false)
-        }
-    }
-
-    private func launchLogStreamProcess() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
-        process.arguments = ["stream", "--debug", "--style", "compact", "--predicate", Self.logPredicate]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            self?.logQueue.async {
-                self?.handleIncomingLogData(data)
-            }
-        }
-
-        process.terminationHandler = { [weak self] _ in
-            self?.logQueue.async {
-                self?.handleLogStreamTermination()
-            }
-        }
-
-        do {
-            try process.run()
-            logProcess = process
-            logPipe = pipe
-            print("[Focus] Log stream started (pid \(process.processIdentifier))")
-        } catch {
-            pipe.fileHandleForReading.readabilityHandler = nil
-            print("[Focus] Failed to start log stream: \(error)")
-        }
-    }
-
-    private func handleLogStreamTermination() {
-        logPipe?.fileHandleForReading.readabilityHandler = nil
-        logPipe = nil
-        logProcess = nil
-
-        guard isMonitoring, Defaults[.useDetailedFocusMetadata] else { return }
-        print("[Focus] Log stream terminated unexpectedly, restarting in 3s")
-
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.logQueue.async {
-                self?.launchLogStreamProcess()
-            }
-        }
-        restartWorkItem = workItem
-        logQueue.asyncAfter(deadline: .now() + 3, execute: workItem)
-    }
-
-    private func handleIncomingLogData(_ data: Data) {
-        logBuffer.append(data)
-
-        let newline: UInt8 = 0x0A
-        while let index = logBuffer.firstIndex(of: newline) {
-            let lineData = logBuffer.prefix(upTo: index)
-            logBuffer.removeSubrange(logBuffer.startIndex...index)
-            guard !lineData.isEmpty, let line = String(data: lineData, encoding: .utf8) else { continue }
-            processLogLine(line)
         }
     }
 
@@ -369,18 +282,6 @@ final class FocusModeManager: ObservableObject {
                 return
             }
             print("[Focus] Seeding: no Focus mode activity found in the last 24h")
-        }
-    }
-
-    /// Runs on `logQueue`. Parsing is pure; applying the result is handed off
-    /// to the main thread since that's where `current*` state lives.
-    private func processLogLine(_ line: String) {
-        guard let mode = parseDNDMode(from: line) else { return }
-
-        if line.contains("mode begin") {
-            DispatchQueue.main.async { [weak self] in self?.applyModeBegin(mode) }
-        } else if line.contains("mode end") {
-            DispatchQueue.main.async { [weak self] in self?.applyModeEnd() }
         }
     }
 

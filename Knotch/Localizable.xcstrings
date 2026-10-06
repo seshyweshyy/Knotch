@@ -20520,6 +20520,9 @@
         }
       }
     },
+    "Sneak peeks are skipped while a timer is running, since the notch is split between the music and the timer then." : {
+
+    },
     "Software updates" : {
       "localizations" : {
         "ar" : {

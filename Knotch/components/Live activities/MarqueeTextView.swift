@@ -241,7 +241,7 @@ struct MarqueeText: View {
     // a changed textSize/scrollStartDate just changes the inputs, and the
     // displayed position is simply correct on the very next frame.
     private var scrollingPair: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !needsScrolling)) { timeline in
             let period = textSize.width + 20
             let scrollDuration = scrollSpeed > 0 ? period / scrollSpeed : 0
             // Pause, then scroll exactly one period, then pause again — matches

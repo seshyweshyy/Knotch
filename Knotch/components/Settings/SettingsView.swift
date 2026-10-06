@@ -1866,6 +1866,9 @@ struct Media: View {
                     .settingsHighlight(id: "Media-Show playback controls")
                 Toggle("Show sneak peek on resume", isOn: $sneakPeekOnResume)
                     .settingsHighlight(id: "Media-Show sneak peek on resume")
+                Text("Sneak peeks are skipped while a timer is running, since the notch is split between the music and the timer then.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles) {
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)

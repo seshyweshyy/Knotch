@@ -35,6 +35,7 @@ struct FileShareView: View {
         dropArea
             .background(NSViewHost(view: $hostView))
             .onAppear { localSend.startDiscovery() }
+            .task { await quickShare.discoverAvailableProviders() }
             .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data, .image], isTargeted: $vm.dropZoneTargeting) { providers in
                 interactionNonce = .init()
                 vm.dropEvent = true

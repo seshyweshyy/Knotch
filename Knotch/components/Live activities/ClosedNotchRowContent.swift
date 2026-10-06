@@ -48,6 +48,7 @@ func restingRowWidth(
     bluetoothHUDExpanded: Bool,
     airdropHUDExpanded: Bool,
     timerCardExpanded: Bool = false,
+    minimalAttached: Bool = false,
     isHovering: Bool = false
 ) -> CGFloat {
     // InlineHUD's own leading/trailing blocks (sideWidth) each widen by 12pt
@@ -118,6 +119,13 @@ func restingRowWidth(
             return closedNotchWidth + 170 + inlineHUDHoverGrowth + islandExtra
         }
     case .music:
+        // Attached minimal (two activities showing): one glyph wing beside
+        // the camera gap — see ClosedNotchRowContent.minimalAttachedContent.
+        if minimalAttached {
+            return closedNotchWidth - 20
+                + minimalWingWidth(effectiveClosedNotchHeight: effectiveClosedNotchHeight)
+                + islandExtra
+        }
         // Matches MusicLiveActivity's own three-part HStack (album art +
         // center gap + visualizer) plus its default inter-item spacing —
         // trimmed down after this ran noticeably wider than the actual
@@ -147,6 +155,11 @@ func restingRowWidth(
         // The expanded card (TimerExpandedCard) is the same flat width the
         // expanded Bluetooth card uses.
         if timerCardExpanded { return TimerExpandedCard.width + islandExtra }
+        if minimalAttached {
+            return closedNotchWidth - 20
+                + minimalWingWidth(effectiveClosedNotchHeight: effectiveClosedNotchHeight)
+                + islandExtra
+        }
         return isIsland ? islandPlainWidth : closedNotchWidth - 20 + timerCompactPillExtraWidth
     case .battery:
         // Matches BatteryNotchBanner's own two forms: the low/full-battery
@@ -193,6 +206,11 @@ struct ClosedNotchRowContent: View {
     @Binding var bluetoothHUDExpanded: Bool
     @Binding var airdropHUDExpanded: Bool
     @Binding var timerCardExpanded: Bool
+    let dismissTimerCard: () -> Void
+    // Two live activities are showing and this is the one attached to the
+    // notch: it collapses to a single glyph wing beside the camera gap (the
+    // other one is the detached bubble, drawn by ContentView).
+    let minimalAttached: Bool
     @Binding var sneakPeekTitleScrolling: Bool
     let albumArtNamespace: Namespace.ID
     @Binding var isHovering: Bool
@@ -234,6 +252,7 @@ struct ClosedNotchRowContent: View {
             bluetoothHUDExpanded: bluetoothHUDExpanded,
             airdropHUDExpanded: airdropHUDExpanded,
             timerCardExpanded: timerCardExpanded,
+            minimalAttached: minimalAttached,
             isHovering: isHovering
         )
     }
@@ -365,7 +384,11 @@ struct ClosedNotchRowContent: View {
         case .hud:
             hudContent
         case .music:
-            musicContent
+            if minimalAttached {
+                minimalAttachedContent(for: .music)
+            } else {
+                musicContent
+            }
         case .timer:
             // maxWidth: .infinity, not a hardcoded formula — this content
             // is already constrained to restingWidth by the outer
@@ -389,10 +412,11 @@ struct ClosedNotchRowContent: View {
             // cut into the compact pill's own content.
             Group {
                 if timerCardExpanded {
-                    TimerExpandedCard(onDismiss: {
-                        withAnimation(notchCloseSpring) { timerCardExpanded = false }
-                    })
+                    TimerExpandedCard(onDismiss: dismissTimerCard)
                     .transition(.notchOpenReveal(bottomCornerRadius: isIslandAppearance ? 32 : 28))
+                } else if minimalAttached {
+                    minimalAttachedContent(for: .timer)
+                        .transition(.opacity)
                 } else {
                     TimerCompactPill()
                         .frame(
@@ -411,6 +435,28 @@ struct ClosedNotchRowContent: View {
             BatteryNotchBanner()
                 .transition(.opacity)
         }
+    }
+
+    // The attached shape while two activities are showing: a single glyph in
+    // a wing on the leading side, then the camera gap — the detached bubble
+    // (the other activity) sits past the gap's trailing edge. Pinned to the
+    // leading edge; restingRowWidth reserves exactly wing + gap (+ island
+    // padding), so the gap stays centered over the real/simulated camera once
+    // ContentView shifts the whole shape left by half a wing.
+    private func minimalAttachedContent(for activity: ClosedRowFamily) -> some View {
+        let height = vm.effectiveClosedNotchHeight
+        let wing = minimalWingWidth(effectiveClosedNotchHeight: height)
+        // The glyph keeps its compact-pill size and its inset from the
+        // shape's leading edge — only the shape around it changes.
+        let inset = MinimalActivityGlyph.leadingInset(for: activity, isIsland: isIslandAppearance)
+        return HStack(spacing: 0) {
+            MinimalActivityGlyph(family: activity, closedHeight: height)
+                .padding(.leading, inset)
+                .frame(width: wing, height: height, alignment: .leading)
+            Color.clear.frame(width: bareWidth, height: height)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: height)
     }
 
     private var lockIcon: some View {

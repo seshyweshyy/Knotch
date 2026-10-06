@@ -140,13 +140,78 @@ enum AudioSpectrum {
 /// cancel an implicit animation on `liveMix` almost immediately. The
 /// simulated wave's clock keeps running even while live is active, so it
 /// never restarts from a cold baseline when it fades back in.
+/// One coalesced animation heartbeat shared by every mounted spectrum. The
+/// notch can show the same visualizer in several surfaces at once; previously
+/// each copy owned its own 30 Hz timer.
+final class MusicVisualizerClock: ObservableObject {
+    static let shared = MusicVisualizerClock()
+
+    @Published private(set) var time: Double = 0
+    @Published private(set) var shouldRunLiveMeter = false
+
+    private var consumers: Set<UUID> = []
+    private var timer: Timer?
+    private var notificationTokens: [NSObjectProtocol] = []
+
+    private init() {
+        let center = NotificationCenter.default
+        notificationTokens = [
+            center.addObserver(forName: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in
+                self?.refreshCadence()
+            },
+            center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.refreshCadence()
+            },
+        ]
+    }
+
+    deinit {
+        timer?.invalidate()
+        notificationTokens.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    func acquire(_ id: UUID) {
+        guard consumers.insert(id).inserted else { return }
+        refreshCadence()
+    }
+
+    func release(_ id: UUID) {
+        consumers.remove(id)
+        refreshCadence()
+    }
+
+    private var isEnergyConstrained: Bool {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return true }
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious, .critical: return true
+        default: return false
+        }
+    }
+
+    private func refreshCadence() {
+        shouldRunLiveMeter = !consumers.isEmpty && !isEnergyConstrained
+        timer?.invalidate()
+        timer = nil
+        guard !consumers.isEmpty else { return }
+
+        let framesPerSecond = isEnergyConstrained ? 15.0 : 30.0
+        let interval = 1.0 / framesPerSecond
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            self?.time += interval
+        }
+        timer.tolerance = interval * 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+}
+
 struct AudioSpectrumView: View {
     @Binding var isPlaying: Bool
     @State private var amplitudes: [Float] = Array(repeating: 0, count: AudioSpectrum.barCount)
-    @State private var simulatedTime: Double = 0
+    @ObservedObject private var clock = MusicVisualizerClock.shared
+    @State private var clockConsumerID = UUID()
     @Default(.liveWaveform) private var liveWaveformEnabled
     @State private var liveMix: CGFloat = Defaults[.liveWaveform] ? 1 : 0
-    @State private var tickCancellable: AnyCancellable?
 
     // Exponential approach coefficient applied each 1/30s tick — settles
     // (>98%) to the new target in roughly 0.6s.
@@ -157,7 +222,7 @@ struct AudioSpectrumView: View {
             ForEach(0..<AudioSpectrum.barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: AudioSpectrum.barWidth / 2, style: .continuous)
                     .fill(Color.white)
-                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: simulatedTime))
+                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: clock.time))
                     // Bars are clamped to minHeight the instant isPlaying flips
                     // (see barHeight's guard) with no animation of their own —
                     // scoping this to `value: isPlaying` animates only that
@@ -169,40 +234,21 @@ struct AudioSpectrumView: View {
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)
         .scaleEffect(0.98)
         .modifier(LiveAmplitudesSubscriber(amplitudes: $amplitudes))
-        // Timer.publish, not TimelineView — see the note on LiveAmplitudesSubscriber's
-        // sibling mechanism above for why: TimelineView's clock doesn't fire
-        // reliably in this notch window, but a real Timer-backed Combine
-        // publisher (driving @State like the live data does) does.
-        //
-        // The subscription itself is started/stopped from `isPlaying` (below)
-        // rather than left connected all the time — bars are clamped to
-        // minHeight whenever !isPlaying (see barHeight), so there's nothing
-        // to animate while paused, and up to three of these mount at once
-        // (closed-notch row, open-notch home, liquid glass widget). Letting
-        // a real 30Hz Combine timer run in each of them for the entire time
-        // the view stays mounted (which outlives isPlaying by the idle
-        // debounce window) was pure waste. This only toggles the timer
-        // connection, never the view tree shape, so it can't affect the
-        // `.animation(value: isPlaying)` bar transition above.
         .onChange(of: isPlaying, initial: true) { _, playing in
-            guard playing else {
-                tickCancellable = nil
-                return
+            if playing {
+                clock.acquire(clockConsumerID)
+            } else {
+                clock.release(clockConsumerID)
             }
-            guard tickCancellable == nil else { return }
-            tickCancellable = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common)
-                .autoconnect()
-                .sink { _ in
-                    simulatedTime += 1.0 / 30.0
-
-                    let target: CGFloat = liveWaveformEnabled ? 1 : 0
-                    if abs(target - liveMix) > 0.001 {
-                        liveMix += (target - liveMix) * Self.liveMixCoeff
-                    }
-                }
+        }
+        .onReceive(clock.$time) { _ in
+            let target: CGFloat = liveWaveformEnabled ? 1 : 0
+            if abs(target - liveMix) > 0.001 {
+                liveMix += (target - liveMix) * Self.liveMixCoeff
+            }
         }
         .onDisappear {
-            tickCancellable = nil
+            clock.release(clockConsumerID)
         }
     }
 }

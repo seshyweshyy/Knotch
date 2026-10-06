@@ -15,6 +15,11 @@ struct KnotchHeader: View {
     @ObservedObject var timerManager = TimerManager.shared
     @StateObject var tvm = TrayStateViewModel.shared
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
+
+    private var hasPhysicalNotch: Bool {
+        (NSScreen.screen(withUUID: coordinator.selectedScreenUUID)?.safeAreaInsets.top ?? 0) > 0
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -30,8 +35,14 @@ struct KnotchHeader: View {
             .zIndex(2)
 
             if vm.notchState == .open {
+                // The black notch-shaped fill only makes sense where the panel
+                // actually sits against a physical notch. In the island
+                // appearance (a pill floating below the top edge — also on a
+                // notched Mac, when it's forced), it shows as a stray black
+                // mini notch at the top of the panel, glaringly so over the
+                // glass styles. The rectangle stays as the layout spacer.
                 Rectangle()
-                    .fill(NSScreen.screen(withUUID: coordinator.selectedScreenUUID)?.safeAreaInsets.top ?? 0 > 0 ? .black : .clear)
+                    .fill(hasPhysicalNotch && !usesDynamicIslandAppearance(screenUUID: vm.screenUUID) ? .black : .clear)
                     .frame(width: vm.closedNotchSize.width)
                     .mask {
                         NotchShape()

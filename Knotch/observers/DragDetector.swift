@@ -61,7 +61,16 @@ final class DragDetector {
             self.isDragging = true
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
+            self.startActiveDragMonitoring()
         }
+
+    }
+
+    /// The high-frequency dragged monitor is only useful between mouse down
+    /// and mouse up. Installing it lazily removes two permanent global event
+    /// taps from Knotch's normal idle state.
+    private func startActiveDragMonitoring() {
+        stopActiveDragMonitoring()
 
         // Track drag movement and notch region intersection
         mouseDraggedMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged]) { [weak self] event in
@@ -102,18 +111,24 @@ final class DragDetector {
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
             self.pasteboardChangeCount = -1
+            self.stopActiveDragMonitoring()
         }
     }
 
-    func stopMonitoring() {
-        [mouseDownMonitor, mouseDraggedMonitor, mouseUpMonitor].forEach { monitor in
-            if let monitor = monitor {
-                NSEvent.removeMonitor(monitor)
-            }
+    private func stopActiveDragMonitoring() {
+        [mouseDraggedMonitor, mouseUpMonitor].forEach { monitor in
+            if let monitor { NSEvent.removeMonitor(monitor) }
         }
-        mouseDownMonitor = nil
         mouseDraggedMonitor = nil
         mouseUpMonitor = nil
+    }
+
+    func stopMonitoring() {
+        if let mouseDownMonitor {
+            NSEvent.removeMonitor(mouseDownMonitor)
+        }
+        mouseDownMonitor = nil
+        stopActiveDragMonitoring()
         isDragging = false
         isContentDragging = false
         hasEnteredNotchRegion = false

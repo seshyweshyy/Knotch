@@ -45,9 +45,9 @@ final class SystemTimerProvider {
     // kqueue watcher — the poll is purely the backstop for a missed event, so an
     // idle machine only needs it often enough to recover eventually. Once a
     // timer does exist, a missed update means a visibly wrong countdown, so it
-    // steps back up to the original rate.
-    private static let activePollInterval: TimeInterval = 0.5
-    private static let idlePollInterval: TimeInterval = 5.0
+    // steps up to a once-per-second backstop.
+    private static let activePollInterval: TimeInterval = 1.0
+    private static let idlePollInterval: TimeInterval = 60.0
 
     private let onUpdate: ([KnotchTimer]) -> Void
     private var fileDescriptor: CInt = -1
@@ -118,13 +118,15 @@ final class SystemTimerProvider {
             : Self.activePollInterval
         guard interval != currentPollInterval else { return }
         currentPollInterval = interval
-        pollTimer.schedule(deadline: .now() + interval, repeating: interval)
+        let leeway: DispatchTimeInterval = interval == Self.activePollInterval
+            ? .milliseconds(150)
+            : .seconds(10)
+        pollTimer.schedule(deadline: .now() + interval, repeating: interval, leeway: leeway)
     }
 
     private func reload() {
         let mirrored = Self.parse()
-        // The poll timer fires every 0.5s forever regardless of whether
-        // anything changed; onUpdate reassigns a @Published array that's
+        // Each poll is only a backstop, but onUpdate reassigns a @Published array that's
         // observed all the way up at ContentView, so an unconditional call
         // here forced a full notch re-render twice a second at idle. Only
         // forward it when the mirrored list actually differs.

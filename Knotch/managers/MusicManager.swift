@@ -195,9 +195,14 @@ class MusicManager: ObservableObject {
 
         // Wire live audio meter to follow the active music app
         if #available(macOS 14.2, *) {
-            Publishers.CombineLatest3($bundleIdentifier, $isPlaying, Defaults.publisher(.liveWaveform).map(\.newValue))
-                .sink { bundleID, playing, liveEnabled in
-                    if liveEnabled && playing {
+            Publishers.CombineLatest4(
+                $bundleIdentifier,
+                $isPlaying,
+                Defaults.publisher(.liveWaveform).map(\.newValue),
+                MusicVisualizerClock.shared.$shouldRunLiveMeter
+            )
+                .sink { bundleID, playing, liveEnabled, shouldRunLiveMeter in
+                    if liveEnabled && playing && shouldRunLiveMeter {
                         LiveAudioMeter.shared.retarget(bundleID: bundleID)
                     } else {
                         LiveAudioMeter.shared.retarget(bundleID: nil)
@@ -830,6 +835,10 @@ class MusicManager: ObservableObject {
 
     private func updateSneakPeek(reason: SneakPeekReason) {
         guard !coordinator.isScreenLocked else { return }
+        // Skipped while a timer is up too: the closed notch is split between
+        // the two activities then (attached shape + detached bubble), with no
+        // room for the reveal. Noted next to the sneak peek toggles in Settings.
+        guard !TimerManager.shared.hasLiveActivity else { return }
         let enabled = reason == .trackChange ? Defaults[.sneakPeekOnTrackChange] : Defaults[.sneakPeekOnResume]
         if isPlaying && enabled && coordinator.musicLiveActivityEnabled {
             if Defaults[.sneakPeekStyles] == .standard {

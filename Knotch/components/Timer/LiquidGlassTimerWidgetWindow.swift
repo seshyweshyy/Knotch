@@ -13,6 +13,7 @@
 //    LiquidGlassTimerWidgetWindowController.shared.screenDidUnlock()
 //
 
+import AlbumArtBackgroundWindow
 import AppKit
 import Combine
 import Defaults
@@ -20,8 +21,33 @@ import SwiftUI
 
 // MARK: - Root SwiftUI host
 
+/// Whether the music widget's expanded album art is up. Tracked here (from
+/// the same hide/show notifications LiquidGlassWidgetWindow posts on
+/// expand/collapse, which the lock-screen mini widget row also follows) rather
+/// than in the root view: this window is only created once a timer is active,
+/// which can be after the art was already expanded.
+private final class LockScreenArtExpansionState: ObservableObject {
+    static let shared = LockScreenArtExpansionState()
+
+    @Published var isExpanded = false
+    private var cancellables: Set<AnyCancellable> = []
+
+    private init() {
+        NotificationCenter.default.publisher(for: .lockScreenProfileShouldHide)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.isExpanded = true }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .lockScreenProfileShouldShow)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.isExpanded = false }
+            .store(in: &cancellables)
+    }
+}
+
 private struct LiquidGlassTimerWidgetRoot: View {
     @ObservedObject var timerManager = TimerManager.shared
+    @ObservedObject var artExpansion = LockScreenArtExpansionState.shared
 
     var body: some View {
         GeometryReader { geo in
@@ -36,12 +62,18 @@ private struct LiquidGlassTimerWidgetRoot: View {
                 // plus its height) so this sits just above it. Not dynamically
                 // computed from the music widget on purpose — the two are meant
                 // to be independent; nudge this constant if spacing looks off.
-                Spacer().frame(height: 375)
+                //
+                // While the album art is expanded the music widget drops to a
+                // 115pt bottom margin and the art + lyrics fill the space above
+                // it, so the timer moves to sit under the music card instead:
+                // 115 (its margin) - 12 (gap) - 70 (this widget's height).
+                Spacer().frame(height: artExpansion.isExpanded ? 33 : 375)
             }
             .frame(width: geo.size.width)
         }
         .ignoresSafeArea()
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: timerManager.soonestActiveTimer != nil)
+        .animation(.spring(response: 0.4, dampingFraction: 0.82), value: artExpansion.isExpanded)
     }
 }
 
@@ -59,6 +91,8 @@ final class LiquidGlassTimerWidgetWindowController {
     private var timerCancellable: AnyCancellable?
 
     private init() {
+        // Start following the album art's expanded state from launch.
+        _ = LockScreenArtExpansionState.shared
         timerCancellable = TimerManager.shared.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in

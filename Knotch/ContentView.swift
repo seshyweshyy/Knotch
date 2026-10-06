@@ -712,6 +712,40 @@ struct ContentView: View {
     // expands it (see activateNotch), and it collapses the moment the cursor
     // leaves (see handleHover), or when its own X is pressed.
     @State private var timerCardExpanded: Bool = false
+    // During a card -> music close, keep ClosedNotchRowContent in the timer
+    // family until the card's removal transition is unreadable. Replacing the
+    // family in the same update orphaned the removal under music's narrower
+    // layout and made numericText's separately rendered glyph run jump to the
+    // incoming row's horizontal origin for the first close frame.
+    @State private var timerCardCloseHandoff = false
+
+    // Multi-activity: while both the music and timer live activities are up,
+    // the closed pill splits into an attached minimal shape + a detached
+    // bubble (see MultiActivityViews). Music always takes the attached shape
+    // and the timer is always the bubble. splitPresent is the animated "both
+    // are up" flag the sizing and the bubble derive from (state, not derived
+    // from the managers directly, so the change can ride its own spring).
+    @State private var splitPresent = false
+    // Gates the bubble across any row change that takes the row away from the
+    // attached activity and gives it back (the lock icon, a HUD, the battery
+    // banner, the open panel): the bubble merges the moment the row leaves,
+    // and only pulls out again once the row has collapsed to idle and
+    // re-expanded as the minimal shape — see updateBubbleAllowance.
+    @State private var bubbleAllowed = true
+    // The attached shape's pull as the bubble comes out: 0 at rest, up to 1
+    // as it's stretched toward the bubble, and a spring rebound past 0 after
+    // (a slight squeeze) — driven by triggerBubblePull.
+    @State private var bubblePull: CGFloat = 0
+    // The cursor is over the detached bubble (not the attached shape): the
+    // bubble gets the hover shadow and the shape loses it.
+    @State private var hoveringBubble = false
+    // Whether the attached shape is currently laid out as the minimal wing.
+    // Trails splitPresent on purpose: a split (or merge) plays like every
+    // other row change — the row collapses to the idle notch, swaps, then
+    // expands out as two (or as one) — so this flips at the bottom of that
+    // collapse while splitPresent (the bubble) flips at its start/end.
+    @State private var rowSplitMinimal = false
+    @State private var splitGeneration = 0
 
     // Alcove-style collapse/expand between the closed-notch HUD and the
     // persistent live activities (music/timer) — see desiredRowFamily below.
@@ -887,6 +921,56 @@ struct ContentView: View {
             && (!TimerManager.shared.allTimers.isEmpty || !TimerManager.shared.finishedTimers.isEmpty)
     }
 
+    // MARK: Multi-activity (attached shape + detached bubble)
+
+    // Whether each persistent activity is up at all, ignoring whether the
+    // notch happens to be closed or hidden right now (the *Showing checks
+    // above fold that in) — what the start order and the split track, so
+    // the panel opening doesn't look like both activities ending.
+    private var musicActivityLive: Bool {
+        (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled
+    }
+
+    private var timerActivityLive: Bool {
+        !timerManager.allTimers.isEmpty && !timerManager.isPausedIdle
+    }
+
+    // Music always keeps the attached shape; the timer is the detached
+    // bubble — whichever started first.
+    private let attachedActivity: ClosedRowFamily = .music
+    private let detachedActivity: ClosedRowFamily = .timer
+
+    // Sizing/content of the row itself: the attached shape shrinks to a
+    // glyph wing whenever it's displaying one of the two activities during a
+    // split — not while the timer card has taken the row over, and not while
+    // a HUD/lock/battery takeover is displayed (those are symmetric).
+    private var rowSplit: Bool {
+        rowSplitMinimal
+            && !timerCardExpanded
+            && (displayedRowFamily == .music || displayedRowFamily == .timer)
+    }
+
+    // Whether the bubble is out. False during any takeover (HUD, lock,
+    // battery banner, the timer card) and while the panel is open — the
+    // second activity merges back into the shape in all of those.
+    private var bubbleVisible: Bool {
+        splitPresent && bubbleAllowed && !timerCardExpanded && desiredRowFamily == attachedActivity
+    }
+
+    private var minimalWing: CGFloat {
+        minimalWingWidth(effectiveClosedNotchHeight: vm.effectiveClosedNotchHeight)
+    }
+
+    // The wing grows the shape to the left only — the camera gap has to stay
+    // put over the real (or simulated) camera — so the row's centered layout
+    // shifts left by half of it.
+    // Scaled by rowMorph: the shape's width is bare + wing * rowMorph, so
+    // this keeps its trailing edge fixed over the camera gap throughout the
+    // collapse/expand instead of leaving the idle notch off-center.
+    private var splitCenterOffset: CGFloat {
+        rowSplit ? -minimalWing / 2 * rowMorph : 0
+    }
+
     // Matches the condition that shows LockNotchOverlay below — it's driven
     // by vm.isScreenLocked/isUnlockAnimating, not coordinator.sneakPeek, so
     // it isn't covered by glassVisible's sneakPeek.show check either.
@@ -958,7 +1042,10 @@ struct ContentView: View {
         if lockActivityShowing { return .lock }
         if batteryBannerShowing { return .battery }
         // Outranks music: an expanded card was asked for directly.
-        if timerCardShowing { return .timer }
+        if timerCardShowing || timerCardCloseHandoff { return .timer }
+        // Both showing: whichever started first keeps the attached shape's
+        // slot (the other is the detached bubble) — see attachedActivity.
+        if musicLiveActivityShowing && timerLiveActivityShowing { return attachedActivity }
         if musicLiveActivityShowing { return .music }
         if timerLiveActivityShowing { return .timer }
         return .none
@@ -1110,6 +1197,7 @@ struct ContentView: View {
             bluetoothHUDExpanded: bluetoothHUDExpanded,
             airdropHUDExpanded: airdropHUDExpanded,
             timerCardExpanded: timerCardExpanded,
+            minimalAttached: rowSplit,
             isHovering: isHovering
         )
         return bare + (resting - bare) * rowMorph
@@ -1150,16 +1238,10 @@ struct ContentView: View {
     // the open state) reads as mostly-glass there. This pushes the black
     // region further down, keeping only a thin hint of glass at the bottom
     // edge, independent of the Semi Liquid Glass Amount slider.
+    // Shared with the detached bubble (MultiActivityViews), so both read as
+    // the same material.
     private var closedLiquidGlassGradientMask: LinearGradient {
-        let stops: [Gradient.Stop] = [
-            .init(color: .black, location: 0),
-            .init(color: .black, location: 0.7),
-            .init(color: .black.opacity(0.6), location: 0.8),
-            .init(color: .clear, location: 0.9),
-            .init(color: .clear, location: 1)
-        ]
-
-        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+        closedGlassGradient
     }
 
     // Plain SwiftUI `.contextMenu`. On macOS 27 `Label`-based menu items render
@@ -1365,11 +1447,19 @@ struct ContentView: View {
                         }
                     }
                     .scaleEffect(
-                        x: vm.hudOvershootScale, y: 1,
-                        anchor: UnitPoint(x: vm.hudOvershootAnchorX, y: 0.5)
+                        // bubblePull: the attached shape stretching toward the
+                        // bubble as it's pulled out (see triggerBubblePull),
+                        // anchored at the shape's far edge so it reaches
+                        // toward the bubble. Zero the rest of the time.
+                        // Gentler on the notch: its shape is much wider, so the
+                        // same fraction reads as a far bigger stretch.
+                        x: vm.hudOvershootScale * (1 + (isIslandAppearance ? 0.028 : 0.012) * bubblePull),
+                        // No height change at all on the notch: it hangs from the screen edge.
+                        y: 1 - (isIslandAppearance ? 0.05 : 0) * bubblePull,
+                        anchor: UnitPoint(x: bubblePull == 0 ? vm.hudOvershootAnchorX : 0, y: 0.5)
                     )
                     .shadow(
-                        color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
+                        color: ((vm.notchState == .open || (isHovering && !hoveringBubble)) && Defaults[.enableShadow])
                             ? .black.opacity(0.7) : .clear, radius: 6
                     )
                     .padding(
@@ -1397,7 +1487,7 @@ struct ContentView: View {
                     }
                     // Standard's width grows by 0.7x the pull (0.35x per side), so
                     // a 0.35x shift keeps the opposite edge exactly in place.
-                    .offset(x: vm.liquidPullHorizontal * (enableCompactUI ? 0.25 : 0.35))
+                    .offset(x: vm.liquidPullHorizontal * (enableCompactUI ? 0.25 : 0.35) + splitCenterOffset)
                     // No ambient .animation(_:value:) for vm.notchState —
                     // KnotchViewModel.open()/close() wrap their own state
                     // changes in explicit withAnimation(...) now.
@@ -1469,7 +1559,10 @@ struct ContentView: View {
                         }
                         // A finished timer's alert is still waiting — bring it
                         // back once the close spring has settled.
-                        if newState == .closed { restoreFinishedTimerCard() }
+                        if newState == .closed {
+                            restoreFinishedTimerCard()
+                            restoreSplitAfterClose()
+                        }
                         syncStandardContent(to: newState)
                     }
                     .onChange(of: enableCompactUI) {
@@ -1548,6 +1641,8 @@ struct ContentView: View {
                         var noAnim = Transaction()
                         noAnim.disablesAnimations = true
                         withTransaction(noAnim) {
+                            splitPresent = musicActivityLive && timerActivityLive
+                            rowSplitMinimal = splitPresent
                             displayedRowFamily = desiredRowFamily
                             rowMorph = 1
                         }
@@ -1566,15 +1661,15 @@ struct ContentView: View {
                         .frame(width: computedChinWidth, height: vm.chinHeight)
                 }
             }
+            detachedBubble
         }
-        
+
         // Floats the whole pill down from the screen's top edge for the
         // Dynamic Island appearance — the window itself stays flush with the
         // top edge (see KnotchApp.positionWindow), so this is purely visual.
         .padding(.top, isIslandAppearance ? CGFloat(dynamicIslandTopInset) : 0)
         .padding(.bottom, 8)
         .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
-        .compositingGroup()
         .scaleEffect(
             x: gestureScaleX,
             y: gestureScaleY,
@@ -1655,6 +1750,8 @@ struct ContentView: View {
                         bluetoothHUDExpanded: $bluetoothHUDExpanded,
                         airdropHUDExpanded: $airdropHUDExpanded,
                         timerCardExpanded: $timerCardExpanded,
+                        dismissTimerCard: { setTimerCard(expanded: false) },
+                        minimalAttached: rowSplit,
                         sneakPeekTitleScrolling: $sneakPeekTitleScrolling,
                         albumArtNamespace: albumArtNamespace,
                         isHovering: $isHovering,
@@ -1934,6 +2031,73 @@ struct ContentView: View {
         }
     }
 
+    // mainLayout's horizontal padding while closed — the same value its
+    // .padding(.horizontal, ...) in body uses (kept in step by hand: that
+    // expression also handles the open state, which the bubble never needs).
+    private var closedShapeHorizontalPadding: CGFloat {
+        isIslandAppearance
+            ? 0
+            : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
+    }
+
+    // The detached bubble — the timer, while music and a timer are both up.
+    // A sibling of the notch in body's ZStack, placed just past the closed
+    // shape's trailing edge from the same animated widths the shape itself
+    // derives from — not an overlay on mainLayout: a view hanging outside its
+    // parent's bounds isn't hit-tested, so an overlay bubble couldn't be
+    // hovered or tapped. Always mounted; `progress` (from bubbleVisible)
+    // carries the split/merge motion.
+    @ViewBuilder
+    private var detachedBubble: some View {
+        let height = vm.effectiveClosedNotchHeight
+        // Island appearance: the pill's full height. Physical notch: just
+        // under it, centered in the notch's height — floating beside the
+        // notch rather than hanging flush from the screen edge.
+        let diameter = isIslandAppearance ? height : max(0, height - 2)
+        let yInset: CGFloat = isIslandAppearance ? 0 : 1
+        // Closer on the notch: it sits right beside the camera housing there.
+        let gap: CGFloat = isIslandAppearance ? 7 : 4
+        // The physical notch's straight side wall sits topCornerRadius inside
+        // the padded box's edge (the concave top flare fills the difference),
+        // so measure from the wall — the box edge is where the flare ends, a
+        // few points out — or the bubble and neck float off the shape.
+        let shapeTrailingEdge = splitCenterOffset
+            + (rowContentWidth + 2 * closedShapeHorizontalPadding) / 2
+            - (isIslandAppearance ? 0 : topCornerRadius)
+
+        DetachedActivityBubble(
+            family: detachedActivity,
+            diameter: diameter,
+            closedHeight: height,
+            gap: gap,
+            endTopRadius: isIslandAppearance ? height / 2 : 0,
+            endBottomRadius: isIslandAppearance ? height / 2 : cornerRadiusInsets.closed.bottom,
+            // Starts fully tucked inside the shape's end (black on black), so
+            // it can slide out of it without ever fading.
+            slideDistance: diameter * 1.1 + gap,
+            progress: bubbleVisible ? 1 : 0
+        )
+        // The bubble's own hover shadow — same look as the notch's, and
+        // exclusive with it: hovering the bubble shows only this one,
+        // hovering the attached shape only the shape's.
+        .shadow(
+            color: (hoveringBubble && Defaults[.enableShadow]) ? .black.opacity(0.7) : .clear,
+            radius: 6
+        )
+        .onHover { hovering in
+            withAnimation(animationSpring) { hoveringBubble = hovering }
+            handleHover(hovering, target: detachedActivity)
+        }
+        .onTapGesture { activateNotch(target: detachedActivity) }
+        // After the gestures, not before: a gesture applied outside .offset
+        // keeps its hit area at the un-offset position — which is the middle
+        // of the window, i.e. right over the attached shape's camera gap.
+        .offset(x: shapeTrailingEdge + gap + diameter / 2, y: yInset)
+        // The ZStack is centered on the window; this view is only as wide as
+        // the bubble, so its own layout position is the window's center.
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
     @ViewBuilder
     var dragDetector: some View {
         if Defaults[.knotchTray] && vm.notchState == .closed && !enableCompactUI {
@@ -1952,8 +2116,63 @@ struct ContentView: View {
 
     private func doOpen() {
         guard !vm.isScreenLocked else { return }
+        // Two activities showing: they merge back into the idle shape first,
+        // and only then does the panel open.
+        if splitPresent, vm.notchState == .closed {
+            mergeSplit { vm.open() }
+            return
+        }
         // open() drives its own animation internally now.
         vm.open()
+    }
+
+    // Merges the split back into the idle shape — the bubble slides back in
+    // and the row collapses to the idle notch/pill — and only then runs
+    // `action` (the panel opening, or the timer card expanding). Whatever
+    // ends the opened state (panel closing, card collapsing) brings the split
+    // back: see restoreSplitAfterClose / restoreBubble.
+    private func mergeSplit(then action: @escaping () -> Void) {
+        splitGeneration += 1
+        let generation = splitGeneration
+
+        // Quicker than the row's usual collapse (rowMorphSpring/
+        // rowMorphSwapDelay): this sits in front of something the user just
+        // asked for.
+        hoveringBubble = false
+        withAnimation(notchCloseSpring) { splitPresent = false }
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.9)) { rowMorph = 0 }
+        NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(140))
+            guard generation == splitGeneration else { return }
+            var swap = Transaction()
+            swap.animation = nil
+            withTransaction(swap) { rowSplitMinimal = false }
+            action()
+        }
+    }
+
+    // The panel just closed with both activities still up: the row expands
+    // straight into the minimal shape, and the bubble follows once the close
+    // spring has settled (its position tracks the closed row, not the
+    // shrinking panel).
+    private func restoreSplitAfterClose() {
+        guard musicActivityLive, timerActivityLive, !splitPresent else { return }
+        var noAnim = Transaction()
+        noAnim.animation = nil
+        withTransaction(noAnim) { rowSplitMinimal = true }
+        restoreBubble(after: .milliseconds(300))
+    }
+
+    private func restoreBubble(after delay: Duration) {
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            guard vm.notchState == .closed, !timerCardExpanded,
+                  musicActivityLive, timerActivityLive, !splitPresent else { return }
+            withAnimation(notchOpenSpring) { splitPresent = true }
+            if bubbleVisible { triggerBubblePull() }
+        }
     }
 
     // What a hover (after minimumHoverDuration) or a tap on the closed notch
@@ -1962,10 +2181,18 @@ struct ContentView: View {
     // the timer pill is the only thing showing, it expands into its own card
     // (TimerExpandedCard) instead of opening the full panel, and while that
     // card is up hover/tap leave it alone.
-    private func activateNotch() {
+    //
+    // `target` is the activity that was actually hovered/tapped — the
+    // detached bubble passes its own; nil means the attached shape (whatever
+    // the row is showing). In a split, the timer's shape expands the timer
+    // card (the music side merges into it), and the music's shape opens the
+    // full panel.
+    private func activateNotch(target: ClosedRowFamily? = nil) {
         guard !vm.isScreenLocked else { return }
         if timerCardExpanded { return }
-        if vm.notchState == .closed, desiredRowFamily == .timer {
+        if vm.notchState == .closed, (target ?? desiredRowFamily) == .timer,
+           !timerManager.allTimers.isEmpty
+        {
             setTimerCard(expanded: true)
             return
         }
@@ -1974,11 +2201,27 @@ struct ContentView: View {
 
     private func setTimerCard(expanded: Bool) {
         guard timerCardExpanded != expanded else { return }
+        // Two activities showing: merge into the idle shape first, then the
+        // card expands out of it.
+        if expanded, splitPresent, vm.notchState == .closed {
+            mergeSplit { setTimerCard(expanded: true) }
+            return
+        }
         // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
         // works around — the card resizes the panel just like an open/close.
         NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
         // Same springs as the full panel's own open()/close(), so the card
         // grows with the same overshoot and closes critically damped.
+        let handsBackToMusic = !expanded
+            && displayedRowFamily == .timer
+            && musicLiveActivityShowing
+        if expanded {
+            timerCardCloseHandoff = false
+        } else if handsBackToMusic {
+            // Set this before clearing timerCardExpanded so desiredRowFamily
+            // never exposes music during the outgoing card's removal pass.
+            timerCardCloseHandoff = true
+        }
         withAnimation(expanded ? notchOpenSpring : notchCloseSpring) {
             timerCardExpanded = expanded
             // The card taking the row over from something else (the
@@ -1991,21 +2234,55 @@ struct ContentView: View {
                 displayedRowFamily = .timer
                 rowMorph = 1
             }
+            // Both activities still up: the shape shrinks from the card
+            // straight into the minimal wing, and the bubble follows.
+            if !expanded, musicActivityLive, timerActivityLive, !splitPresent {
+                rowSplitMinimal = true
+            }
+        }
+        if !expanded {
+            if handsBackToMusic { finishTimerCardCloseHandoff() }
+            restoreBubble(after: .milliseconds(300))
+        }
+    }
+
+    private func finishTimerCardCloseHandoff() {
+        Task { @MainActor in
+            // Same point the normal row-family choreography considers its
+            // outgoing content unreadable. The shape is already animating to
+            // the minimal resting size; only the content owner changes here.
+            try? await Task.sleep(for: .seconds(rowMorphSwapDelay))
+            guard timerCardCloseHandoff, !timerCardExpanded else { return }
+            let canHandBackToMusic = vm.notchState == .closed && musicLiveActivityShowing
+            var noAnimation = Transaction()
+            noAnimation.disablesAnimations = true
+            withTransaction(noAnimation) {
+                if canHandBackToMusic {
+                    displayedRowFamily = .music
+                    rowMorph = 1
+                }
+                timerCardCloseHandoff = false
+            }
         }
     }
 
     // What the timer card reacts to from TimerManager — folded into one
     // value so ContentView's already long modifier chain gets a single
     // .onChange for it.
+    // (Also carries whether each persistent activity is up, for the split.)
     private struct TimerCardTimerState: Equatable {
         var hasNoTimers: Bool
         var finishedCount: Int
+        var musicLive: Bool
+        var timerLive: Bool
     }
 
     private var timerCardTimerState: TimerCardTimerState {
         TimerCardTimerState(
             hasNoTimers: timerManager.allTimers.isEmpty,
-            finishedCount: timerManager.finishedTimers.count
+            finishedCount: timerManager.finishedTimers.count,
+            musicLive: musicActivityLive,
+            timerLive: timerActivityLive
         )
     }
 
@@ -2016,6 +2293,61 @@ struct ContentView: View {
             setTimerCard(expanded: true)
         } else if new.hasNoTimers, new.finishedCount == 0 {
             collapseTimerCard(animated: false)
+        }
+        if new.musicLive != old.musicLive || new.timerLive != old.timerLive {
+            syncActivities()
+        }
+    }
+
+    // Keeps the split in step with whether both music and timer are up,
+    // choreographed like every other row change: the row collapses to the
+    // idle notch, swaps, then expands out — as two (attached shape + bubble)
+    // when the second activity arrives, as one when one ends. The bubble
+    // follows splitPresent directly (it merges away as the collapse starts
+    // and pulls out as the expand does); the attached shape's own layout
+    // follows rowSplitMinimal, which flips at the bottom of the collapse.
+    private func syncActivities() {
+        let shouldSplit = musicActivityLive && timerActivityLive
+        // (Also when the minimal layout outlived the split — the row was
+        // restored to it after the panel/card, then an activity ended.)
+        guard shouldSplit != splitPresent || (!shouldSplit && rowSplitMinimal) else { return }
+
+        splitGeneration += 1
+        let generation = splitGeneration
+
+        if !shouldSplit {
+            withAnimation(notchCloseSpring) { splitPresent = false }
+        }
+        withAnimation(rowMorphSpring) { rowMorph = 0 }
+        // Same NSGlassEffectView backdrop staleness handleRowFamilyChange
+        // works around — this resizes the panel the same way.
+        NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(rowMorphSwapDelay))
+            guard generation == splitGeneration else { return }
+            // No animation for the swap itself: the row is collapsed to
+            // nothing here. (Transaction.animation = nil, not
+            // disablesAnimations, so the bubble's own animation on its
+            // progress still plays.)
+            var swap = Transaction()
+            swap.animation = nil
+            withTransaction(swap) {
+                rowSplitMinimal = shouldSplit
+                // The other activity may have been the row's family (music
+                // ending under a timer, a timer under music): take whatever
+                // is wanted now, same as handleRowFamilyChange's swap.
+                displayedRowFamily = desiredRowFamily
+                // The bubble comes out together with the shape — same moment
+                // the row starts expanding from idle into the minimal shape —
+                // instead of waiting for it to finish. (It has its own
+                // animation on its progress, so this transaction not
+                // animating doesn't matter.)
+                if shouldSplit { splitPresent = true }
+            }
+            NotificationCenter.default.post(name: .knotchWillOpen, object: nil)
+            withAnimation(rowMorphSpring) { rowMorph = 1 }
+            if shouldSplit, bubbleVisible { triggerBubblePull() }
         }
     }
 
@@ -2041,6 +2373,53 @@ struct ContentView: View {
         withTransaction(noAnim) { timerCardExpanded = false }
     }
 
+    // Keeps the bubble in step with what the row is doing. Leaving the
+    // attached activity's family (unlocking is the case that matters: lock
+    // icon -> idle -> minimal shape) merges the bubble away at once; coming
+    // back to it lets the bubble out only after the row has finished
+    // collapsing (it comes out together with the re-expanding shape) — not while the lock/unlock (or HUD)
+    // animation is still playing, which is what happened when the bubble
+    // simply followed desiredRowFamily. A rapid flip back (the row family
+    // briefly reads as the attached one between the screen unlocking and the
+    // unlock animation starting) bumps the generation and cancels the pending
+    // re-entrance.
+    private func updateBubbleAllowance(for family: ClosedRowFamily, generation: Int) {
+        guard family == attachedActivity else {
+            if bubbleAllowed {
+                // The bubble merges out from under the cursor — no hover-end
+                // event follows, so clear its hover shadow here.
+                hoveringBubble = false
+                withAnimation(notchCloseSpring) { bubbleAllowed = false }
+            }
+            return
+        }
+        guard !bubbleAllowed else { return }
+
+        // If the row is already showing the attached activity (the timer card
+        // handing the row straight back), there's no collapse to wait out.
+        let delay: Double = displayedRowFamily == attachedActivity ? 0.15 : rowMorphSwapDelay + 0.02
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(delay))
+            guard generation == rowTransitionGeneration,
+                  desiredRowFamily == attachedActivity else { return }
+            withAnimation(notchOpenSpring) { bubbleAllowed = true }
+            if bubbleVisible { triggerBubblePull() }
+        }
+    }
+
+    // iOS-style: as the bubble is pulled out of the attached shape, the shape
+    // itself stretches a little toward it, then rebounds (a spring that
+    // overshoots into a slight squeeze) once the bubble lets go. Timed to the
+    // bubble's 0.42s split: the stretch builds for 0.32s, so it holds until the
+    // bubble is nearly out before letting go.
+    private func triggerBubblePull() {
+        withAnimation(.easeOut(duration: 0.32)) { bubblePull = 1 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(320))
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) { bubblePull = 0 }
+        }
+    }
+
     // MARK: - Closed-notch row family transitions (HUD <-> live activity)
 
     // Drives the Alcove-style collapse/expand whenever the closed-notch row's
@@ -2051,6 +2430,7 @@ struct ContentView: View {
     private func handleRowFamilyChange(to newFamily: ClosedRowFamily) {
         rowTransitionGeneration += 1
         let myGeneration = rowTransitionGeneration
+        updateBubbleAllowance(for: newFamily, generation: myGeneration)
 
         // Only the expand-out step for volume/brightness specifically runs
         // quicker — collapsing away (whether it's volume/brightness or
@@ -2098,13 +2478,21 @@ struct ContentView: View {
 
     // MARK: - Hover Management
 
-    private func handleHover(_ hovering: Bool) {
+    // `target`: the activity whose shape is being hovered — the detached
+    // bubble passes its own, nil is the attached shape (see activateNotch).
+    private func handleHover(_ hovering: Bool, target: ClosedRowFamily? = nil) {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
 
         // Straight away, not behind the 100ms hover-out debounce below. A
         // finished timer's alert stays until it's dismissed or restarted.
-        if !hovering, timerManager.finishedTimers.isEmpty { collapseTimerCard(animated: true) }
+        // Only the notch's own hover ending counts (target == nil): the
+        // bubble's hover ends the instant it opens the card — it merges away
+        // under the cursor — and that must not collapse the card it just
+        // opened.
+        if !hovering, target == nil, timerManager.finishedTimers.isEmpty {
+            collapseTimerCard(animated: true)
+        }
 
         if hovering {
             withAnimation(animationSpring) {
@@ -2129,7 +2517,7 @@ struct ContentView: View {
                           self.isHovering,
                           !self.coordinator.sneakPeek.show else { return }
                     
-                    self.activateNotch()
+                    self.activateNotch(target: target)
                 }
             }
         } else {

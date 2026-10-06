@@ -37,7 +37,12 @@ enum KnotchContrastOutline {
     /// actual bounds. Keeping it fixed preserves the initial luma registration
     /// while the notch animates and its strip windows resize.
     static let maximumSampleLength: CGFloat = 16_384
-    static let lumaUpdateRate: Double = 0.1
+    // Screen capture is comparatively expensive. A few samples per second are
+    // enough for the outline to track background changes without continuously
+    // waking the display and render pipelines.
+    static var lumaUpdateRate: Double {
+        ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.75 : 0.35
+    }
     static let staleAfter: TimeInterval = 3.5
     /// Hold the last visible outline across a short sampler registration gap,
     /// but never keep it indefinitely if the window server stops responding.

@@ -25,26 +25,7 @@ struct TimerCompactPill: View {
                         timer.isPaused ? timerManager.resume(id: timer.id) : timerManager.pause(id: timer.id)
                     }
                 } label: {
-                    let progress = max(0, min(1, timer.remaining() / timer.duration))
-
-                    ZStack {
-                        Circle()
-                            .stroke(activeColor.opacity(0.25), lineWidth: 2)
-                        // Drains as the timer counts down, rather than filling up.
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(activeColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                        // Dial tick riding the drained arc's leading edge.
-                        Capsule()
-                            .fill(activeColor)
-                            .frame(width: 2, height: 5)
-                            .offset(y: -3)
-                            .frame(width: 16, height: 16)
-                            .rotationEffect(.degrees(progress * 360))
-                    }
-                    .animation(.linear(duration: 1), value: timer.remaining())
-                    .frame(width: 16, height: 16)
+                    TimerProgressRing(timer: timer, color: activeColor, size: 16)
                 }
                 .buttonStyle(.plain)
 
