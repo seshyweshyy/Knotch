@@ -397,16 +397,39 @@ final class FocusModeManager: ObservableObject {
         }
 
         let name = field("name")
-        let symbolName = field("symbolImageName")
+        let reportedSymbolName = field("symbolImageName")
         let tintColorName = field("tintColorName")
 
-        guard name != nil || symbolName != nil || tintColorName != nil else { return nil }
+        guard name != nil || reportedSymbolName != nil || tintColorName != nil else { return nil }
 
         return ParsedDNDMode(
             name: name,
-            symbolName: symbolName,
+            symbolName: Self.publicSymbolName(for: reportedSymbolName),
             tintColor: tintColorName.flatMap(Self.color(forSystemColorName:))
         )
+    }
+
+    /// Focus sometimes reports private glyph identifiers that Control Centre
+    /// can render but the public SF Symbols API cannot. In particular, the
+    /// custom smiley option is `emoji.face.grinning`, for which
+    /// `Image(systemName:)` returns an empty image. Keep valid public symbols
+    /// untouched, translate known private families to their closest public
+    /// equivalent, and return nil for anything unknown so the caller uses the
+    /// existing moon fallback instead of silently displaying a blank slot.
+    private static func publicSymbolName(for reportedName: String?) -> String? {
+        guard let reportedName else { return nil }
+        let name = reportedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != "(null)", name != "null" else { return nil }
+
+        if NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil {
+            return name
+        }
+
+        if name.hasPrefix("emoji.face.") {
+            return "face.smiling"
+        }
+
+        return nil
     }
 
     /// Maps AppKit system colour selector names (`systemOrangeColor`,

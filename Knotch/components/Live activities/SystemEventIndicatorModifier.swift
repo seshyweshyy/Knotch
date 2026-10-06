@@ -61,6 +61,10 @@ struct SystemEventIndicatorModifier: View {
                 case .focusMode:
                     Image(systemName: icon.isEmpty ? "moon.fill" : icon)
                         .contentTransition(.interpolate)
+                        // Some public Focus fallbacks (for example
+                        // face.smiling) have no filled variant. Do not let the
+                        // HStack's general `.fill` request hide them again.
+                        .symbolVariant(.none)
                         .frame(width: 20, height: 15)
                         .foregroundStyle(tintColor)
                 default:
