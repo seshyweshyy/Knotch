@@ -253,8 +253,7 @@ private struct LockScreenMiniWidgetPill: View {
 
     private var content: some View {
         HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
+            FocusSymbolImage(name: systemImage, pointSize: 14, weight: .semibold)
             Text(text)
                 .font(.system(size: 14, weight: .semibold))
         }

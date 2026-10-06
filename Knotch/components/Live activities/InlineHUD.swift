@@ -63,11 +63,7 @@ struct InlineHUD: View {
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
                         case .focusMode:
-                            Image(systemName: icon.isEmpty ? "moon.fill" : icon)
-                                .contentTransition(.interpolate)
-                                // Keep mapped public fallbacks visible even
-                                // when they do not offer a filled variant.
-                                .symbolVariant(.none)
+                            FocusSymbolImage(name: icon.isEmpty ? "moon.fill" : icon)
                                 .frame(width: 20, height: 15, alignment: .center)
                         default:
                             EmptyView()
