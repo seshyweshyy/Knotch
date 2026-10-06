@@ -418,8 +418,15 @@ final class LocalSendService: NSObject, ObservableObject {
             "announce": true
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
-        connectionGroup?.send(content: data, completion: { _ in })
+        // NWConnectionGroup invokes this completion on its own queue. A
+        // closure created inline in this @MainActor type inherits the main
+        // actor under Swift 6, causing _dispatch_assert_queue_fail even when
+        // the closure is empty. Use a genuinely nonisolated function because
+        // announcement delivery is intentionally fire-and-forget.
+        connectionGroup?.send(content: data, completion: Self.ignoreAnnouncementCompletion)
     }
+
+    nonisolated private static func ignoreAnnouncementCompletion(_ error: NWError?) {}
 
     private func handleIncoming(content: Data, endpoint: NWEndpoint?) {
         guard let json = try? JSONSerialization.jsonObject(with: content) as? [String: Any],
