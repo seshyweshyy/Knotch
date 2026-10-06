@@ -657,9 +657,10 @@ struct ContentView: View {
     // swipes could interrupt an in-flight transition mid-flight, which is
     // what caused the page switch to sometimes visibly slide the wrong way.
     @State private var lastCompactPageSwitchDate: Date = .distantPast
-    // Real glass background size from the GeometryReader below — drives mask
-    // selection off actual geometry instead of a guessed close-spring delay.
-    @State private var measuredGlassSize: CGSize = .zero
+    // The mask only needs to know which side of its height threshold the live
+    // glass is on. Storing every intermediate CGSize fed layout changes back
+    // into the entire ContentView on every animation frame.
+    @State private var measuredGlassIsSmall = true
     // Blocks a momentum-scroll tail from re-arming a second skip after a real one fires.
     @State private var horizontalSwipeCooldownUntil: Date = .distantPast
     @State private var lockedView: NotchViews? = nil
@@ -1326,9 +1327,14 @@ struct ContentView: View {
                             Color.clear
                                 .background(GeometryReader { geo in
                                     Color.clear
-                                        .onAppear { measuredGlassSize = geo.size }
+                                        .onAppear {
+                                            measuredGlassIsSmall = geo.size.height < openNotchHomeSize.height * 0.8
+                                        }
                                         .onChange(of: geo.size) { _, newSize in
-                                            measuredGlassSize = newSize
+                                            let isSmall = newSize.height < openNotchHomeSize.height * 0.8
+                                            if isSmall != measuredGlassIsSmall {
+                                                measuredGlassIsSmall = isSmall
+                                            }
                                         }
                                 })
 
@@ -1385,8 +1391,7 @@ struct ContentView: View {
                                 // ~190pt open panel but much taller than the pill) fell through
                                 // to the open-tuned mask and read as mostly glass instead of the
                                 // opaque pill look every other closed-state card gets.
-                                let isFrameSmall = measuredGlassSize.height < openNotchHomeSize.height * 0.8
-                                let closedMaskActive = semiGlassActive && vm.notchState == .closed && isFrameSmall
+                                let closedMaskActive = semiGlassActive && vm.notchState == .closed && measuredGlassIsSmall
                                 let semiMaskActive = semiGlassActive && !closedMaskActive
                                 Color.black
                                     .mask { closedLiquidGlassGradientMask }

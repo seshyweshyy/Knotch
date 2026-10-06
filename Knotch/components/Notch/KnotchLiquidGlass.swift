@@ -220,10 +220,33 @@ struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
 
     @MainActor
     final class Coordinator: NSObject {
+        private struct PathState: Equatable {
+            enum Shape: Equatable {
+                case notch(top: CGFloat, bottom: CGFloat)
+                case capsule
+                case roundedRect(radius: CGFloat)
+            }
+
+            let bounds: CGRect
+            let isFlipped: Bool
+            let shape: Shape
+        }
+
+        private final class WeakLayer {
+            weak var value: CALayer?
+
+            init(_ value: CALayer) {
+                self.value = value
+            }
+        }
+
         weak var glassView: NSView?
         var shape: GlassShape = .capsule
         var adaptiveAppearance = false
         var contentLensing = true
+        private var lastAppliedPathState: PathState?
+        private weak var configuredBackdropRootLayer: CALayer?
+        private var configuredBackdropLayers: [WeakLayer] = []
 
         @objc func handleFrameChange(_ notification: Notification) {
             applyPath()
@@ -249,7 +272,7 @@ struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
             glassView.setValue(false, forKey: "_subduedState")
             glassView.setValue(false, forKey: "_tintOpacityReduced")
             glassView.setValue(contentLensing, forKey: "_contentLensing")
-            configureBackdropLayer()
+            configureBackdropLayer(force: true)
         }
 
         // Per Oskar Groth's "Reverse Engineering NSVisualEffectView"
@@ -262,17 +285,38 @@ struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
         // rectangles instead of substituting a reasonable color whenever
         // live sampling is restricted, which could read as exactly the flat/
         // frosted look we've been fighting.
-        func configureBackdropLayer() {
+        func configureBackdropLayer(force: Bool = false) {
             guard let glassView, let rootLayer = glassView.layer else { return }
-            setBackdropProperties(in: rootLayer)
-        }
 
-        private func setBackdropProperties(in layer: CALayer) {
-            if NSStringFromClass(type(of: layer)).contains("CABackdropLayer") {
+            // NSGlassEffectView keeps its backdrop layers stable while its
+            // frame animates. Once configured, avoid recursively walking the
+            // private layer tree on every SwiftUI update and frame-change
+            // notification. Weak references make replacement self-invalidating.
+            if !force,
+               configuredBackdropRootLayer === rootLayer,
+               !configuredBackdropLayers.isEmpty,
+               configuredBackdropLayers.allSatisfy({ $0.value != nil }) {
+                return
+            }
+
+            let backdropLayers = findBackdropLayers(in: rootLayer)
+            for layer in backdropLayers {
                 layer.setValue(true, forKey: "windowServerAware")
                 layer.setValue(true, forKey: "allowsSubstituteColor")
             }
-            layer.sublayers?.forEach { setBackdropProperties(in: $0) }
+            configuredBackdropRootLayer = rootLayer
+            configuredBackdropLayers = backdropLayers.map(WeakLayer.init)
+        }
+
+        private func findBackdropLayers(in layer: CALayer) -> [CALayer] {
+            var matches: [CALayer] = []
+            if NSStringFromClass(type(of: layer)).contains("CABackdropLayer") {
+                matches.append(layer)
+            }
+            for sublayer in layer.sublayers ?? [] {
+                matches.append(contentsOf: findBackdropLayers(in: sublayer))
+            }
+            return matches
         }
 
         // NSGlassEffectView's edge lensing/refraction is tied to its own
@@ -284,6 +328,22 @@ struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
         // this instance is standing in for (notch or capsule alike).
         func applyPath() {
             guard let view = glassView, view.bounds.width > 0, view.bounds.height > 0 else { return }
+            let shapeState: PathState.Shape = switch shape {
+            case .notch(let topCornerRadius, let bottomCornerRadius):
+                .notch(top: topCornerRadius, bottom: bottomCornerRadius)
+            case .capsule:
+                .capsule
+            case .roundedRect(let cornerRadius):
+                .roundedRect(radius: cornerRadius)
+            }
+            let pathState = PathState(
+                bounds: view.bounds,
+                isFlipped: view.isFlipped,
+                shape: shapeState
+            )
+            guard pathState != lastAppliedPathState else { return }
+            lastAppliedPathState = pathState
+
             let path: CGPath
             switch shape {
             case .notch(let topCornerRadius, let bottomCornerRadius):
