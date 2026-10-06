@@ -169,15 +169,21 @@ final class VolumeManager: NSObject, ObservableObject {
         let deviceID = systemOutputDeviceID()
         guard deviceID != kAudioObjectUnknown else { return }
 
+        // VolumeManager is main-actor isolated. Passing nil lets CoreAudio
+        // invoke these blocks on one of its private queues, which violates the
+        // closure's actor executor under Swift 6 and triggers
+        // _dispatch_assert_queue_fail as soon as the volume changes.
+        let listenerQueue = DispatchQueue.main
+
         var defaultDevAddr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
         AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &defaultDevAddr, nil
+            AudioObjectID(kAudioObjectSystemObject), &defaultDevAddr, listenerQueue
         ) { [weak self] _, _ in
-            Task { @MainActor in self?.fetchCurrentVolume() }
+            self?.fetchCurrentVolume()
         }
 
         var masterAddr = AudioObjectPropertyAddress(
@@ -186,8 +192,8 @@ final class VolumeManager: NSObject, ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         if AudioObjectHasProperty(deviceID, &masterAddr) {
-            AudioObjectAddPropertyListenerBlock(deviceID, &masterAddr, nil) { [weak self] _, _ in
-                Task { @MainActor in self?.fetchCurrentVolume() }
+            AudioObjectAddPropertyListenerBlock(deviceID, &masterAddr, listenerQueue) { [weak self] _, _ in
+                self?.fetchCurrentVolume()
             }
         } else {
             for ch in [UInt32(1), UInt32(2)] {
@@ -197,8 +203,8 @@ final class VolumeManager: NSObject, ObservableObject {
                     mElement: ch
                 )
                 if AudioObjectHasProperty(deviceID, &chAddr) {
-                    AudioObjectAddPropertyListenerBlock(deviceID, &chAddr, nil) { [weak self] _, _ in
-                        Task { @MainActor in self?.fetchCurrentVolume() }
+                    AudioObjectAddPropertyListenerBlock(deviceID, &chAddr, listenerQueue) { [weak self] _, _ in
+                        self?.fetchCurrentVolume()
                     }
                 }
             }
@@ -211,8 +217,8 @@ final class VolumeManager: NSObject, ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         if AudioObjectHasProperty(deviceID, &muteAddr) {
-            AudioObjectAddPropertyListenerBlock(deviceID, &muteAddr, nil) { [weak self] _, _ in
-                Task { @MainActor in self?.fetchCurrentVolume() }
+            AudioObjectAddPropertyListenerBlock(deviceID, &muteAddr, listenerQueue) { [weak self] _, _ in
+                self?.fetchCurrentVolume()
             }
         }
     }
@@ -368,4 +374,3 @@ final class VolumeManager: NSObject, ObservableObject {
 extension Array where Element == Float32 {
     fileprivate var average: Float32? { isEmpty ? nil : reduce(0, +) / Float32(count) }
 }
-
