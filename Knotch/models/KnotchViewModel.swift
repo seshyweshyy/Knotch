@@ -91,7 +91,15 @@ final class KnotchViewModel: NSObject, ObservableObject {
     func cycleCompactPage() {
         let pages = availableCompactPages
         guard pages.count > 1, let index = pages.firstIndex(of: resolvedCompactPage) else { return }
-        compactPage = pages[(index + 1) % pages.count]
+        let destination = pages[(index + 1) % pages.count]
+        if destination == .calendar {
+            let manager = CalendarManager.shared
+            manager.scheduleUpdate(for: .now)
+            if !Defaults[.compactCalendarShowMonthView] {
+                manager.prefetchCompactUpcomingEvents()
+            }
+        }
+        compactPage = destination
     }
 
     // Called from the Converter page's own X button. Clearing
@@ -643,6 +651,13 @@ final class KnotchViewModel: NSObject, ObservableObject {
 
     func open() {
         guard !isScreenLocked else { return }
+        if Defaults[.enableCompactUI], Defaults[.compactShowCalendarView] {
+            let manager = CalendarManager.shared
+            manager.scheduleUpdate(for: .now)
+            if !Defaults[.compactCalendarShowMonthView] {
+                manager.prefetchCompactUpcomingEvents()
+            }
+        }
         applyPendingViewReset()
         lastOpenAt = Date()
         // NSGlassEffectView's backdrop capture goes stale the same way it

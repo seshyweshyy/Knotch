@@ -595,6 +595,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if Defaults[.lockScreenCalendarMiniWidget] {
             CalendarManager.shared.scheduleUpdate(for: Date())
         }
+        // CalendarManager primes both today's and the upcoming validated
+        // snapshots after restoring the user's selected calendars.
+        if Defaults[.compactShowCalendarView] {
+            _ = CalendarManager.shared
+        }
 
         KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
             guard let self = self else { return }

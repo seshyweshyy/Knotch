@@ -27,6 +27,30 @@ final class CalendarService: CalendarServiceProviding {
     static let shared = CalendarService()
 
     private let store = EKEventStore()
+    private var storeRevision: UInt64 = 0
+    private var eventStoreChangedObserver: NSObjectProtocol?
+
+    private init() {
+        // A result fetched while CalendarAgent is applying a database change
+        // can be incomplete. Track the store's notification generation so a
+        // query that overlaps a change can be discarded instead of merged
+        // with a later result (which would resurrect genuinely deleted items).
+        eventStoreChangedObserver = NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged,
+            object: store,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.storeRevision &+= 1
+            }
+        }
+    }
+
+    isolated deinit {
+        if let eventStoreChangedObserver {
+            NotificationCenter.default.removeObserver(eventStoreChangedObserver)
+        }
+    }
     
     func requestAccess(to type: EKEntityType) async throws -> Bool {
         if #available(macOS 14.0, *) {
@@ -85,30 +109,90 @@ final class CalendarService: CalendarServiceProviding {
     }
     
     func events(from start: Date, to end: Date, calendars ids: [String]) async -> [EventModel] {
-        let allCalendars = await self.calendars()
-        let filteredCalendars = allCalendars.filter { ids.isEmpty || ids.contains($0.id) }
-        let ekCalendars = filteredCalendars.compactMap { calendarModel in
-            store.calendars(for: .event).first { $0.calendarIdentifier == calendarModel.id } ??
-            store.calendars(for: .reminder).first { $0.calendarIdentifier == calendarModel.id }
-        }
-        
-        var events: [EventModel] = []
-        
-        // Fetch regular events
-        if hasAccess(to: .event) {
-            let eventCalendars = ekCalendars.filter { store.calendars(for: .event).contains($0) }
-            let predicate = store.predicateForEvents(withStart: start, end: end, calendars: eventCalendars)
-            let ekEvents = store.events(matching: predicate)
-            events.append(contentsOf: ekEvents.compactMap { EventModel(from: $0) })
-        }
-        
+        let selectedIDs = Set(ids)
+        var reminders: [EventModel] = []
+
         // Fetch reminders
         if hasAccess(to: .reminder) {
-            let reminderCalendars = ekCalendars.filter { store.calendars(for: .reminder).contains($0) }
-            events.append(contentsOf: await fetchReminders(from: start, to: end, calendars: reminderCalendars))
+            let reminderCalendars = store.calendars(for: .reminder).filter {
+                selectedIDs.isEmpty || selectedIDs.contains($0.calendarIdentifier)
+            }
+            reminders = await fetchReminders(from: start, to: end, calendars: reminderCalendars)
         }
-        
-        return events.sorted { $0.start < $1.start }
+
+        // Query events last. Reminder fetching is asynchronous and may take
+        // up to its timeout; doing the validated event read afterwards keeps
+        // the event snapshot current at the point this method returns.
+        let events = await stableEventSnapshot(
+            from: start,
+            to: end,
+            selectedCalendarIDs: selectedIDs
+        )
+
+        return (events + reminders).sorted { $0.start < $1.start }
+    }
+
+    /// Returns one authoritative local EventKit snapshot. EventKit does not
+    /// expose a "sync complete" flag, but it does tell us when the backing
+    /// database changed. Holding the result for a short validation window
+    /// lets us discard only queries that overlapped such a change.
+    private func stableEventSnapshot(
+        from start: Date,
+        to end: Date,
+        selectedCalendarIDs: Set<String>
+    ) async -> [EventModel] {
+        guard hasAccess(to: .event) else { return [] }
+
+        let validationWindow = Duration.milliseconds(350)
+        var lastSnapshot: [EventModel] = []
+        var attempt = 0
+
+        while true {
+            attempt += 1
+            let revisionBeforeQuery = storeRevision
+            lastSnapshot = eventSnapshot(
+                from: start,
+                to: end,
+                selectedCalendarIDs: selectedCalendarIDs
+            )
+
+            do {
+                try await Task.sleep(for: validationWindow)
+                try Task.checkCancellation()
+            } catch is CancellationError {
+                return lastSnapshot
+            } catch {
+                return lastSnapshot
+            }
+
+            guard storeRevision != revisionBeforeQuery else {
+                return lastSnapshot
+            }
+
+            NSLog("[CalendarService] Event store changed during range query; discarding snapshot and retrying (attempt \(attempt))")
+        }
+    }
+
+    private func eventSnapshot(
+        from start: Date,
+        to end: Date,
+        selectedCalendarIDs: Set<String>
+    ) -> [EventModel] {
+        // Querying all event calendars avoids handing the predicate EKCalendar
+        // objects that may have gone stale during a source refresh. Apply the
+        // user's identifier selection to the returned events instead.
+        let predicate = store.predicateForEvents(
+            withStart: start,
+            end: end,
+            calendars: nil
+        )
+        return store.events(matching: predicate)
+            .filter {
+                selectedCalendarIDs.isEmpty ||
+                selectedCalendarIDs.contains($0.calendar.calendarIdentifier)
+            }
+            .compactMap(EventModel.init(from:))
+            .sorted { $0.start < $1.start }
     }
     
     private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar]) async -> [EventModel] {

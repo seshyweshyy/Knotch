@@ -315,11 +315,15 @@ struct CompactCalendarView: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.compactCalendarShowMonthView) private var showMonthView
     @State private var selectedDate = Date()
-    // Only fetched/shown when today's own events don't fill the agenda
-    // column — see tomorrowColumn.
-    @State private var tomorrowEvents: [EventModel] = []
+    // False for a moment after appearing, until today's events have
+    // arrived — otherwise the still-empty list reads as "nothing left
+    // today" and flashes the tomorrow-only layout before today's rows land.
+    @State private var eventsSettled = false
 
     private func filterCompactEvents(_ events: [EventModel]) -> [EventModel] {
+        // Sorted by start so the day's order is stable — an unsorted fetch
+        // (tomorrow / day after) came back in a different order between
+        // opens, so which events were shown vs. counted in "N more" changed.
         EventListView.filteredEvents(events: events).filter { event in
             if event.type.isReminder && !Defaults[.compactShowReminders] {
                 return false
@@ -334,6 +338,14 @@ struct CompactCalendarView: View {
                 return false
             }
             return true
+        }.sorted { lhs, rhs in
+            // EventKit does not promise fetch order. Fully break ties so two
+            // events beginning together cannot swap between panel openings.
+            if lhs.start != rhs.start { return lhs.start < rhs.start }
+            if lhs.end != rhs.end { return lhs.end < rhs.end }
+            if lhs.calendar.id != rhs.calendar.id { return lhs.calendar.id < rhs.calendar.id }
+            if lhs.title != rhs.title { return lhs.title < rhs.title }
+            return lhs.id < rhs.id
         }
     }
 
@@ -357,16 +369,30 @@ struct CompactCalendarView: View {
         Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
     }
 
+    private var tomorrowStart: Date {
+        Calendar.current.startOfDay(for: tomorrowDate)
+    }
+
     private var tomorrowFilteredEvents: [EventModel] {
-        filterCompactEvents(tomorrowEvents)
+        filterCompactEvents(upcomingEvents.filter { $0.start < dayAfterStart && $0.end > tomorrowStart })
     }
 
-    private var tomorrowAllDayEvents: [EventModel] {
-        tomorrowFilteredEvents.filter { $0.isAllDay }
+    private var dayAfterDate: Date {
+        Calendar.current.date(byAdding: .day, value: 2, to: selectedDate) ?? selectedDate
     }
 
-    private var tomorrowTimedEvents: [EventModel] {
-        tomorrowFilteredEvents.filter { !$0.isAllDay }
+    private var dayAfterStart: Date {
+        Calendar.current.startOfDay(for: dayAfterDate)
+    }
+
+    private var dayAfterFilteredEvents: [EventModel] {
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: dayAfterStart) ?? dayAfterStart
+        return filterCompactEvents(upcomingEvents.filter { $0.start < end && $0.end > dayAfterStart })
+    }
+
+    private var upcomingEvents: [EventModel] {
+        guard calendarManager.compactUpcomingStartDate == tomorrowStart else { return [] }
+        return calendarManager.compactUpcomingEvents
     }
 
     // Same notch-hugging pull-up the music view uses for its album art —
@@ -424,30 +450,25 @@ struct CompactCalendarView: View {
                     MonthGridView(selectedDate: $selectedDate)
                         .offset(y: -gridPullUp)
                         .padding(.bottom, -gridPullUp)
-                } else if needsTomorrowFallback {
-                    // Today's own events don't fill this column — same
-                    // weekday-line-height slot as the other branch below,
-                    // but with an actual "TMRW" label in it (right-aligned,
-                    // to read as a small callout rather than a real header)
-                    // instead of reserving it invisibly.
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text("TMRW")
-                            .font(.system(size: 12, weight: .bold, design: .default))
-                            .foregroundColor(Color(white: 0.45))
-                        tomorrowColumn
-                    }
-                    .offset(y: -14)
                 } else {
-                    // Reserves an invisible copy of just the header's
-                    // weekday line (not the day number below it), so the
-                    // agenda's first event lands level with the date
-                    // number itself rather than guessing a pixel offset.
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                            .font(.system(size: 12, weight: .bold, design: .default))
-                            .hidden()
-                        agendaColumn
+                    // Today's rows (if any) first, then whichever of
+                    // tomorrow / the day after fit underneath. The hidden
+                    // weekday line keeps today's first event level with the
+                    // date number; a section's own label sits in that same
+                    // slot when it's first.
+                    let plan = rightColumnPlan
+                    VStack(alignment: .leading, spacing: sectionGap) {
+                        if plan.showToday {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(selectedDate.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                                    .font(.system(size: 12, weight: .bold, design: .default))
+                                    .hidden()
+                                agendaColumn
+                            }
+                        }
+                        ForEach(plan.sections) { daySection($0) }
                     }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                     .offset(y: -14)
                 }
             }
@@ -473,25 +494,30 @@ struct CompactCalendarView: View {
         // extraTopPush) clears the plain convex top corners, which sit
         // closer in than the physical notch's concave ones did.
         .padding(.top, vm.effectiveClosedNotchHeight + (isIslandAppearance ? 6 : 0))
-        .onChange(of: selectedDate) {
+        .task(id: selectedDate) {
+            // Reuse an already validated snapshot immediately. The refresh
+            // below replaces it in the background, while a genuinely
+            // not-yet-loaded day still keeps the right column blank.
+            let selectedStart = Calendar.current.startOfDay(for: selectedDate)
+            eventsSettled = calendarManager.loadedEventsDate == selectedStart
             calendarManager.scheduleUpdate(for: selectedDate)
         }
+        .onChange(of: calendarManager.eventSnapshotRevision) {
+            let selectedStart = Calendar.current.startOfDay(for: selectedDate)
+            eventsSettled = calendarManager.loadedEventsDate == selectedStart
+        }
         .onAppear {
-            // Setting selectedDate is enough on its own — it differs from
-            // the @State default, so the onChange above already fires the
-            // fetch. Calling scheduleUpdate directly here too just kicked
-            // off a second, duplicate EventKit + reminders fetch on every
-            // appear (every swipe onto this compact page), with the first
-            // result thrown away once the second landed a moment later.
+            // Changing selectedDate restarts both id-based tasks above, so
+            // no separate fetch belongs in onAppear.
             selectedDate = Date.now
         }
         // Fetched independently of today's own `calendarManager.events` —
-        // only actually shown once needsTomorrowFallback is true, but
+        // only shown when it fits in the right column (rightColumnPlan), but
         // fetched ahead of that so it's already on hand rather than
         // flashing empty while the request is in flight.
-        .task(id: "\(selectedDate.timeIntervalSince1970)|\(showMonthView)") {
+        .task(id: "\(selectedDate.timeIntervalSince1970)|\(showMonthView)|\(calendarManager.eventStoreRevision)") {
             guard !showMonthView else { return }
-            tomorrowEvents = await calendarManager.fetchDayEvents(for: tomorrowDate)
+            calendarManager.prefetchCompactUpcomingEvents(relativeTo: selectedDate)
         }
     }
 
@@ -543,7 +569,7 @@ struct CompactCalendarView: View {
     // agendaRowSpacing need to keep matching.
     private let agendaColumnBudget: CGFloat = 100
     private let agendaRowHeight: CGFloat = 30
-    private let agendaRowSpacing: CGFloat = 4
+    private let agendaRowSpacing: CGFloat = 3
     private var maxAgendaEvents: Int {
         max(0, Int((agendaColumnBudget + agendaRowSpacing) / (agendaRowHeight + agendaRowSpacing)))
     }
@@ -561,7 +587,10 @@ struct CompactCalendarView: View {
     // that constraint, so the left side keeps its full budget regardless of
     // an all-day pill.
     private var visibleTimedEventCount: Int {
-        guard showMonthView, !allDayEvents.isEmpty else { return maxVisibleTimedEvents }
+        // Month view off: the left column has room for a third row
+        // (two with an all-day pill above them) before it'd clip.
+        guard showMonthView else { return allDayEvents.isEmpty ? maxVisibleTimedEvents + 1 : maxVisibleTimedEvents }
+        guard !allDayEvents.isEmpty else { return maxVisibleTimedEvents }
         return 1
     }
     private var visibleTimedEvents: [EventModel] { Array(timedEvents.prefix(visibleTimedEventCount)) }
@@ -579,29 +608,97 @@ struct CompactCalendarView: View {
             + Array(timedEvents.dropFirst(visibleTimedEvents.count + agendaEvents.count))
     }
 
-    // Whether today has nothing left over for the agenda column, meaning
-    // it should fall back to showing tomorrow's events instead of sitting
-    // empty. maxAgendaEvents is never 0 in practice, so agendaEvents being
-    // empty already implies there's no overflow left either.
-    private var needsTomorrowFallback: Bool {
-        !showMonthView && agendaEvents.isEmpty
+    private let sectionLabelHeight: CGFloat = 15
+    private let sectionPillHeight: CGFloat = 22
+    private let sectionMoreHeight: CGFloat = 16
+    private let sectionGap: CGFloat = 6
+    private let rightColumnBudget: CGFloat = 145
+
+    private struct DaySectionPlan: Identifiable {
+        let label: String
+        let allDay: [EventModel]
+        let summary: Bool
+        let timed: [EventModel]
+        let hidden: [EventModel]
+        // Only the "N events" line fits — no rows shown above it.
+        var summaryOnly = false
+        let height: CGFloat
+        var id: String { label }
     }
 
-    private var tomorrowShowAllDaySummary: Bool { tomorrowAllDayEvents.count > maxAllDayPills }
-
-    // Mirrors visibleTimedEventCount/visibleTimedEvents, but the tomorrow
-    // column has no separate left/right split to share the budget with —
-    // an all-day pill/summary here claims one of its own rows directly.
-    private var tomorrowVisibleTimedCount: Int {
-        max(0, maxAgendaEvents - (tomorrowAllDayEvents.isEmpty ? 0 : 1))
+    // `keepEmptyLabel` keeps an empty section's bare label (the "nothing tomorrow"
+    // look) instead of dropping it.
+    private func planDaySection(label: String, events: [EventModel], avail: CGFloat, keepEmptyLabel: Bool) -> DaySectionPlan? {
+        let allDay = events.filter { $0.isAllDay }
+        let timed = events.filter { !$0.isAllDay }
+        let summary = allDay.count > maxAllDayPills
+        let overflowAllDay = summary ? [] : Array(allDay.dropFirst(maxAllDayPills))
+        var h = sectionLabelHeight
+        if events.isEmpty {
+            guard keepEmptyLabel, h <= avail else { return nil }
+            return DaySectionPlan(label: label, allDay: [], summary: false, timed: [], hidden: [], height: h)
+        }
+        if !allDay.isEmpty { h += agendaRowSpacing + sectionPillHeight }
+        var count = 0
+        while count < timed.count, h + agendaRowSpacing + agendaRowHeight <= avail {
+            h += agendaRowSpacing + agendaRowHeight
+            count += 1
+        }
+        var hidden = overflowAllDay + Array(timed.dropFirst(count))
+        if !hidden.isEmpty {
+            // The "N more" line is always shown when anything is hidden —
+            // timed rows give way for it. Keep at least one visible item:
+            // either the all-day pill/summary or one timed row.
+            let minimumTimedRows = allDay.isEmpty ? 1 : 0
+            while h + agendaRowSpacing + sectionMoreHeight > avail, count > minimumTimedRows {
+                count -= 1
+                h -= agendaRowSpacing + agendaRowHeight
+                hidden = overflowAllDay + Array(timed.dropFirst(count))
+            }
+            h += agendaRowSpacing + sectionMoreHeight
+        }
+        if h > avail || (allDay.isEmpty && count == 0) {
+            // No room for rows — fall back to just the "N events" line.
+            let summaryHeight = sectionLabelHeight + agendaRowSpacing + sectionMoreHeight
+            guard summaryHeight <= avail else { return nil }
+            return DaySectionPlan(label: label, allDay: [], summary: false, timed: [], hidden: events,
+                                  summaryOnly: true, height: summaryHeight)
+        }
+        return DaySectionPlan(label: label, allDay: allDay, summary: summary,
+                              timed: Array(timed.prefix(count)), hidden: hidden, height: h)
     }
-    private var tomorrowVisibleTimedEvents: [EventModel] {
-        Array(tomorrowTimedEvents.prefix(tomorrowVisibleTimedCount))
-    }
 
-    private var tomorrowHiddenEvents: [EventModel] {
-        Array(tomorrowShowAllDaySummary ? [] : tomorrowAllDayEvents.dropFirst(min(tomorrowAllDayEvents.count, maxAllDayPills)))
-            + Array(tomorrowTimedEvents.dropFirst(tomorrowVisibleTimedEvents.count))
+    // Whether today's own rows are shown at the top of the right column,
+    // and which following-day sections fit underneath them.
+    private var rightColumnPlan: (showToday: Bool, sections: [DaySectionPlan]) {
+        var avail = rightColumnBudget
+        guard eventsSettled else { return (false, []) }
+        let showToday = !agendaEvents.isEmpty || !hiddenEvents.isEmpty
+        if showToday {
+            // Today's own overflow already fills the column.
+            if !hiddenEvents.isEmpty { return (true, []) }
+            let n = CGFloat(agendaEvents.count)
+            avail -= sectionLabelHeight + n * (agendaRowHeight + agendaRowSpacing) - agendaRowSpacing
+        }
+        let weekday = dayAfterDate.formatted(.dateTime.weekday(.abbreviated)).uppercased()
+        let day = dayAfterDate.formatted(.dateTime.day())
+        let dayAfterLabel = "\(weekday), \(day)"
+        let days: [(String, [EventModel])] = [("TMRW", tomorrowFilteredEvents), (dayAfterLabel, dayAfterFilteredEvents)]
+        var plans: [DaySectionPlan] = []
+        for (i, day) in days.enumerated() {
+            let first = plans.isEmpty && !showToday
+            let gap = first ? 0 : sectionGap
+            if let plan = planDaySection(
+                label: day.0,
+                events: day.1,
+                avail: avail - gap,
+                keepEmptyLabel: i == 0 && !showToday
+            ) {
+                plans.append(plan)
+                avail -= gap + plan.height
+            }
+        }
+        return (showToday, plans)
     }
 
     // All-day events are pinned above the timed list, rendered small as
@@ -615,7 +712,7 @@ struct CompactCalendarView: View {
         if allDayEvents.isEmpty && timedEvents.isEmpty {
             emptyState
         } else {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: agendaRowSpacing) {
                 if showAllDaySummary {
                     Button {
                         if let firstAllDay = allDayEvents.first, let url = firstAllDay.calendarAppURL() {
@@ -667,7 +764,7 @@ struct CompactCalendarView: View {
                 }
             }
             // calendarManager.events arrives asynchronously from
-            // CalendarManager.scheduleUpdate (a detached Task) well after the
+            // CalendarManager.scheduleUpdate well after the
             // withAnimation block around the day tap has already ended, so
             // the pills' insert/remove transitions above never had an active
             // animation to run inside. This re-wraps that later, unrelated
@@ -684,7 +781,7 @@ struct CompactCalendarView: View {
     @ViewBuilder
     private var agendaColumn: some View {
         if !agendaEvents.isEmpty || !hiddenEvents.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: agendaRowSpacing) {
                 ForEach(agendaEvents) { event in
                     Button {
                         if let url = event.calendarAppURL() { openURL(url) }
@@ -712,24 +809,26 @@ struct CompactCalendarView: View {
         }
     }
 
-    // Shown in the agenda column's slot instead of agendaColumn once
-    // today's own events run out — same all-day-pill-then-compact-rows
-    // shape as the left column's eventsArea, just sourced from
-    // tomorrowFilteredEvents instead of today's.
+    // One labelled day (TMRW / day after) in the right column — same
+    // all-day-pill-then-compact-rows shape as the left column's eventsArea.
     @ViewBuilder
-    private var tomorrowColumn: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if tomorrowShowAllDaySummary {
+    private func daySection(_ plan: DaySectionPlan) -> some View {
+        VStack(alignment: .leading, spacing: agendaRowSpacing) {
+            Text(plan.label)
+                .font(.system(size: 12, weight: .bold, design: .default))
+                .foregroundColor(Color(white: 0.45))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            if plan.summary {
                 Button {
-                    if let firstAllDay = tomorrowAllDayEvents.first, let url = firstAllDay.calendarAppURL() {
+                    if let first = plan.allDay.first, let url = first.calendarAppURL() {
                         openURL(url)
                     }
                 } label: {
-                    CompactAllDaySummaryRow(events: tomorrowAllDayEvents)
+                    CompactAllDaySummaryRow(events: plan.allDay)
                 }
                 .buttonStyle(OpacityReactiveButtonStyle())
             } else {
-                ForEach(tomorrowAllDayEvents.prefix(maxAllDayPills)) { event in
+                ForEach(plan.allDay.prefix(maxAllDayPills)) { event in
                     Button {
                         if let url = event.calendarAppURL() { openURL(url) }
                     } label: {
@@ -738,7 +837,7 @@ struct CompactCalendarView: View {
                     .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color), isCapsule: true))
                 }
             }
-            ForEach(tomorrowVisibleTimedEvents) { event in
+            ForEach(plan.timed) { event in
                 Button {
                     if let url = event.calendarAppURL() { openURL(url) }
                 } label: {
@@ -751,8 +850,8 @@ struct CompactCalendarView: View {
                 .buttonStyle(EventRowButtonStyle(color: Color(event.calendar.color)))
                 .id(event.id)
             }
-            if !tomorrowHiddenEvents.isEmpty {
-                CompactMoreEventsRow(events: tomorrowHiddenEvents)
+            if !plan.hidden.isEmpty {
+                CompactMoreEventsRow(events: plan.hidden, standalone: plan.summaryOnly)
             }
         }
     }
@@ -804,13 +903,15 @@ private struct CompactAllDayPill: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
+        // Applied before the background/clip so the capsule itself always
+        // fills the column (same size every time) instead of hugging the
+        // title's natural width, and bounds the title so an unusually long
+        // one truncates with "…" instead of growing the pill.
+        .frame(maxWidth: .infinity, alignment: .leading)
         // Same background dimness as CalendarEventRow's normal events, not
         // its own separate, more-visible tint.
-        .background(Color(event.calendar.color).opacity(0.12))
+        .background(Color(event.calendar.color).opacity(0.20))
         .clipShape(Capsule())
-        // Bounds the title's width so an unusually long one truncates with
-        // "…" instead of just growing the pill to fit.
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -846,6 +947,8 @@ private struct CompactAllDaySummaryRow: View {
 // Bar colors and count reflect the actual remaining events, not a placeholder.
 private struct CompactMoreEventsRow: View {
     let events: [EventModel]
+    // "3 events" instead of "3 more events" when no rows are shown above it.
+    var standalone = false
     private let maxBars = 2
 
     // One bar per distinct calendar color, not one per event — several same-
@@ -874,7 +977,7 @@ private struct CompactMoreEventsRow: View {
                 }
             }
             .padding(.leading, 4)
-            Text("\(events.count) more event\(events.count == 1 ? "" : "s")")
+            Text("\(events.count)\(standalone ? "" : " more") event\(events.count == 1 ? "" : "s")")
                 .font(.system(size: 11, weight: .regular, design: .default))
                 .foregroundColor(.secondary)
         }
@@ -1010,9 +1113,9 @@ private struct CalendarEventRow: View {
                 // its width, so lineLimit(1) never gets a chance to truncate
                 // it — the row just grows to fit instead.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 8)
-                .padding(.trailing, 10)
-                .padding(.vertical, 3)
+                .padding(.leading, 7)
+                .padding(.trailing, 9)
+                .padding(.vertical, 2)
             } else {
                 HStack(alignment: .top, spacing: 4) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -1059,9 +1162,12 @@ private struct CalendarEventRow: View {
         // Belt-and-suspenders on top of the fixed 2-line content above:
         // an explicit height guarantees every compact row is pixel-identical
         // regardless of any remaining text-metric variance between events.
-        .frame(height: compactSizing ? 30 : nil)
+        // Keep the planner's logical slot at 30pt, but render the compact
+        // block 2pt shorter. The reserved slack adds breathing room at the
+        // column boundary without allowing another row to be fitted.
+        .frame(height: compactSizing ? 28 : nil)
         .background(
-            Color(event.calendar.color).opacity(0.12)
+            Color(event.calendar.color).opacity(0.20)
         )
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .opacity(

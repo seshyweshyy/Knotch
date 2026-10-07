@@ -23,21 +23,47 @@ class CalendarManager: ObservableObject {
     @Published var selectedCalendarIDs: Set<String> = []
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
+    @Published private(set) var eventStoreRevision: UInt64 = 0
+    @Published private(set) var eventSnapshotRevision: UInt64 = 0
+    @Published private(set) var loadedEventsDate: Date?
+    @Published private(set) var compactUpcomingEvents: [EventModel] = []
+    @Published private(set) var compactUpcomingStartDate: Date?
     private var selectedCalendars: [CalendarModel] = []
     private let calendarService = CalendarService.shared
     private let eventFetchLimiter = EventFetchLimiter()
 
     private var eventStoreChangedObserver: NSObjectProtocol?
+    private var pendingStoreChangeTask: Task<Void, Never>?
+    private var pendingUpdateTask: Task<Void, Never>?
+    private var pendingUpdateDate: Date?
+    private var pendingUpdateGeneration: UInt64 = 0
+    private var eventsSnapshotFetchedAt: Date?
+    private var compactUpcomingFetchTask: Task<Void, Never>?
+    private var compactUpcomingRequestStart: Date?
+    private var compactUpcomingGeneration: UInt64 = 0
+    private var compactUpcomingFetchedAt: Date?
+    private var calendarListsLoaded = false
+    private let snapshotFreshnessInterval: TimeInterval = 20
 
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
         setupEventStoreChangedObserver()
         Task {
             await reloadCalendarAndReminderLists()
+            let compactCalendarEnabled = Defaults[.compactShowCalendarView]
+            if compactCalendarEnabled || Defaults[.lockScreenCalendarMiniWidget] {
+                scheduleUpdate(for: .now)
+            }
+            if compactCalendarEnabled, !Defaults[.compactCalendarShowMonthView] {
+                prefetchCompactUpcomingEvents()
+            }
         }
     }
 
     isolated deinit {
+        pendingUpdateTask?.cancel()
+        pendingStoreChangeTask?.cancel()
+        compactUpcomingFetchTask?.cancel()
         if let observer = eventStoreChangedObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -49,9 +75,34 @@ class CalendarManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task {
-                await self?.reloadCalendarAndReminderLists()
+            Task { @MainActor [weak self] in
+                self?.handleEventStoreChange()
             }
+        }
+    }
+
+    private func handleEventStoreChange() {
+        // The next request must not be suppressed by the short reopen cache.
+        // Existing data can remain visible while the authoritative refresh
+        // waits for CalendarAgent's notification burst to settle.
+        invalidateSnapshotFreshness()
+        pendingStoreChangeTask?.cancel()
+        pendingStoreChangeTask = Task { [weak self] in
+            // CalendarAgent commonly emits a burst while applying one sync.
+            // Refetch once the burst goes quiet, and replace the UI snapshot.
+            do {
+                try await Task.sleep(for: .milliseconds(350))
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+
+            guard let self else { return }
+            await self.reloadCalendarAndReminderLists()
+            guard !Task.isCancelled else { return }
+            self.eventStoreRevision &+= 1
+            await self.updateEvents()
+            self.prefetchCompactUpcomingEvents(force: true)
         }
     }
 
@@ -62,6 +113,7 @@ class CalendarManager: ObservableObject {
         self.reminderLists = all.filter { $0.isReminder }
         self.allCalendars = all // for legacy compatibility, can be removed if not needed
         updateSelectedCalendars()
+        calendarListsLoaded = true
     }
 
     func checkCalendarAuthorization() async {
@@ -85,20 +137,24 @@ class CalendarManager: ObservableObject {
             self.calendarAuthorizationStatus = granted ? .fullAccess : .denied
             if granted {
                 await reloadCalendarAndReminderLists()
-                events = await calendarService.events(
+                let snapshot = await calendarService.events(
                     from: currentWeekStartDate,
                     to: Calendar.current.date(byAdding: .day, value: 1, to: currentWeekStartDate)!,
                     calendars: selectedCalendars.map { $0.id })
+                applyEventsSnapshot(snapshot, for: currentWeekStartDate)
+                prefetchCompactUpcomingEvents(relativeTo: currentWeekStartDate)
             }
         case .restricted, .denied:
             NSLog("Calendar access denied or restricted")
         case .fullAccess:
             NSLog("Full access")
             await reloadCalendarAndReminderLists()
-            events = await calendarService.events(
+            let snapshot = await calendarService.events(
                 from: currentWeekStartDate,
                 to: Calendar.current.date(byAdding: .day, value: 1, to: currentWeekStartDate)!,
                 calendars: selectedCalendars.map { $0.id })
+            applyEventsSnapshot(snapshot, for: currentWeekStartDate)
+            prefetchCompactUpcomingEvents(relativeTo: currentWeekStartDate)
         case .writeOnly:
             NSLog("Write only")
         @unknown default:
@@ -208,21 +264,44 @@ class CalendarManager: ObservableObject {
 
         Defaults[.calendarSelectionState] = selectionState
         updateSelectedCalendars()
+        invalidateSnapshotFreshness()
         await updateEvents()
+        prefetchCompactUpcomingEvents(relativeTo: currentWeekStartDate, force: true)
     }
 
     static func startOfDay(_ date: Date) -> Date {
         return Calendar.current.startOfDay(for: date)
     }
 
-    private var pendingUpdateTask: Task<Void, Never>?
-
     func scheduleUpdate(for date: Date) {
-        currentWeekStartDate = Calendar.current.startOfDay(for: date)
+        let start = Calendar.current.startOfDay(for: date)
+        currentWeekStartDate = start
+
+        // CalendarManager's launch task will schedule this again once the
+        // restored calendar selection is available.
+        guard calendarListsLoaded else { return }
+
+        if loadedEventsDate == start, isFresh(eventsSnapshotFetchedAt) {
+            return
+        }
+
+        // The notch-open prefetch and CompactCalendarView's .task can arrive
+        // a frame apart. Keep the first request alive instead of cancelling
+        // it and starting the exact same EventKit query again.
+        if pendingUpdateDate == start, pendingUpdateTask != nil {
+            return
+        }
+
         pendingUpdateTask?.cancel()
-        pendingUpdateTask = Task.detached(priority: .userInitiated) { [weak self] in
+        pendingUpdateGeneration &+= 1
+        let generation = pendingUpdateGeneration
+        pendingUpdateDate = start
+        pendingUpdateTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             await self.updateEvents()
+            guard generation == self.pendingUpdateGeneration else { return }
+            self.pendingUpdateDate = nil
+            self.pendingUpdateTask = nil
         }
     }
 
@@ -247,13 +326,54 @@ class CalendarManager: ObservableObject {
     // tomorrow's events when today has nothing left to show on the right —
     // separate from `events`/currentWeekStartDate, which stay pinned to
     // whatever day is currently selected.
-    func fetchDayEvents(for date: Date) async -> [EventModel] {
+    func fetchDayEvents(for date: Date, days: Int = 1) async -> [EventModel] {
         let start = Calendar.current.startOfDay(for: date)
-        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return [] }
+        guard let end = Calendar.current.date(byAdding: .day, value: days, to: start) else { return [] }
         let calendarIDs = Array(selectedCalendarIDs)
         let service = calendarService
         return await eventFetchLimiter.run {
             await service.events(from: start, to: end, calendars: calendarIDs)
+        }
+    }
+
+    /// Keeps the compact calendar's tomorrow + day-after snapshot alive even
+    /// while its SwiftUI page is destroyed. Calls for the same range coalesce,
+    /// so app launch, notch open, and page switching do not duplicate work.
+    func prefetchCompactUpcomingEvents(relativeTo date: Date = .now, force: Bool = false) {
+        // On launch CalendarManager first restores the user's selected IDs.
+        // Deferring until that finishes prevents an early empty-ID request
+        // from briefly caching events from every calendar.
+        guard calendarListsLoaded else { return }
+        let calendar = Calendar.current
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) else { return }
+        let start = calendar.startOfDay(for: tomorrow)
+
+        if !force,
+           compactUpcomingStartDate == start,
+           isFresh(compactUpcomingFetchedAt)
+        {
+            return
+        }
+
+        if !force, compactUpcomingRequestStart == start, compactUpcomingFetchTask != nil {
+            return
+        }
+
+        compactUpcomingFetchTask?.cancel()
+        compactUpcomingGeneration &+= 1
+        let generation = compactUpcomingGeneration
+        compactUpcomingRequestStart = start
+
+        compactUpcomingFetchTask = Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let snapshot = await self.fetchDayEvents(for: start, days: 2)
+            guard !Task.isCancelled, generation == self.compactUpcomingGeneration else { return }
+
+            self.compactUpcomingEvents = snapshot
+            self.compactUpcomingStartDate = start
+            self.compactUpcomingFetchedAt = .now
+            self.compactUpcomingRequestStart = nil
+            self.compactUpcomingFetchTask = nil
         }
     }
 
@@ -265,7 +385,28 @@ class CalendarManager: ObservableObject {
            let eventsResult = await eventFetchLimiter.run {
                await service.events(from: startDate, to: endDate, calendars: calendarIDs)
            }
-           self.events = eventsResult
+           guard !Task.isCancelled, startDate == currentWeekStartDate else { return }
+           applyEventsSnapshot(eventsResult, for: startDate)
+    }
+
+    private func applyEventsSnapshot(_ snapshot: [EventModel], for date: Date) {
+        events = snapshot
+        loadedEventsDate = date
+        eventsSnapshotFetchedAt = .now
+        // Unlike observing `events` itself, this advances even when two
+        // authoritative snapshots contain the same values (including []).
+        eventSnapshotRevision &+= 1
+    }
+
+    private func isFresh(_ fetchedAt: Date?) -> Bool {
+        guard let fetchedAt else { return false }
+        let age = Date.now.timeIntervalSince(fetchedAt)
+        return age >= 0 && age < snapshotFreshnessInterval
+    }
+
+    private func invalidateSnapshotFreshness() {
+        eventsSnapshotFetchedAt = nil
+        compactUpcomingFetchedAt = nil
     }
     
     func setReminderCompleted(reminderID: String, completed: Bool) async {
@@ -274,9 +415,11 @@ class CalendarManager: ObservableObject {
         let startDate = currentWeekStartDate
            guard let endDate = Calendar.current.date(byAdding: .day, value: 1, to: startDate) else { return }
            let service = calendarService
-           events = await eventFetchLimiter.run {
+           let eventsResult = await eventFetchLimiter.run {
                await service.events(from: startDate, to: endDate, calendars: self.selectedCalendars.map { $0.id })
            }
+           guard !Task.isCancelled, startDate == currentWeekStartDate else { return }
+           applyEventsSnapshot(eventsResult, for: startDate)
     }
 }
 
