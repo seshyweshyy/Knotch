@@ -785,6 +785,8 @@ struct ContentView: View {
     @Default(.contrastOutlineMatchesAlbumArt) var contrastOutlineMatchesAlbumArt
     @Default(.alwaysShowContrastOutline) var alwaysShowContrastOutline
     @State private var contrastOutlineDarkEdges: Set<KnotchContrastOutline.Edge> = []
+    @Default(.progressiveBlur) var progressiveBlur
+    @State private var isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
     @Default(.forceSimulatedNotch) var forceSimulatedNotch
     @Default(.debugForceDynamicIslandAppearance) var debugForceDynamicIslandAppearance
     @Default(.dynamicIslandTopInset) var dynamicIslandTopInset
@@ -1427,12 +1429,27 @@ struct ContentView: View {
                             : KnotchContrastOutline.outlineOpacity,
                         forceVisible: alwaysShowContrastOutline
                     )
+                    .knotchProgressiveBlur(
+                        isEnabled: KnotchProgressiveBlur.isActive(
+                            enabled: progressiveBlur,
+                            lowPowerMode: isLowPowerMode
+                        ),
+                        isActive: vm.notchState == .open,
+                        shape: currentNotchShape,
+                        // Translucent glass must not have blur behind it.
+                        cutsOutShape: notchAppearanceStyle != .solidBlack
+                    )
+                    .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+                        isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+                    }
                     .overlay(alignment: .top) {
                         // Hides the seam against the real camera housing —
                         // meaningless (and visibly wrong, cutting across the
                         // floating pill's own rounded top edge) once this
-                        // display has no physical notch to blend into.
-                        if !isIslandAppearance {
+                        // display has no physical notch to blend into. Full
+                        // Liquid Glass must also remain uninterrupted here;
+                        // this opaque cover otherwise becomes a black line.
+                        if !isIslandAppearance && notchAppearanceStyle != .fullLiquidGlass {
                             Rectangle()
                                 .fill(.black)
                                 // mainLayout drops its explicit outer width as

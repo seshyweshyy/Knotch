@@ -2401,6 +2401,11 @@ struct Appearance: View {
                     .settingsDisabled(!contrastOutlineAvailable)
                     .settingsHighlight(id: "Appearance-Always show contrast outline")
                 }
+                Defaults.Toggle(key: .progressiveBlur) {
+                    Text("Progressive blur")
+                }
+                .settingsDisabled(!KnotchProgressiveBlur.isAvailable)
+                .settingsHighlight(id: "Appearance-Progressive blur")
                 Toggle("Always show tab bar", isOn: $coordinator.alwaysShowTabs)
                     .settingsDisabled(enableCompactUI)
                     .settingsHighlight(id: "Appearance-Always show tab bar")

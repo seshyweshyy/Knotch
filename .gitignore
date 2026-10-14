@@ -57,3 +57,6 @@ build/
 *.xcarchive
 *.dSYM
 
+
+# Alcove research notes (local only)
+alcove-research/

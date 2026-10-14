@@ -187,6 +187,9 @@ extension Defaults.Keys {
     // Keep the original storage key so existing Always show choices survive
     // its expansion from media activity to every active activity and HUD.
     static let alwaysShowContrastOutline = Key<Bool>("alwaysShowAlbumArtContrastOutline", default: false)
+    // Soft blur halo just outside the notch edges (see KnotchProgressiveBlur).
+    // Automatically off in Low Power Mode.
+    static let progressiveBlur = Key<Bool>("progressiveBlur", default: true)
 
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: true)

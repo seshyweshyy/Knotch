@@ -164,6 +164,7 @@
 		795C06C612CFB7A1230BDE89 /* EdgeFade.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5B6E4AB9ABD4E301184DA4 /* EdgeFade.swift */; };
 		79A93B0C4E88CF27E8AF653D /* AppleMusicAudioQualityResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E7766FAD377F9CCB3F4A6AC /* AppleMusicAudioQualityResolver.swift */; };
 		7C0A11D02FFD00000A11CE02 /* KnotchContrastOutline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */; };
+		7C0A11D02FFD00000A11CF02 /* KnotchProgressiveBlur.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0A11D02FFD00000A11CF01 /* KnotchProgressiveBlur.swift */; };
 		918EC14E4D0078DECC7F2B08 /* ClosedNotchRowContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83450200472535F50BFB970C /* ClosedNotchRowContent.swift */; };
 		9A0887322C7A693000C160EA /* TabButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0887312C7A693000C160EA /* TabButton.swift */; };
 		9A0887352C7AFF8E00C160EA /* TabSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0887342C7AFF8E00C160EA /* TabSelectionView.swift */; };
@@ -405,6 +406,7 @@
 		72AAD9E6CE9DB605F5ECE643 /* KnotchUpdateUserDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchUpdateUserDriver.swift; sourceTree = "<group>"; };
 		7689F48ADDC14D9E87D87A18 /* UIModeSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIModeSelectionView.swift; sourceTree = "<group>"; };
 		7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchContrastOutline.swift; sourceTree = "<group>"; };
+		7C0A11D02FFD00000A11CF01 /* KnotchProgressiveBlur.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnotchProgressiveBlur.swift; sourceTree = "<group>"; };
 		83450200472535F50BFB970C /* ClosedNotchRowContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClosedNotchRowContent.swift; sourceTree = "<group>"; };
 		9A0887312C7A693000C160EA /* TabButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabButton.swift; sourceTree = "<group>"; };
 		9A0887342C7AFF8E00C160EA /* TabSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSelectionView.swift; sourceTree = "<group>"; };
@@ -958,6 +960,7 @@
 				435D85EB2FFCDE3E00803FF3 /* NotchStylePreview.swift */,
 				435D85E82FFCD02A00803FF3 /* KnotchLiquidGlass.swift */,
 				7C0A11D02FFD00000A11CE01 /* KnotchContrastOutline.swift */,
+				7C0A11D02FFD00000A11CF01 /* KnotchProgressiveBlur.swift */,
 				43D122D82F8D0FC600A145E3 /* LockNotchOverlay.swift */,
 				1194E8862EA6DDA7009C82D6 /* KnotchSkyLightWindow.swift */,
 				1160F8D72DD98230006FBB94 /* NotchShape.swift */,
@@ -1342,6 +1345,7 @@
 				11D58EA22E760AE100FA8377 /* ImageService.swift in Sources */,
 				435D85ED2FFCDE5F00803FF3 /* KnotchLiquidGlass.swift in Sources */,
 				7C0A11D02FFD00000A11CE02 /* KnotchContrastOutline.swift in Sources */,
+				7C0A11D02FFD00000A11CF02 /* KnotchProgressiveBlur.swift in Sources */,
 				432A89E02F8A7C7500237ABF /* BottomRoundedRectangle.swift in Sources */,
 				11F748822ECB07A400F841DB /* MusicControlButton.swift in Sources */,
 				432CB8F12F8DCAD900D5FE00 /* LiquidGlassWidgetWindow.swift in Sources */,
