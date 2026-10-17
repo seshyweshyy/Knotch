@@ -537,30 +537,50 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "General", title: "Remember last tab", keywords: ["tab", "remember", "restore"], highlightID: "General-Remember last tab"),
             SettingsSearchEntry(tabID: "General", title: "Hover delay", keywords: ["hover", "delay", "timing"], highlightID: "General-Hover delay"),
             SettingsSearchEntry(tabID: "General", title: "Enable gestures", keywords: ["gesture", "swipe", "trackpad"], highlightID: "General-Enable gestures"),
+            SettingsSearchEntry(tabID: "General", title: "Change media with horizontal gestures", keywords: ["media", "gesture", "swipe", "track"], highlightID: "General-Change media with horizontal gestures"),
+            SettingsSearchEntry(tabID: "General", title: "Natural movement", keywords: ["media", "gesture", "direction", "swipe", "natural"], highlightID: "General-Natural movement"),
             SettingsSearchEntry(tabID: "General", title: "Close gesture", keywords: ["close", "gesture", "swipe"], highlightID: "General-Close gesture"),
             SettingsSearchEntry(tabID: "General", title: "Swipe to cycle views", keywords: ["swipe", "cycle", "views"], highlightID: "General-Swipe to cycle views"),
-            SettingsSearchEntry(tabID: "General", title: "Gesture sensitivity", keywords: ["gesture", "sensitivity", "speed"], highlightID: "General-Gesture sensitivity"),
             // Appearance
             SettingsSearchEntry(tabID: "Appearance", title: "Notch appearance", keywords: ["notch appearance", "solid black", "semi liquid glass", "full liquid glass", "style"], highlightID: "Appearance-Notch appearance style"),
             SettingsSearchEntry(tabID: "Appearance", title: "Semi Liquid Glass Amount", keywords: ["semi liquid glass", "transparency", "frosted", "glass amount"], highlightID: "Appearance-Semi liquid glass amount"),
             SettingsSearchEntry(tabID: "Appearance", title: "Contrast outline", keywords: ["outline", "border", "dark", "contrast", "edge"], highlightID: "Appearance-Contrast outline"),
             SettingsSearchEntry(tabID: "Appearance", title: "Always show contrast outline", keywords: ["outline", "always", "album art", "media"], highlightID: "Appearance-Always show contrast outline"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Progressive blur", keywords: ["blur", "progressive", "background", "open notch", "glass"], highlightID: "Appearance-Progressive blur"),
             SettingsSearchEntry(tabID: "Appearance", title: "Match contrast outline colour to album art", keywords: ["outline", "album art", "media", "colour", "color", "tint"], highlightID: "Appearance-Match contrast outline colour to album art"),
             SettingsSearchEntry(tabID: "Appearance", title: "Always show tab bar", keywords: ["tabs", "always visible"], highlightID: "Appearance-Always show tab bar"),
             SettingsSearchEntry(tabID: "Appearance", title: "Show settings icon in notch", keywords: ["settings", "gear", "icon", "notch"], highlightID: "Appearance-Show settings icon in notch"),
             SettingsSearchEntry(tabID: "Appearance", title: "Player tinting", keywords: ["tint", "player", "color"], highlightID: "Appearance-Player tinting"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable blur effect behind album art", keywords: ["blur", "glass", "album art"], highlightID: "Appearance-Enable blur effect"),
+            SettingsSearchEntry(tabID: "Appearance", title: "Show app icon on album art", keywords: ["app", "icon", "album art", "media", "player"], highlightID: "Appearance-Show app icon on album art"),
             SettingsSearchEntry(tabID: "Appearance", title: "Slider color", keywords: ["slider", "color", "accent"], highlightID: "Appearance-Slider color"),
             SettingsSearchEntry(tabID: "Appearance", title: "Enable mirror", keywords: ["mirror", "camera", "reflection"], highlightID: "Advanced-Enable Dynamic mirror"),
             SettingsSearchEntry(tabID: "Appearance", title: "Mirror shape", keywords: ["mirror", "shape", "circle", "square"], highlightID: "Advanced-Mirror shape"),
             // Widgets
+            SettingsSearchEntry(tabID: "Widgets", title: "Home view", keywords: ["home", "view", "notch", "widget"], highlightID: "Widgets-Show home view"),
+            SettingsSearchEntry(tabID: "Widgets", title: "Tray view", keywords: ["tray", "view", "notch", "file drop"], highlightID: "Widgets-Show tray view"),
             SettingsSearchEntry(tabID: "Widgets", title: "Music player widget", keywords: ["music", "widget", "player"], highlightID: "Widgets-Toggle expanded notch widgets"),
             SettingsSearchEntry(tabID: "Widgets", title: "Calendar widget", keywords: ["calendar", "widget"], highlightID: "Widgets-Show calendar widget"),
             SettingsSearchEntry(tabID: "Widgets", title: "Mirror widget", keywords: ["mirror", "camera", "widget"], highlightID: "Widgets-Mirror widget"),
+            SettingsSearchEntry(tabID: "Widgets", title: "Timer widget", keywords: ["timer", "clock", "widget"], highlightID: "Widgets-Timer widget"),
+            // Compact Mode
+            SettingsSearchEntry(tabID: "Compact", title: "Enable Compact UI", keywords: ["compact", "small", "layout", "notch", "ui mode"], highlightID: "Compact-Enable Compact UI"),
+            SettingsSearchEntry(tabID: "Compact", title: "Music view", keywords: ["compact", "music", "media", "view"], highlightID: "Compact-Music view"),
+            SettingsSearchEntry(tabID: "Compact", title: "Calendar view", keywords: ["compact", "calendar", "events", "view"], highlightID: "Compact-Calendar view"),
+            SettingsSearchEntry(tabID: "Compact", title: "File Drop View", keywords: ["compact", "file", "drop", "tray", "view"], highlightID: "Compact-File Drop View"),
+            SettingsSearchEntry(tabID: "Compact", title: "Show reminders", keywords: ["compact", "calendar", "reminders", "tasks"], highlightID: "Compact-Show reminders"),
+            SettingsSearchEntry(tabID: "Compact", title: "Show all-day events", keywords: ["compact", "calendar", "all-day", "events"], highlightID: "Compact-Show all-day events"),
+            SettingsSearchEntry(tabID: "Compact", title: "Month view", keywords: ["compact", "calendar", "month", "grid"], highlightID: "Compact-Month view"),
+            SettingsSearchEntry(tabID: "Compact", title: "Show event indicators", keywords: ["compact", "calendar", "events", "indicators", "dots"], highlightID: "Compact-Show event indicators"),
+            SettingsSearchEntry(tabID: "Compact", title: "Quick Share square", keywords: ["compact", "quick share", "airdrop", "localsend", "square"], highlightID: "Compact-Quick Share square"),
+            SettingsSearchEntry(tabID: "Compact", title: "Tray square", keywords: ["compact", "tray", "file drop", "square"], highlightID: "Compact-Tray square"),
+            SettingsSearchEntry(tabID: "Compact", title: "Converter square", keywords: ["compact", "converter", "file", "square"], highlightID: "Compact-Converter square"),
+            SettingsSearchEntry(tabID: "Compact", title: "Quick Share Service", keywords: ["compact", "quick share", "airdrop", "localsend", "service"], highlightID: "Compact-Quick Share Service"),
             // Media
             SettingsSearchEntry(tabID: "Media", title: "Show waveform in home view", keywords: ["visualizer", "home", "waveform", "bars", "player"], highlightID: "Media-Home view waveform"),
             SettingsSearchEntry(tabID: "Media", title: "Live waveform", keywords: ["live", "waveform", "audio", "visualizer", "real"], highlightID: "Media-Live waveform"),
             SettingsSearchEntry(tabID: "Media", title: "Music source", keywords: ["music", "source", "spotify", "youtube"], highlightID: "Media-Music source"),
+            SettingsSearchEntry(tabID: "Media", title: "Default Player", keywords: ["default", "player", "music", "source", "media"], highlightID: "Media-Default player"),
             SettingsSearchEntry(tabID: "Media", title: "Show music live activity", keywords: ["music", "live activity", "player"], highlightID: "Media-Enable media player"),
             SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on track change", keywords: ["sneak peek", "playback", "track", "song"], highlightID: "Media-Show playback controls"),
             SettingsSearchEntry(tabID: "Media", title: "Show sneak peek on resume", keywords: ["sneak peek", "playback", "resume", "play"], highlightID: "Media-Show sneak peek on resume"),
@@ -574,6 +594,15 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "LockScreen", title: "Show synced lyrics beside expanded album art", keywords: ["lyrics", "synced", "expanded", "lock screen", "lrclib"], highlightID: "LockScreen-Expanded lyrics"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Keep screen awake when art is expanded", keywords: ["awake", "sleep", "display", "lock screen", "expanded"], highlightID: "LockScreen-Keep awake expanded art"),
             SettingsSearchEntry(tabID: "LockScreen", title: "Show notch on lock screen", keywords: ["lock screen", "notch"], highlightID: "LockScreen-Show on lock screen"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Show mini-widgets on lock screen", keywords: ["lock screen", "mini", "widgets", "status"], highlightID: "LockScreen-Show mini-widgets"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Mini-widget appearance", keywords: ["lock screen", "mini", "widgets", "appearance", "style"], highlightID: "LockScreen-Mini-widget appearance"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Battery mini-widget", keywords: ["lock screen", "mini", "widget", "battery", "power"], highlightID: "LockScreen-Battery mini-widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Battery mini-widget metric", keywords: ["lock screen", "battery", "percentage", "time remaining", "metric"], highlightID: "LockScreen-Battery metric"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Connectivity mini-widget", keywords: ["lock screen", "mini", "widget", "connectivity", "headphones", "bluetooth"], highlightID: "LockScreen-Connectivity mini-widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Focus mini-widget", keywords: ["lock screen", "mini", "widget", "focus", "moon"], highlightID: "LockScreen-Focus mini-widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Calendar mini-widget", keywords: ["lock screen", "mini", "widget", "calendar", "events"], highlightID: "LockScreen-Calendar mini-widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Weather mini-widget", keywords: ["lock screen", "mini", "widget", "weather", "location"], highlightID: "LockScreen-Weather mini-widget"),
+            SettingsSearchEntry(tabID: "LockScreen", title: "Weather mini-widget metric", keywords: ["lock screen", "weather", "temperature", "precipitation", "metric"], highlightID: "LockScreen-Weather metric"),
             SettingsSearchEntry(tabID: "Media", title: "Show lyrics below artist name", keywords: ["lyrics", "artist"], highlightID: "Media-Show lyrics"),
             SettingsSearchEntry(tabID: "Media", title: "Display Motion Art on media views", keywords: ["motion", "art", "animated", "album", "cover"], highlightID: "Media-Display Motion Art on media views"),
             SettingsSearchEntry(tabID: "Media", title: "Show explicit badge", keywords: ["explicit", "badge", "content", "rating"], highlightID: "Media-Show explicit badge"),
@@ -587,6 +616,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "Calendar", title: "Hide all-day events", keywords: ["all-day", "events", "hide"], highlightID: "Calendar-Hide all-day events"),
             SettingsSearchEntry(tabID: "Calendar", title: "Auto-scroll to next event", keywords: ["scroll", "event", "next"], highlightID: "Calendar-Calendar event count"),
             SettingsSearchEntry(tabID: "Calendar", title: "Always show full event titles", keywords: ["event", "title", "full"], highlightID: "Calendar-Always show full event titles"),
+            SettingsSearchEntry(tabID: "Calendar", title: "Open events in", keywords: ["calendar", "events", "open", "app", "application"], highlightID: "Calendar-Open events in"),
             // HUD
             SettingsSearchEntry(tabID: "HUD", title: "Replace system HUD", keywords: ["replace", "system", "hud", "volume", "brightness"], highlightID: "HUD-Replace system HUD"),
             SettingsSearchEntry(tabID: "HUD", title: "Option key behaviour", keywords: ["option", "key", "hud"], highlightID: "HUD-Option key behaviour"),
@@ -594,9 +624,12 @@ struct SettingsView: View {
             SettingsSearchEntry(tabID: "HUD", title: "Enable glowing effect", keywords: ["glow", "shadow", "hud"], highlightID: "HUD-Enable glowing effect"),
             SettingsSearchEntry(tabID: "HUD", title: "Tint progress bar with accent color", keywords: ["tint", "accent", "progress"], highlightID: "HUD-Enable volume HUD"),
             SettingsSearchEntry(tabID: "HUD", title: "Show HUD in open notch", keywords: ["open notch", "hud", "show"], highlightID: "HUD-Show HUD in open notch"),
+            SettingsSearchEntry(tabID: "HUD", title: "Show HUD percentage", keywords: ["open notch", "hud", "percentage", "number", "volume", "brightness"], highlightID: "HUD-Show percentage"),
             SettingsSearchEntry(tabID: "HUD", title: "HUD style", keywords: ["hud", "inline", "default", "style"], highlightID: "HUD-HUD style"),
             SettingsSearchEntry(tabID: "HUD", title: "Overshoot", keywords: ["overshoot", "bounce", "wobble", "closed notch"], highlightID: "HUD-Overshoot"),
             // Bluetooth
+            SettingsSearchEntry(tabID: "LiveActivities", title: "Show Focus mode status", keywords: ["focus", "mode", "status", "live activity", "do not disturb"], highlightID: "LiveActivities-Show Focus mode status"),
+            SettingsSearchEntry(tabID: "LiveActivities", title: "Show custom Focus icon and colour", keywords: ["focus", "icon", "colour", "color", "name", "custom"], highlightID: "LiveActivities-Show custom Focus icon and colour"),
             SettingsSearchEntry(tabID: "LiveActivities", title: "Show Bluetooth device connections", keywords: ["bluetooth", "device", "connection", "hud"], highlightID: "LiveActivities-Show Bluetooth device connections"),
             SettingsSearchEntry(tabID: "LiveActivities", title: "HUD icon style", keywords: ["bluetooth", "icon", "3d", "symbol", "style"], highlightID: "LiveActivities-HUD icon style"),
             // AirDrop
@@ -620,7 +653,6 @@ struct SettingsView: View {
             // Advanced
             SettingsSearchEntry(tabID: "Advanced", title: "Accent color", keywords: ["accent", "color", "tint", "custom"], highlightID: "Advanced-Accent color"),
             SettingsSearchEntry(tabID: "Advanced", title: "Enable window shadow", keywords: ["shadow", "window"], highlightID: "Appearance-Enable window shadow"),
-            SettingsSearchEntry(tabID: "Advanced", title: "Corner radius scaling", keywords: ["corner", "radius", "scaling"], highlightID: "Appearance-Corner radius scaling"),
             //SettingsSearchEntry(tabID: "Advanced", title: "Progressive edge blur when notch is open", keywords: ["edge", "blur", "progressive"], highlightID: "Appearance-Progressive edge blur"),
             SettingsSearchEntry(tabID: "Advanced", title: "Extend hover area", keywords: ["hover", "area", "extend"], highlightID: "Advanced-Extend hover area"),
             SettingsSearchEntry(tabID: "Advanced", title: "Extend click area to menu bar", keywords: ["menu bar", "click area", "notch height"], highlightID: "Advanced-Extend click area to menu bar"),
@@ -1534,6 +1566,7 @@ struct HUD: View {
                     Text("Show percentage")
                 }
                 .settingsDisabled(!hudReplacement || !Defaults[.showOpenNotchHUD] || enableCompactUI)
+                .settingsHighlight(id: "HUD-Show percentage")
             } header: {
                 HStack {
                     Text("Open Notch")
@@ -2274,6 +2307,7 @@ struct CalendarSettings: View {
                 label: { $0.rawValue }
             )
             .disabled(!showCalendar)
+            .settingsHighlight(id: "Calendar-Open events in")
             Section(header: Text("Calendars")) {
                 if calendarManager.calendarAuthorizationStatus != .fullAccess {
                     let isNotDetermined = calendarManager.calendarAuthorizationStatus == .notDetermined

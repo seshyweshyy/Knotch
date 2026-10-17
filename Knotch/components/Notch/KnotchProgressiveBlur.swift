@@ -155,7 +155,9 @@ private final class BlurPanel: NSPanel {
         ignoresMouseEvents = true
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
-        collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces, .ignoresCycle]
+        // Unlike the notch itself, this private backdrop layer must disappear
+        // during Mission Control or its snapshot becomes an opaque rectangle.
+        collectionBehavior = [.fullScreenAuxiliary, .transient, .canJoinAllSpaces, .ignoresCycle]
         contentView = NSView()
     }
 
