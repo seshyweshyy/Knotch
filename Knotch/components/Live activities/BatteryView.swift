@@ -93,7 +93,7 @@ struct BatteryView: View {
                 }
 
                 if showsPercentageInIcon {
-                    HStack(spacing: -bodyHeight * 0.2) {
+                    HStack(spacing: -bodyHeight * 0.125) {
                         Text("\(Int32(levelBattery))")
                             .font(.system(size: bodyHeight * 0.9, weight: .bold, design: .rounded))
                             .minimumScaleFactor(0.5)
@@ -105,7 +105,7 @@ struct BatteryView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .foregroundColor(.black)
-                                .frame(width: bodyHeight * 0.8, height: bodyHeight * 0.8)
+                                .frame(width: bodyHeight * 0.65, height: bodyHeight * 0.65)
                                 .offset(x: bodyHeight * 0.05)
                         }
                     }

@@ -400,7 +400,7 @@ struct BatteryNotchBanner: View {
                 .padding(.trailing, kind == .lowBattery ? 45 : 40)
         }
         .frame(width: bannerWidth, height: bannerContentHeight)
-        .padding(.top, vm.effectiveClosedNotchHeight)
+        .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)
     }
 
@@ -904,7 +904,7 @@ struct ContentView: View {
         coordinator.expandingView.type == .battery
             && coordinator.expandingView.show
             && vm.notchState == .closed
-            && Defaults[.showPowerStatusNotifications]
+            && peekBatteryModel.shouldShowBatteryNotifications
     }
 
     // Matches the condition that shows TimerCompactPill below — the
@@ -1131,7 +1131,7 @@ struct ContentView: View {
             let batteryModel = BatteryStatusViewModel.shared
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
-            return isStandardBanner ? 28 : 26
+            return isStandardBanner ? (isIslandAppearance ? 40 : 28) : 26
         case .timer:
             // Island: half the card's own 64pt height (44 content + 10 top +
             // 10 bottom), i.e. a true capsule like the iOS timer card — same

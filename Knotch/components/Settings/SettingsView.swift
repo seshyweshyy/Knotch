@@ -2840,6 +2840,9 @@ struct Widgets: View {
 // MARK: - Advanced
 
 struct Advanced: View {
+    #if DEBUG
+    @State private var batteryHUDPreset: BatteryStatusViewModel.DebugHUDPreset = .charging
+    #endif
     @Default(.useCustomAccentColor) var useCustomAccentColor
     @Default(.customAccentColorData) var customAccentColorData
     @Default(.extendHoverArea) var extendHoverArea
@@ -3023,6 +3026,37 @@ struct Advanced: View {
                 }
             } footer: {
                 Text("Previews the Floating Pill appearance on this display even though it has a real notch. For testing only — takes priority over \"Force simulated notch\" in General.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("Battery state", selection: $batteryHUDPreset) {
+                        ForEach(BatteryStatusViewModel.DebugHUDPreset.allCases) { preset in
+                            Text(preset.rawValue).tag(preset)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(.white)
+                    .foregroundStyle(.white)
+
+                    HStack(spacing: 8) {
+                        Button("Preview", systemImage: "play.fill") {
+                            BatteryStatusViewModel.shared.previewBatteryHUD(batteryHUDPreset)
+                        }
+                        .settingsSubtleGlassButton()
+
+                        Button("Stop", systemImage: "stop.fill") {
+                            BatteryStatusViewModel.shared.stopBatteryHUDPreview()
+                        }
+                        .settingsSubtleGlassButton()
+                        .help("Stop the preview and restore real battery values")
+                    }
+                }
+            } header: {
+                Text("Battery HUD Previews")
+            } footer: {
+                Text("Shows each HUD for five seconds using simulated battery values, even when battery notifications are disabled. Move your pointer away from the notch to see it. Real battery values return automatically; system power settings are unchanged.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

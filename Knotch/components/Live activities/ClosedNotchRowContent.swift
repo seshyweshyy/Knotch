@@ -292,7 +292,7 @@ struct ClosedNotchRowContent: View {
                 || (battery.levelBattery == 100 && (battery.isCharging || battery.isPluggedIn))
             // Give battery banners concrete height endpoints so both axes
             // follow morph together instead of dropping height at the swap.
-            if isTakeover { return vm.effectiveClosedNotchHeight + 60 + 10 }
+            if isTakeover { return topInset + 60 + 10 }
             return (isIslandAppearance ? 6 : vm.effectiveClosedNotchHeight) + 32 + 6
         }
         if family == .timer {

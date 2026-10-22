@@ -36,6 +36,69 @@ final class BatteryStatusViewModel: ObservableObject {
 
     static let shared = BatteryStatusViewModel()
 
+    #if DEBUG
+    enum DebugHUDPreset: String, CaseIterable, Identifiable {
+        case lowPowerOn = "Low Power Mode On"
+        case lowPowerOff = "Low Power Mode Off"
+        case charging = "Charging"
+        case pluggedIn = "Plugged In"
+        case unplugged = "Unplugged"
+        case notCharging = "Not Charging"
+        case fullCharge = "Full Charge"
+        case lowBattery = "Low Battery (20%)"
+        case criticalBattery = "Critical Battery (5%)"
+        case lowBatteryLPM = "Low Battery + Low Power Mode"
+
+        var id: Self { self }
+    }
+
+    @Published private(set) var isDebugHUDPreviewActive = false
+    private var debugHUDPreviewTask: Task<Void, Never>?
+
+    func previewBatteryHUD(_ preset: DebugHUDPreset) {
+        debugHUDPreviewTask?.cancel()
+        isDebugHUDPreviewActive = true
+        updateBatteryInfo(BatteryInfo(
+            isPluggedIn: [.charging, .pluggedIn, .notCharging, .fullCharge].contains(preset),
+            isCharging: preset == .charging,
+            currentCapacity: preset == .fullCharge ? 100 : preset == .criticalBattery ? 5
+                : [.lowBattery, .lowBatteryLPM].contains(preset) ? 20 : 64,
+            maxCapacity: 100,
+            isInLowPowerMode: [.lowPowerOn, .lowBatteryLPM].contains(preset),
+            timeToFullCharge: preset == .charging ? 45 : 0,
+            timeToEmpty: 180
+        ))
+        statusText = preset.rawValue
+        coordinator.toggleExpandingView(status: true, type: .battery)
+        debugHUDPreviewTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(6))
+            } catch {
+                return
+            }
+            self?.stopBatteryHUDPreview()
+        }
+    }
+
+    func stopBatteryHUDPreview() {
+        debugHUDPreviewTask?.cancel()
+        debugHUDPreviewTask = nil
+        guard isDebugHUDPreviewActive else { return }
+        if coordinator.expandingView.type == .battery {
+            coordinator.toggleExpandingView(status: false, type: .battery)
+        }
+        isDebugHUDPreviewActive = false
+        setupPowerStatus()
+    }
+    #endif
+
+    var shouldShowBatteryNotifications: Bool {
+        #if DEBUG
+        if isDebugHUDPreviewActive { return true }
+        #endif
+        return Defaults[.showPowerStatusNotifications]
+    }
+
     /// Initializes the view model with a given KnotchViewModel instance
     /// - Parameter vm: The KnotchViewModel instance
     private init() {
@@ -60,6 +123,9 @@ final class BatteryStatusViewModel: ObservableObject {
     /// Handles battery events and updates the corresponding properties
     /// - Parameter event: The battery event to handle
     private func handleBatteryEvent(_ event: BatteryActivityManager.BatteryEvent) {
+        #if DEBUG
+        guard !isDebugHUDPreviewActive else { return }
+        #endif
         switch event {
         case .powerSourceChanged(let isPluggedIn):
             print("🔌 Power source: \(isPluggedIn ? "Connected" : "Disconnected")")
