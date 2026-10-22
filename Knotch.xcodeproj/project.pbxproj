@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C5880BA8D89F43168F4BB042 /* SettingsTooltipOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19E22E50BDAF4B49BA8393E8 /* SettingsTooltipOverlay.swift */; };
 		66022CBBC83A43439F8ABF7D /* SettingsPreviewWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */; };
 		4CB016C77250468DA4A45F1B /* SettingsCoordinatorObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */; };
 		08AFF8DBC768D09C4087E7DF /* UpdateFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C0BA205B1B48CEEA465D5A /* UpdateFlowState.swift */; };
@@ -258,6 +259,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		19E22E50BDAF4B49BA8393E8 /* SettingsTooltipOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTooltipOverlay.swift; sourceTree = "<group>"; };
 		5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPreviewWallpaper.swift; sourceTree = "<group>"; };
 		278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoordinatorObserver.swift; sourceTree = "<group>"; };
 		0B0CC491A0E83D8760E7CA95 /* BlurTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTransition.swift; sourceTree = "<group>"; };
@@ -981,6 +983,7 @@
 			children = (
 				11F748832ECB27DC00F841DB /* MusicSlotConfigurationView.swift */,
 				11C5E3152DFE88510065821E /* SettingsView.swift */,
+				19E22E50BDAF4B49BA8393E8 /* SettingsTooltipOverlay.swift */,
 				5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */,
 				278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */,
 				11C5E3112DFE85970065821E /* SettingsWindowController.swift */,
@@ -1290,6 +1293,7 @@
 				B10F84A32C6C9596009F3026 /* TestView.swift in Sources */,
 				1443E7F32C609DCE0027C1FC /* matters.swift in Sources */,
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
+				C5880BA8D89F43168F4BB042 /* SettingsTooltipOverlay.swift in Sources */,
 				66022CBBC83A43439F8ABF7D /* SettingsPreviewWallpaper.swift in Sources */,
 				4CB016C77250468DA4A45F1B /* SettingsCoordinatorObserver.swift in Sources */,
 				1153BD932D986E4300979FB0 /* AppleMusicController.swift in Sources */,

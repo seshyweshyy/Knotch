@@ -35,3 +35,13 @@ Elapsed and remaining labels reserve a monospaced layout footprint based on the 
 - `script/test_settings_observation.sh`: passed against the production observer with a minimal coordinator fixture. Checks 100 HUD changes with zero settings invalidations, one invalidation for a preference burst, binding propagation, suppression of duplicate/transient changes, and refresh after an external defaults notification.
 - Xcode project syntax and whitespace checks: passed.
 - No runtime visual, keyboard-routing, frame-time or energy measurement was available. Confirm typing remains in another app during passive HUD/open/close events; verify settings controls and search still accept focus; inspect both glass card groups and timestamp stability while music is playing, in standard and compact layouts.
+
+## Tooltip motion follow-up
+
+Compared both supplied 60 fps recordings frame by frame. The reference scales up from a small bubble around its bottom arrow and scales back down at the same anchor. Knotch's old broad overlay animation also interpolated the inserted callout's position, causing a large upward slide and an almost full-size entrance.
+
+`SettingsTooltipOverlay` now owns a persistent placement, retains the last anchor through dismissal, and scopes the scale/fade transition to the callout. Entrance scales from 0.05 around the arrow tip with a restrained spring; exit shrinks/fades over 0.17 seconds. A cancellable 250 ms hover delay prevents transient pointer crossings from flashing a tooltip. Switching targets dismisses the prior bubble first; generation checks prevent stale completion callbacks from clearing a newer tooltip. Reduce Motion uses opacity alone. Existing glass, text and shape styling are preserved.
+
+The supplied recordings establish the before/reference behavior; the rebuilt animation still requires visual confirmation in the running settings window.
+
+After visual feedback, moved the arrow tip 3 points closer to the icon and shortened the entrance spring response from 0.28 to 0.24 seconds, preserving the hover delay and damping.

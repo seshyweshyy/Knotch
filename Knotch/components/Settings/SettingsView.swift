@@ -860,32 +860,7 @@ struct SettingsView: View {
             // where the hover is detected, so it isn't clipped by that row's
             // section bounds. See HoverTooltipPreferenceKey.
             .overlayPreferenceValue(HoverTooltipPreferenceKey.self) { request in
-                GeometryReader { proxy in
-                    if let request {
-                        let anchor = proxy[request.anchor]
-                        // .position places the view's *center*, not an edge —
-                        // the old .overlay(alignment: .top) + .offset(y: -37)
-                        // put the bubble's top edge 37pt above the icon, which
-                        // for this bubble's ~39pt height puts its center about
-                        // 18pt above the icon. Approximate rather than exact
-                        // (no measured height here), but close to how it read
-                        // before.
-                        TooltipCallout(text: request.text)
-                            .fixedSize()
-                            .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .bottom)))
-                            .allowsHitTesting(false)
-                            .position(x: anchor.x, y: anchor.y - 18)
-                    }
-                }
-                // .transition only actually animates if something here wraps
-                // the state change in an animation — HoverTooltip's own
-                // .animation(value: isHovering) is scoped to its own subtree
-                // and doesn't reach across the preference-key boundary to
-                // this consuming view, so without this the bubble just
-                // popped in/out instantly. Spring rather than easeInOut so
-                // the scale reads as a deliberate pop on hover-in and
-                // shrink on hover-out, not just a plain cross-fade.
-                .animation(.spring(response: 0.28, dampingFraction: 0.62), value: request?.text)
+                SettingsTooltipOverlay(request: request)
             }
         }
         .frame(width: 700, height: 620)
