@@ -209,7 +209,7 @@ private final class LumaStripView: NSView {
     func backdropLayer(_ layer: AnyObject, didChangeLuma luma: Double) {
         let value = min(max(luma, 0), 1)
         Task { @MainActor [weak self] in
-            guard let self, !self.isProtected else { return }
+            guard let self, self.isTracking, !self.isProtected else { return }
             self.setReading(.luma(value))
         }
     }
@@ -217,7 +217,7 @@ private final class LumaStripView: NSView {
     @objc(backdropLayer:didSampleProtectedLuma:)
     func backdropLayer(_ layer: AnyObject, didSampleProtectedLuma protected: Bool) {
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self, self.isTracking else { return }
             self.isProtected = protected
             if protected {
                 self.setReading(.protected)
@@ -277,6 +277,24 @@ private final class ContrastOutlineSamplerView: NSView {
     private var topHasSamplingArea = false
     private var placementWork: DispatchWorkItem?
     private var isShutDown = false
+    private var suspensionReasons: Set<String> = []
+
+    private var canSample: Bool {
+        !isShutDown && suspensionReasons.isEmpty
+            && window?.isVisible == true
+            && window?.occlusionState.contains(.visible) == true
+    }
+
+    private func setSuspended(_ suspended: Bool, reason: String) {
+        let wasSuspended = !suspensionReasons.isEmpty
+        if suspended { suspensionReasons.insert(reason) }
+        else { suspensionReasons.remove(reason) }
+        if !suspensionReasons.isEmpty {
+            stopSampling()
+        } else if wasSuspended {
+            rebuildStrips()
+        }
+    }
     private var darkEdges: Set<Edge> = []
     private var reportedDarkEdges: Set<Edge> = []
     private var missingSince: TimeInterval?
@@ -318,7 +336,7 @@ private final class ContrastOutlineSamplerView: NSView {
     /// relationship, nothing changed on it): one level below it, in the same
     /// overlay space, so they sample only what is behind Knotch.
     private func attach(_ panel: StripPanel) {
-        guard let window, !panel.isVisible else { return }
+        guard canSample, let window, !panel.isVisible else { return }
         panel.level = NSWindow.Level(rawValue: window.level.rawValue - 1)
         NotchSpaceManager.shared.notchSpace.windows.insert(panel)
         panel.orderFrontRegardless()
@@ -345,7 +363,10 @@ private final class ContrastOutlineSamplerView: NSView {
     /// tracking (screenshot, Space/display change) can't be revived by
     /// toggling, but a fresh one tracks normally.
     private func rebuildStrips(_ edges: [Edge] = Edge.allCases) {
-        guard !isShutDown else { return }
+        guard canSample else {
+            stopSampling()
+            return
+        }
         for edge in edges {
             discard(edge)
             installStrip(for: edge)
@@ -363,6 +384,9 @@ private final class ContrastOutlineSamplerView: NSView {
             stopSampling()
             return
         }
+        if KnotchViewCoordinator.shared.isScreenLocked {
+            suspensionReasons.insert("lock")
+        }
         // Anything that can drop or invalidate tracking → fresh strips.
         // All registrations below explicitly deliver on the main queue.
         let rebuild: @Sendable (Notification) -> Void = { [weak self] _ in
@@ -379,6 +403,26 @@ private final class ContrastOutlineSamplerView: NSView {
         observers.append(Observer(center: workspace, token: workspace.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main, using: rebuild)))
         observers.append(Observer(center: workspace, token: workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main, using: rebuild)))
         observers.append(Observer(center: workspace, token: workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: rebuild)))
+        // These states overlap: waking the display must not resume sampling
+        // while the session is still locked or the screensaver is running.
+        let distributed = DistributedNotificationCenter.default()
+        let lifecycle: [(NotificationCenter, Notification.Name, Notification.Name, String)] = [
+            (workspace, NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification, "sleep"),
+            (workspace, NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification, "display"),
+            (workspace, NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.sessionDidBecomeActiveNotification, "session"),
+            (distributed, .init("com.apple.screenIsLocked"), .init("com.apple.screenIsUnlocked"), "lock"),
+            (distributed, .init("com.apple.screensaver.didstart"), .init("com.apple.screensaver.didstop"), "screensaver"),
+        ]
+        for (center, suspend, resume, reason) in lifecycle {
+            for (name, suspended) in [(suspend, true), (resume, false)] {
+                let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.setSuspended(suspended, reason: reason)
+                    }
+                }
+                observers.append(Observer(center: center, token: token))
+            }
+        }
         // Created before the window was on screen? Start over now that it is.
         rebuildStrips()
     }
@@ -400,6 +444,10 @@ private final class ContrastOutlineSamplerView: NSView {
     }
 
     private func stopSampling() {
+        retryWork?.cancel()
+        retryWork = nil
+        placementWork?.cancel()
+        placementWork = nil
         cancelDecision()
         missingSince = nil
         brightSince = nil
@@ -418,7 +466,7 @@ private final class ContrastOutlineSamplerView: NSView {
 
     override func layout() {
         super.layout()
-        guard !isShutDown, let window, bounds.width > 0, bounds.height > 0 else { return }
+        guard canSample, let window, bounds.width > 0, bounds.height > 0 else { return }
         let shape = bounds
         let screenFrame = (window.screen ?? NSScreen.main)?.frame ?? .infinite
 
@@ -502,10 +550,11 @@ private final class ContrastOutlineSamplerView: NSView {
     /// Moving windows is a window-server round trip; during the notch's spring
     /// layout runs every frame, so placement is throttled to ~25 Hz.
     private func schedulePlacement() {
-        guard placementWork == nil else { return }
+        guard canSample, placementWork == nil else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.placementWork = nil
+            guard self.canSample else { return }
             for (edge, rect) in self.desiredFrames {
                 guard let panel = self.panels[edge] else { continue }
                 if abs(panel.frame.minX - rect.minX) > 0.5 || abs(panel.frame.minY - rect.minY) > 0.5
@@ -526,10 +575,11 @@ private final class ContrastOutlineSamplerView: NSView {
     /// delivering updates while leaving the last value in place, which used
     /// to keep an outdated outline on or off indefinitely.
     private func scheduleRetry() {
-        guard !isShutDown, retryWork == nil, let window, window.isVisible else { return }
+        guard canSample, retryWork == nil else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.retryWork = nil
+            guard self.canSample else { return }
             let now = Date.timeIntervalSinceReferenceDate
             let stuck = Edge.allCases.filter { edge in
                 guard let strip = self.strips[edge], strip.isUsable else { return false }
@@ -584,6 +634,7 @@ private final class ContrastOutlineSamplerView: NSView {
     /// every required edge is dark. Preserve the last visible contour during
     /// a short read gap, and confirm bright content before hiding it.
     private func reevaluate() {
+        guard canSample else { return }
         let now = Date.timeIntervalSinceReferenceDate
         // The default pill is only 1pt below the screen edge. Its top strip
         // is entirely offscreen, so use its two sides and bottom. Once a pill

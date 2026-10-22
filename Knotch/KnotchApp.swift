@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenLockedObserver: Any?
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
+    private var lockContentSuspensions: Set<String> = []
     private var windowScreenDidChangeObserver: Any?
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
     private var cancellables = Set<AnyCancellable>()
@@ -109,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func showLiquidGlassWidgetIfNeeded() {
-        guard Defaults[.lockScreenMusicWidget] else { return }
+        guard lockContentSuspensions.isEmpty, Defaults[.lockScreenMusicWidget] else { return }
         guard let bundleID = MusicManager.shared.bundleIdentifier,
               NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { return }
         let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
@@ -140,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         closeOpenNotches()
         broadcastLockState(true)
         enableSkyLightOnAllWindows()
+        guard lockContentSuspensions.isEmpty else { return }
         showLiquidGlassWidgetIfNeeded()
         let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         LiquidGlassTimerWidgetWindowController.shared.screenDidLock(on: screen)
@@ -156,6 +158,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LockScreenMiniWidgetRowWindowController.shared.screenDidUnlock()
     }
     
+    /// Tear down lock-screen hosting views while there is nothing to display.
+    /// Separate reasons keep a display wake from restoring content over a saver.
+    private func setLockContentSuspended(_ suspended: Bool, reason: String) {
+        let wasSuspended = !lockContentSuspensions.isEmpty
+        if suspended { lockContentSuspensions.insert(reason) }
+        else { lockContentSuspensions.remove(reason) }
+        guard wasSuspended != !lockContentSuspensions.isEmpty else { return }
+        if !lockContentSuspensions.isEmpty {
+            LiquidGlassTimerWidgetWindowController.shared.screenDidUnlock()
+            LockScreenMiniWidgetRowWindowController.shared.screenDidUnlock()
+            LiquidGlassWidgetWindowController.shared.hide()
+            AlbumArtBackgroundWindowController.shared.hide()
+        } else if isScreenLocked {
+            showLiquidGlassWidgetIfNeeded()
+            guard let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+            LiquidGlassTimerWidgetWindowController.shared.screenDidLock(on: screen)
+            LockScreenMiniWidgetRowWindowController.shared.screenDidLock(on: screen)
+        }
+    }
+
+    private func observeLockContentLifecycle() {
+        let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
+        let events: [(NotificationCenter, Notification.Name, Notification.Name, String)] = [
+            (workspace, NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification, "sleep"),
+            (workspace, NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification, "display"),
+            (workspace, NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.sessionDidBecomeActiveNotification, "session"),
+            (distributed, .init("com.apple.screensaver.didstart"), .init("com.apple.screensaver.didstop"), "screensaver"),
+        ]
+        for (center, suspend, resume, reason) in events {
+            for (name, suspended) in [(suspend, true), (resume, false)] {
+                center.publisher(for: name)
+                    .receive(on: DispatchQueue.main)
+                    .sink { [weak self] _ in
+                        self?.setLockContentSuspended(suspended, reason: reason)
+                    }
+                    .store(in: &cancellables)
+            }
+        }
+    }
+
     @MainActor
     private func closeOpenNotches() {
         if Defaults[.showOnAllDisplays] {
@@ -467,6 +510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         setupStatusItem()
+        observeLockContentLifecycle()
 
         NotificationCenter.default.addObserver(
             self,

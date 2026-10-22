@@ -393,10 +393,10 @@ final class LockScreenMiniWidgetRowWindowController {
         }
 
         guard let win = window else { return }
-        win.setFrame(screen.frame, display: false)
+        if win.frame != screen.frame { win.setFrame(screen.frame, display: false) }
+        guard !win.isVisible else { return }
         win.enableSkyLight()
         win.orderFrontRegardless()
-        win.acquireActiveGlassAppearance()
     }
 
     // See LiquidGlassWidgetWindowController.hide's matching comment — fully

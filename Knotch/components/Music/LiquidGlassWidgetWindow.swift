@@ -248,10 +248,10 @@ final class LiquidGlassWidgetWindowController {
         }
 
         guard let win = window else { return }
-        win.setFrame(screen.frame, display: false)
+        if win.frame != screen.frame { win.setFrame(screen.frame, display: false) }
+        guard !win.isVisible else { return }
         win.enableSkyLight()
         win.orderFrontRegardless()
-        win.acquireActiveGlassAppearance()
         installClickMonitor()
     }
 
@@ -270,6 +270,10 @@ final class LiquidGlassWidgetWindowController {
         win.orderOut(nil)
         win.contentView = nil
         window = nil
+        LockScreenLyricsStore.shared.sync(query: nil)
+        AlbumArtBackgroundWindowController.shared.hide()
+        DisplaySleepPreventer.shared.release()
+        NotificationCenter.default.post(name: .lockScreenProfileShouldShow, object: nil)
     }
 
     func setClickThrough(_ passThrough: Bool) {

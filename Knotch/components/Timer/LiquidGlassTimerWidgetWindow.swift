@@ -139,10 +139,10 @@ final class LiquidGlassTimerWidgetWindowController {
         }
 
         guard let win = window else { return }
-        win.setFrame(screen.frame, display: false)
+        if win.frame != screen.frame { win.setFrame(screen.frame, display: false) }
+        guard !win.isVisible else { return }
         win.enableSkyLight()
         win.orderFrontRegardless()
-        win.acquireActiveGlassAppearance()
     }
 
     private func hide() {
@@ -150,5 +150,8 @@ final class LiquidGlassTimerWidgetWindowController {
         win.releaseActiveGlassAppearance()
         win.disableSkyLight()
         win.orderOut(nil)
+        // Release the SwiftUI tree so its timelines and glass layers stop too.
+        win.contentView = nil
+        window = nil
     }
 }
