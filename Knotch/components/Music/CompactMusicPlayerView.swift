@@ -143,7 +143,7 @@ struct CompactMusicPlayerView: View {
                     // Same album-art-tinted waveform used in the standard home
                     // view (MusicControlsWithVisualizer), rather than the plain
                     // white bars used on the lock screen widget.
-                    AlbumArtWaveformMask(albumArt: musicManager.albumArt, isPlaying: $musicManager.isPlaying)
+                    AlbumArtWaveformMask(isActive: vm.notchState == .open, albumArt: musicManager.albumArt, isPlaying: $musicManager.isPlaying)
                         .frame(width: baseSpectrumSize.width, height: baseSpectrumSize.height)
                         .scaleEffect(spectrumScale)
                         .frame(width: spectrumWidth, height: spectrumHeight)
@@ -227,7 +227,7 @@ struct CompactMusicPlayerView: View {
         // The labels only need occasional updates. The fill itself is one long,
         // linear compositor animation, so it remains fluid without rebuilding
         // this entire view on every display frame.
-        TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying)) { timeline in
+        TimelineView(.animation(minimumInterval: 0.5, paused: !musicManager.isPlaying || vm.notchState != .open)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -238,7 +238,7 @@ struct CompactMusicPlayerView: View {
                 timestampDate: musicManager.timestampDate,
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
-                isPlaying: musicManager.isPlaying,
+                isPlaying: musicManager.isPlaying && vm.notchState == .open,
                 showRemainingTime: true,
                 inlineTimestamps: true,
                 animatesSliderGeometryChanges: false,

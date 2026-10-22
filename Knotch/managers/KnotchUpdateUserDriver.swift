@@ -19,13 +19,13 @@ final class KnotchUpdateUserDriver: NSObject, SPUUserDriver {
     private let state = UpdateFlowState()
     private var windowController: UpdateWindowController?
 
-    private func presentWindow() {
+    private func presentWindow(activate: Bool = false) {
         if windowController == nil {
             windowController = UpdateWindowController(state: state, onWindowClosedWithoutChoice: { [weak self] in
                 self?.state.dismissCurrentPhase()
             })
         }
-        windowController?.show()
+        windowController?.show(activate: activate)
     }
 
     private func closeWindow() {
@@ -45,7 +45,7 @@ final class KnotchUpdateUserDriver: NSObject, SPUUserDriver {
     func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
         state.foundItem = nil
         state.phase = .checking(cancel: cancellation)
-        presentWindow()
+        presentWindow(activate: true)
     }
 
     func showUpdateFound(with appcastItem: SUAppcastItem, state userUpdateState: SPUUserUpdateState, reply: @escaping (SPUUserUpdateChoice) -> Void) {

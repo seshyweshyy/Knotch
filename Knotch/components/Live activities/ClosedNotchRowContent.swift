@@ -292,14 +292,23 @@ struct ClosedNotchRowContent: View {
         }
     }
 
+    private var isPhasedHUD: Bool {
+        family == .hud && (coordinator.sneakPeek.type == .airdropReceive || coordinator.sneakPeek.type == .bluetoothAudio)
+    }
+
+    private var contentHeight: CGFloat? {
+        if family == .timer || isPhasedHUD {
+            return expandedHUDRestingHeight ?? vm.effectiveClosedNotchHeight
+        }
+        return expandedHUDRestingHeight
+    }
+
     private var rowHeight: CGFloat? {
-        // Unlike the HUD cards, the timer's pill <-> card change is a direct
-        // in-place morph (no family swap), so its height is never nil while
-        // closed — SwiftUI can't interpolate a frame height from nil to a
-        // value, and this has to animate smoothly in both directions.
-        if family == .timer, vm.notchState != .open {
+        // Keep both endpoints concrete for in-place pill/card morphs. A nil
+        // endpoint changes layout policy immediately instead of interpolating.
+        if (family == .timer || isPhasedHUD), vm.notchState != .open {
             let closedHeight = vm.effectiveClosedNotchHeight
-            guard let restingHeight = expandedHUDRestingHeight else { return closedHeight }
+            let restingHeight = expandedHUDRestingHeight ?? closedHeight
             return closedHeight + (restingHeight - closedHeight) * morph
         }
         guard let restingHeight = expandedHUDRestingHeight else { return nil }
@@ -340,7 +349,7 @@ struct ClosedNotchRowContent: View {
             // hairline with nothing left to hover/tap to reopen it.
             .frame(width: restingWidth, alignment: .center)
             .frame(
-                height: expandedHUDRestingHeight,
+                height: contentHeight,
                 alignment: .top
             )
             .frame(minHeight: vm.effectiveClosedNotchHeight, alignment: .top)
@@ -352,7 +361,7 @@ struct ClosedNotchRowContent: View {
             .scaleEffect(
                 x: restingWidth > 0 ? rowWidth / restingWidth : 1,
                 y: rowScaleY,
-                anchor: expandedHUDRestingHeight == nil ? .center : .top
+                anchor: contentHeight == nil ? .center : .top
             )
             // ...and the reported/layout size matches the visually-squished
             // size, so .fixedSize() and the shared background box actually

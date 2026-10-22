@@ -24,6 +24,7 @@ struct BluetoothHUDView: View {
     @Default(.bluetoothHUDIconStyle) private var iconStyle: BluetoothHUDIconStyle
     @Default(.notchAppearanceStyle) private var notchAppearanceStyle
     @EnvironmentObject var vm: KnotchViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Expanded width of the notch pill for this HUD — trimmed down from 320
     // now that the card's own horizontal padding (below) is just breathing
@@ -31,7 +32,6 @@ struct BluetoothHUDView: View {
     // freed-up padding just left more empty space between the icon/text and
     // the battery ring, reading as an overly wide pill.
     private let expandedWidth: CGFloat = 280
-    private let compactWidth: CGFloat = 120
 
     // Give the outer shell an animatable height target instead of letting
     // the conditional transition determine layout. During removal SwiftUI
@@ -67,7 +67,7 @@ struct BluetoothHUDView: View {
                 HStack(spacing: 0) {
                     // LEFT: device icon
                     HStack(spacing: 5) {
-                        deviceIcon
+                        Color.clear
                             .frame(
                                 width: max(0, vm.effectiveClosedNotchHeight - 4),
                                 height: max(0, vm.effectiveClosedNotchHeight - 4)
@@ -94,7 +94,7 @@ struct BluetoothHUDView: View {
             } else {
                 // Expanded pill: drops below notch with name + battery ring
                 HStack(spacing: 0) {
-                    deviceIcon
+                    Color.clear
                         .frame(width: 52, height: 36)
 
                     VStack(alignment: .leading, spacing: 1) {
@@ -128,7 +128,20 @@ struct BluetoothHUDView: View {
             }
         }
         .frame(height: phaseHeight, alignment: .top)
-        .animation(expandedHUDSpring, value: phase)
+        // Keep one video player mounted while the card changes layout. A
+        // conditional player in each phase restarts decoding at the morph.
+        .overlay(alignment: .topLeading) {
+            deviceIcon
+                .frame(
+                    width: phase == .expanded ? 52 : max(0, vm.effectiveClosedNotchHeight - 4),
+                    height: phase == .expanded ? 36 : max(0, vm.effectiveClosedNotchHeight - 4)
+                )
+                .offset(
+                    x: phase == .expanded ? 10 : 0,
+                    y: phase == .expanded ? (isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight) + 4 : 2
+                )
+                .allowsHitTesting(false)
+        }
         .onAppear {
             startPhaseSequence()
         }
@@ -143,7 +156,7 @@ struct BluetoothHUDView: View {
     private var deviceIcon: some View {
         switch iconStyle {
         case .threeDimensional:
-            if let url = Bundle.main.url(forResource: movFileName(for: icon), withExtension: "mov") {
+            if !reduceMotion, let url = Bundle.main.url(forResource: movFileName(for: icon), withExtension: "mov") {
                 LoopingVideoView(url: url)
                     .aspectRatio(contentMode: .fit)
             } else {

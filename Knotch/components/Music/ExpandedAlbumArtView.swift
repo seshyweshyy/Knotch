@@ -19,6 +19,7 @@ struct ExpandedAlbumArtView: View {
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var incomingArt: NSImage? = nil
     @State private var incomingOpacity: Double = 0
+    @State private var artGeneration = 0
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
@@ -48,15 +49,21 @@ struct ExpandedAlbumArtView: View {
             }
         }
         .onChange(of: musicManager.artFlipSignal) { _, signal in
+            artGeneration += 1
+            let generation = artGeneration
             incomingArt = signal.art
             incomingOpacity = 0
-            withAnimation(.easeInOut(duration: 0.4)) {
+            withAnimation(.easeInOut(duration: 0.4), completionCriteria: .removed) {
                 incomingOpacity = 1
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                displayedArt = signal.art
-                incomingArt = nil
-                incomingOpacity = 0
+            } completion: {
+                guard generation == artGeneration else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    displayedArt = signal.art
+                    incomingArt = nil
+                    incomingOpacity = 0
+                }
             }
         }
     }

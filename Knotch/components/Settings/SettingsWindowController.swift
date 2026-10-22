@@ -16,7 +16,7 @@ class SettingsWindowController: NSWindowController {
     
     private init() {
         let window = KnotchSettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 620),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -121,26 +121,17 @@ class SettingsWindowController: NSWindowController {
     
     func showWindow() {
         loadContentIfNeeded()
-        
-        // If window is already visible, bring it (and the app) to the front
-        if window?.isVisible == true {
+        if window?.isVisible != true { window?.center() }
+        // Opening Settings is an explicit activation request. Do it once,
+        // synchronously, without a queued activation that can run after the
+        // user has already returned to another app.
+        if NSApp.activationPolicy() != .regular {
             NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            window?.makeKeyAndOrderFront(nil)
-            return
         }
-
-        window?.center()
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-
-        // Defer activation policy change to avoid a CPU spike on open
-        DispatchQueue.main.async {
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            self.window?.makeKeyAndOrderFront(nil)
-        }
     }
-    
+
     override func close() {
         super.close()
         relinquishFocus()

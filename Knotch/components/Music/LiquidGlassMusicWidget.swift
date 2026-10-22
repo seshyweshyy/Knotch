@@ -30,6 +30,8 @@ struct LiquidGlassMusicWidget: View {
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+    @State private var flipGeneration = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
     @State private var sliderValue: Double = 0
@@ -207,12 +209,21 @@ struct LiquidGlassMusicWidget: View {
     }
 
     private func flipArt(_ signal: ArtFlipSignal) {
+        flipGeneration += 1
+        let generation = flipGeneration
+        if reduceMotion {
+            displayedArt = signal.art
+            rotationDegrees = 0
+            flipBlur = 0
+            flipBrightness = 0
+            return
+        }
         let dir: Double = signal.direction == .forward ? 1 : -1
-        withAnimation(.easeIn(duration: 0.22)) {
+        withAnimation(.easeIn(duration: 0.22), completionCriteria: .removed) {
             rotationDegrees = dir * 90
             flipBlur = 4
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+        } completion: {
+            guard generation == flipGeneration else { return }
             displayedArt = signal.art
             rotationDegrees = dir * -90
             flipBrightness = 0.6
@@ -394,10 +405,11 @@ struct LiquidGlassMusicWidget: View {
 
     private func fadeOutMotionArt() {
         guard motionArtURL != nil else { return }
-        withAnimation(.easeInOut(duration: 0.4)) {
+        let outgoingURL = motionArtURL
+        withAnimation(.easeInOut(duration: 0.4), completionCriteria: .removed) {
             motionArtOpacity = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        } completion: {
+            guard motionArtOpacity == 0, motionArtURL == outgoingURL else { return }
             motionArtURL = nil
         }
     }

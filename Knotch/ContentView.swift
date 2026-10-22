@@ -14,6 +14,7 @@ import SwiftUI
 import SwiftUIIntrospect
 
 struct MusicLiveActivity: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var musicManager = MusicManager.shared
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
@@ -40,6 +41,7 @@ struct MusicLiveActivity: View {
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var inlineTitleScrolls = false
     @State private var rotationDegrees: Double = 0
+    @State private var flipGeneration = 0
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
 
@@ -141,7 +143,7 @@ struct MusicLiveActivity: View {
                         insertion: .opacity.combined(with: .blur(radius: 8)),
                         removal: .move(edge: .bottom)
                             .combined(with: .opacity)
-                            .combined(with: .blur(radius: 30))
+                            .combined(with: .blur(radius: notchRevealBlurRadius))
                             .animation(notchOpenSpring)
                     )
                 )
@@ -153,13 +155,22 @@ struct MusicLiveActivity: View {
                 .blur(radius: flipBlur)
                 .brightness(flipBrightness)
                 .onChange(of: musicManager.artFlipSignal) { _, signal in
+                    flipGeneration += 1
+                    let generation = flipGeneration
+                    if reduceMotion {
+                        displayedArt = signal.art
+                        rotationDegrees = 0
+                        flipBlur = 0
+                        flipBrightness = 0
+                        return
+                    }
                     let dir: Double = signal.direction == .forward ? 1 : -1
 
-                    withAnimation(.easeIn(duration: 0.22)) {
+                    withAnimation(.easeIn(duration: 0.22), completionCriteria: .removed) {
                         rotationDegrees = dir * 90
                         flipBlur = 4
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    } completion: {
+                        guard generation == flipGeneration else { return }
                         displayedArt = signal.art
                         rotationDegrees = dir * -90
                         flipBrightness = 0.6
@@ -633,6 +644,7 @@ struct BatteryNotchBanner: View {
 
 @MainActor
 struct ContentView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
@@ -1700,6 +1712,12 @@ struct ContentView: View {
         .animation(.smooth, value: gestureProgress)
         .background(dragDetector)
         .preferredColorScheme(.dark)
+        .transaction { transaction in
+            if reduceMotion {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
         .environmentObject(vm)
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
@@ -1964,7 +1982,7 @@ struct ContentView: View {
                     y: shown ? 1 : 0.6,
                     anchor: .top
                 )
-                .blur(radius: shown ? 0 : 30)
+                .blur(radius: shown ? 0 : notchRevealBlurRadius)
                 .opacity(shown ? 1 : 0)
                 // The blur above spreads outward past the first clip's edge,
                 // so on close that haze (album art, calendar colors) showed
@@ -2048,7 +2066,7 @@ struct ContentView: View {
                         y: vm.notchState == .open ? 1 : 0.6,
                         anchor: .top
                     )
-                    .blur(radius: vm.notchState == .open ? 0 : 30)
+                    .blur(radius: vm.notchState == .open ? 0 : notchRevealBlurRadius)
                     .opacity(vm.notchState == .open ? 1 : 0)
                     .allowsHitTesting(vm.notchState == .open)
                     .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)

@@ -50,6 +50,7 @@ struct MarqueeIcon: Equatable {
 }
 
 struct MarqueeText: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var text: String
     let font: Font
     let nsFont: NSFont.TextStyle
@@ -112,7 +113,7 @@ struct MarqueeText: View {
     }
 
     private var needsScrolling: Bool {
-        !isPaused && textSize.width > frameWidth
+        !reduceMotion && !isPaused && textSize.width > frameWidth
     }
 
     // Prepending/appending the icon here (rather than as a sibling view outside
@@ -241,7 +242,14 @@ struct MarqueeText: View {
     // a changed textSize/scrollStartDate just changes the inputs, and the
     // displayed position is simply correct on the very next frame.
     private var scrollingPair: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !needsScrolling)) { timeline in
+        let textPair = HStack(spacing: 20) {
+            styledText(text)
+            styledText(text)
+        }
+        .font(font)
+        .foregroundColor(textColor)
+        .fixedSize(horizontal: true, vertical: false)
+        return TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !needsScrolling)) { timeline in
             let period = textSize.width + 20
             let scrollDuration = scrollSpeed > 0 ? period / scrollSpeed : 0
             // Pause, then scroll exactly one period, then pause again — matches
@@ -257,13 +265,7 @@ struct MarqueeText: View {
             // Ease the fade away across the gap between copies, finishing
             // before the next copy enters the six-point leading edge.
             let fadeOut = min(1, max(0, (distanceToNextCopy - 6) / 20))
-            HStack(spacing: 20) {
-                styledText(text)
-                styledText(text)
-            }
-            .font(font)
-            .foregroundColor(textColor)
-            .fixedSize(horizontal: true, vertical: false)
+            textPair
             .offset(x: -wrapped)
             .background(backgroundColor)
             // Fade only while glyphs are moving through the leading clip.

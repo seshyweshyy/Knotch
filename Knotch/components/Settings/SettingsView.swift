@@ -505,7 +505,7 @@ extension View {
 
 struct SettingsView: View {
     @State private var selectedTab = "General"
-    @State private var accentColorUpdateTrigger = UUID()
+    @State private var settingsAccentColor = Color.effectiveAccent
     @State private var searchText = ""
     @StateObject private var highlightCoordinator = SettingsHighlightCoordinator()
 
@@ -891,10 +891,9 @@ struct SettingsView: View {
         .frame(width: 700, height: 620)
         .background(Color.clear)
         .formStyle(.grouped)
-        .tint(.effectiveAccent)
-        .id(accentColorUpdateTrigger)
+        .tint(settingsAccentColor)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AccentColorChanged"))) { _ in
-            accentColorUpdateTrigger = UUID()
+            settingsAccentColor = Color.effectiveAccent
         }
     }
 }
@@ -907,8 +906,7 @@ struct GeneralSettings: View {
         guard let uuid = screen.displayUUID else { return nil }
         return (uuid, screen.localizedName)
     }
-    @EnvironmentObject var vm: KnotchViewModel
-    @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @StateObject private var coordinator = SettingsCoordinatorObserver()
 
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
@@ -1471,13 +1469,11 @@ struct LoopingVideoView: NSViewRepresentable {
 // MARK: - HUD
 
 struct HUD: View {
-    @EnvironmentObject var vm: KnotchViewModel
     @Default(.inlineHUD) var inlineHUD
     @Default(.enableGradient) var enableGradient
     @Default(.optionKeyAction) var optionKeyAction
     @Default(.hudReplacement) var hudReplacement
     @Default(.enableCompactUI) var enableCompactUI
-    @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @State private var accessibilityAuthorized = false
 
     var body: some View {
@@ -1752,7 +1748,7 @@ struct Media: View {
     @Default(.waitInterval) var waitInterval
     @Default(.mediaController) var mediaController
     @Default(.defaultPlayer) var defaultPlayer
-    @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @StateObject private var coordinator = SettingsCoordinatorObserver()
     @Default(.sneakPeekOnTrackChange) private var sneakPeekOnTrackChange
     @Default(.sneakPeekOnResume) private var sneakPeekOnResume
     @Default(.sneakPeekStyles) var sneakPeekStyles
@@ -2406,7 +2402,7 @@ struct CalendarSettings: View {
 // MARK: - Appearance
 
 struct Appearance: View {
-    @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @StateObject private var coordinator = SettingsCoordinatorObserver()
     @ObservedObject private var webcamManager = WebcamManager.shared
     @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
@@ -2560,7 +2556,7 @@ struct Appearance: View {
     }
 
     func checkVideoInput() -> Bool {
-        AVCaptureDevice.default(for: .video) != nil
+        webcamManager.cameraAvailable
     }
 
     private var isLiquidGlassAvailable: Bool {
@@ -2784,7 +2780,7 @@ struct Widgets: View {
     @Default(.showTrayView) var showTrayView
     @Default(.swipeToCycleViews) var swipeToCycleViews
     @Default(.enableCompactUI) var enableCompactUI
-    @ObservedObject var coordinator = KnotchViewCoordinator.shared
+    @StateObject private var coordinator = SettingsCoordinatorObserver()
 
     // Swipe-to-cycle only makes sense when both views are enabled
     private var onlyOneViewEnabled: Bool {

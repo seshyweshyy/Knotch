@@ -11,27 +11,11 @@
 import Defaults
 import SwiftUI
 
-/// Loads the current desktop wallpaper once and shares it across every
-/// mini-widget preview card below, the same source NotchStylePreview uses
-/// for the notch appearance cards (NSWorkspace.desktopImageURL), just cached
-/// once instead of per-card since several cards render at once here.
-@MainActor
-private final class MiniWidgetPreviewWallpaper: ObservableObject {
-    static let shared = MiniWidgetPreviewWallpaper()
-    @Published private(set) var image: NSImage?
-
-    private init() {
-        guard let screen = NSScreen.main,
-              let url = NSWorkspace.shared.desktopImageURL(for: screen) else { return }
-        image = NSImage(contentsOf: url)
-    }
-}
-
 /// Wallpaper-backed card background shared by the battery/weather preview
 /// cards: the real photo, dimmed for legibility, with the selection border
 /// on top — mirrors NotchStylePreview's wallpaper + darkening treatment.
 private struct MiniWidgetPreviewCardBackground: View {
-    @ObservedObject private var wallpaper = MiniWidgetPreviewWallpaper.shared
+    @ObservedObject private var wallpaper = SettingsPreviewWallpaper.shared
     let isSelected: Bool
 
     var body: some View {
@@ -52,6 +36,7 @@ private struct MiniWidgetPreviewCardBackground: View {
                     .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
             )
             .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+            .task { wallpaper.refresh() }
     }
 }
 
@@ -90,7 +75,7 @@ struct MiniWidgetAppearanceStyleCard: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
-            .background(.thinMaterial, in: Capsule())
+            .modifier(MiniWidgetPreviewGlass())
         case .floatingText:
             HStack(spacing: 3) {
                 Image(systemName: "battery.75")
@@ -366,5 +351,15 @@ struct LockScreenMiniWidgetsSection: View {
         }
         .disabled(!miniWidgetsEnabled)
         .opacity(miniWidgetsEnabled ? 1 : 0.4)
+    }
+}
+
+private struct MiniWidgetPreviewGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.clear, in: Capsule())
+        } else {
+            content.background(.thinMaterial, in: Capsule())
+        }
     }
 }

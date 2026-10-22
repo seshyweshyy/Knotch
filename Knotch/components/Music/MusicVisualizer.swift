@@ -202,6 +202,8 @@ final class MusicVisualizerClock: ObservableObject {
 }
 
 struct AudioSpectrumView: View {
+    var isActive: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPlaying: Bool
     @State private var amplitudes: [Float] = Array(repeating: 0, count: AudioSpectrum.barCount)
     @ObservedObject private var clock = MusicVisualizerClock.shared
@@ -218,7 +220,7 @@ struct AudioSpectrumView: View {
             ForEach(0..<AudioSpectrum.barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: AudioSpectrum.barWidth / 2, style: .continuous)
                     .fill(Color.white)
-                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: clock.time))
+                    .frame(width: AudioSpectrum.barWidth, height: AudioSpectrum.barHeight(index, isPlaying: isPlaying && isActive && !reduceMotion, amplitudes: amplitudes, liveMix: liveMix, simulatedTime: clock.time))
                     // Bars are clamped to minHeight the instant isPlaying flips
                     // (see barHeight's guard) with no animation of their own —
                     // scoping this to `value: isPlaying` animates only that
@@ -230,7 +232,7 @@ struct AudioSpectrumView: View {
         .frame(width: AudioSpectrum.contentSize.width, height: AudioSpectrum.contentSize.height)
         .scaleEffect(0.98)
         .modifier(LiveAmplitudesSubscriber(amplitudes: $amplitudes))
-        .onChange(of: isPlaying, initial: true) { _, playing in
+        .onChange(of: isPlaying && isActive && !reduceMotion, initial: true) { _, playing in
             if playing {
                 clock.acquire(clockConsumerID)
             } else {
@@ -238,6 +240,7 @@ struct AudioSpectrumView: View {
             }
         }
         .onReceive(clock.$time) { _ in
+            guard isActive, !reduceMotion else { return }
             let target: CGFloat = liveWaveformEnabled ? 1 : 0
             if abs(target - liveMix) > 0.001 {
                 liveMix += (target - liveMix) * Self.liveMixCoeff
@@ -269,6 +272,7 @@ private struct LiveAmplitudesSubscriber: ViewModifier {
 /// Used both in the closed-notch live activity and the open notch's music view —
 /// pulled out so the two don't drift out of sync the way their frame sizes did.
 struct AlbumArtWaveformMask: View {
+    var isActive: Bool = true
     let albumArt: NSImage
     @Binding var isPlaying: Bool
 
@@ -287,7 +291,7 @@ struct AlbumArtWaveformMask: View {
                 .frame(width: Self.artSize.width, height: Self.artSize.height)
         }
         .mask {
-            AudioSpectrumView(isPlaying: $isPlaying)
+            AudioSpectrumView(isActive: isActive, isPlaying: $isPlaying)
                 .frame(width: AudioSpectrum.recommendedFrameSize.width, height: AudioSpectrum.recommendedFrameSize.height)
         }
         .frame(width: AudioSpectrum.recommendedFrameSize.width, height: AudioSpectrum.recommendedFrameSize.height)

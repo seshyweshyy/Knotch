@@ -72,11 +72,13 @@ struct TrayItemView: View {
         }
         .onChange(of: viewModel.isDropTargeted) { _, targeted in
             vm.dragDetectorTargeting = targeted
-            // Debounce drop target state changes
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(50))
-                debouncedDropTarget = targeted
-            }
+        }
+        .task(id: viewModel.isDropTargeted) {
+            let targeted = viewModel.isDropTargeted
+            do {
+                try await Task.sleep(for: .milliseconds(50))
+            } catch { return }
+            debouncedDropTarget = targeted
         }
         .onAppear {
             Task { 

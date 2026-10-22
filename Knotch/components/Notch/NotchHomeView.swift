@@ -103,6 +103,7 @@ private struct AudioOutputAnchorProbe: NSViewRepresentable {
 }
 
 struct AlbumArtView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: KnotchViewModel
     let albumArtNamespace: Namespace.ID
@@ -116,6 +117,7 @@ struct AlbumArtView: View {
 
     @State private var displayedArt: NSImage = MusicManager.shared.albumArt
     @State private var rotationDegrees: Double = 0
+    @State private var flipGeneration = 0
     @State private var flipBlur: CGFloat = 0
     @State private var flipBrightness: Double = 0
 
@@ -127,6 +129,8 @@ struct AlbumArtView: View {
         let title: String
         let artist: String
         let album: String
+        var enabled = true
+        var visible = true
     }
 
     // The placeholder icon has no "playing"/"paused" state of its own to
@@ -191,7 +195,7 @@ struct AlbumArtView: View {
                 // and reveals the static art underneath with its existing
                 // paused dim rather than a still frame of video sitting on
                 // top of it.
-                if let motionArtURL, musicManager.isPlaying {
+                if let motionArtURL, musicManager.isPlaying, vm.notchState == .open, !reduceMotion {
                     LoopingVideoView(url: motionArtURL, maxResolution: CGSize(width: size * 3, height: size * 3))
                         .id(motionArtURL)
                         .aspectRatio(contentMode: .fit)
@@ -222,20 +226,13 @@ struct AlbumArtView: View {
             motionArtOpacity = 0
             motionArtURL = nil
         }
-        .task(id: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album)) {
+        .task(id: MotionArtTrackKey(title: musicManager.songTitle, artist: musicManager.artistName, album: musicManager.album, enabled: motionArtEnabled, visible: vm.notchState == .open && !reduceMotion)) {
             await resolveMotionArt()
-        }
-        .onChange(of: motionArtEnabled) { _, enabled in
-            if enabled {
-                Task { await resolveMotionArt() }
-            } else {
-                fadeOutMotionArt()
-            }
         }
     }
 
     private func resolveMotionArt() async {
-        guard motionArtEnabled else {
+        guard motionArtEnabled, vm.notchState == .open, !reduceMotion else {
             fadeOutMotionArt()
             return
         }
@@ -277,10 +274,11 @@ struct AlbumArtView: View {
     // finishes, not underneath it.
     private func fadeOutMotionArt() {
         guard motionArtURL != nil else { return }
-        withAnimation(.easeInOut(duration: 0.4)) {
+        let outgoingURL = motionArtURL
+        withAnimation(.easeInOut(duration: 0.4), completionCriteria: .removed) {
             motionArtOpacity = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        } completion: {
+            guard motionArtOpacity == 0, motionArtURL == outgoingURL else { return }
             motionArtURL = nil
         }
     }
@@ -319,13 +317,22 @@ struct AlbumArtView: View {
             .blur(radius: flipBlur)
             .brightness(flipBrightness)
             .onChange(of: musicManager.artFlipSignal) { _, signal in
+                flipGeneration += 1
+                let generation = flipGeneration
+                if reduceMotion {
+                    displayedArt = signal.art
+                    rotationDegrees = 0
+                    flipBlur = 0
+                    flipBrightness = 0
+                    return
+                }
                 let dir: Double = signal.direction == .forward ? 1 : -1
 
-                withAnimation(.easeIn(duration: 0.22)) {
+                withAnimation(.easeIn(duration: 0.22), completionCriteria: .removed) {
                     rotationDegrees = dir * 90
                     flipBlur = 4
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                } completion: {
+                    guard generation == flipGeneration else { return }
                     displayedArt = signal.art
                     rotationDegrees = dir * -90
                     // Snap the flash on at the swap so it reads as a flick of
@@ -1337,7 +1344,7 @@ struct MusicSliderView: View {
             liveIndicatorBar
         } else if inlineTimestamps {
             HStack(alignment: .center, spacing: 6) {
-                Text(timeString(from: displayedSliderValue))
+                timestamp(timeString(from: displayedSliderValue), remaining: false)
                     .fontWeight(.medium)
                     .foregroundColor(
                         Defaults[.playerColorTinting]
@@ -1363,9 +1370,9 @@ struct MusicSliderView: View {
                 )
                 .frame(height: 10, alignment: .center)
 
-                Text(showRemainingTime && duration.isFinite && duration > 0
+                timestamp(showRemainingTime && duration.isFinite && duration > 0
                      ? "-" + timeString(from: max(0, duration - displayedSliderValue))
-                     : timeString(from: duration))
+                     : timeString(from: duration), remaining: showRemainingTime)
                     .fontWeight(.medium)
                     .foregroundColor(
                         Defaults[.playerColorTinting]
@@ -1417,12 +1424,12 @@ struct MusicSliderView: View {
                 .frame(height: 10, alignment: .center)
 
                 HStack {
-                    Text(timeString(from: displayedSliderValue))
+                    timestamp(timeString(from: displayedSliderValue), remaining: false)
                     Spacer()
                     if showRemainingTime && duration.isFinite && duration > 0 {
-                        Text("-" + timeString(from: max(0, duration - displayedSliderValue)))
+                        timestamp("-" + timeString(from: max(0, duration - displayedSliderValue)), remaining: true)
                     } else {
-                        Text(timeString(from: duration))
+                        timestamp(timeString(from: duration), remaining: false)
                     }
                 }
                 .fontWeight(.medium)
@@ -1456,6 +1463,22 @@ struct MusicSliderView: View {
                 refresh: restartContinuousPlaybackAnimation
             ))
         }
+    }
+
+    private func timestamp(_ value: String, remaining: Bool) -> some View {
+        let format = timeString(from: duration.isFinite ? max(0, duration) : 0)
+        let placeholder = (remaining ? "-" : "") + String(format.map { $0.isNumber ? "0" : $0 })
+        return Text(placeholder)
+            .hidden()
+            .overlay(alignment: remaining ? .trailing : .leading) {
+                Text(value)
+                    .contentTransition(.identity)
+            }
+            .monospacedDigit()
+            // Keep the label on the same geometry/reveal transaction as its
+            // parent. Disabling that transaction here desynchronizes the
+            // label from an opening panel even when playback is paused.
+            .compositingGroup()
     }
 
     private var displayedSliderValue: Double {

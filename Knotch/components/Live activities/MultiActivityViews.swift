@@ -41,12 +41,14 @@ let closedGlassGradient = LinearGradient(
 /// timer's tick, which left it frozen. Continuous, so the arc also drains
 /// smoothly rather than stepping each second. Paused timers stop the clock.
 struct TimerProgressRing: View {
+    var isActive: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let timer: KnotchTimer
     let color: Color
     let size: CGFloat
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: timer.isPaused)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: timer.isPaused || !isActive || reduceMotion)) { context in
             ring(progress: max(0, min(1, timer.remaining(at: context.date) / timer.duration)))
         }
         .frame(width: size, height: size)
@@ -78,6 +80,7 @@ struct TimerProgressRing: View {
 /// resting art size, TimerCompactPill's 16pt ring), so going minimal doesn't
 /// resize the item.
 struct MinimalActivityGlyph: View {
+    var isActive: Bool = true
     let family: ClosedRowFamily
     let closedHeight: CGFloat
 
@@ -86,7 +89,7 @@ struct MinimalActivityGlyph: View {
         case .music:
             MinimalMusicArt(size: max(0, closedHeight - 12))
         case .timer:
-            MinimalTimerGlyph(size: 16)
+            MinimalTimerGlyph(isActive: isActive, size: 16)
         default:
             EmptyView()
         }
@@ -166,6 +169,7 @@ private struct MinimalMusicArt: View {
 }
 
 private struct MinimalTimerGlyph: View {
+    var isActive: Bool = true
     @ObservedObject var timerManager = TimerManager.shared
     @Default(.notchAppearanceStyle) var notchAppearanceStyle
     let size: CGFloat
@@ -173,6 +177,7 @@ private struct MinimalTimerGlyph: View {
     var body: some View {
         if let timer = timerManager.soonestActiveTimer {
             TimerProgressRing(
+                isActive: isActive,
                 timer: timer,
                 color: notchAppearanceStyle == .fullLiquidGlass ? .white : .orange,
                 size: size
@@ -319,7 +324,7 @@ struct DetachedActivityBubble: View {
     private var bubbleBody: some View {
         ZStack {
             background
-            MinimalActivityGlyph(family: family, closedHeight: closedHeight)
+            MinimalActivityGlyph(isActive: progress > 0, family: family, closedHeight: closedHeight)
                 .modifier(BubbleContentReveal(progress: progress))
         }
         .frame(width: diameter, height: diameter)

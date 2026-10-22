@@ -10,20 +10,23 @@ import SwiftUI
 private struct StaggeredEntrance: ViewModifier {
     let index: Int
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.85)
-            .onAppear {
-                // Deferred a tick so this starts its own transaction instead of merging into the parent's.
-                DispatchQueue.main.async {
-                    withAnimation(
-                        .spring(response: 0.5, dampingFraction: 0.75)
-                            .delay(Double(index) * 0.07)
-                    ) {
-                        appeared = true
-                    }
+            .task {
+                guard !appeared else { return }
+                if reduceMotion {
+                    appeared = true
+                    return
+                }
+                do {
+                    try await Task.sleep(for: .seconds(Double(index) * 0.07))
+                } catch { return }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+                    appeared = true
                 }
             }
     }

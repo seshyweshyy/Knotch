@@ -31,8 +31,6 @@ extension Notification.Name {
 }
 
 class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
-    private var holdsActiveAppearanceLease = false
-
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -69,69 +67,7 @@ class LiquidGlassWidgetWindow: KnotchSkyLightWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Gives NSGlassEffectView the visual state of a key/main window without
-    /// changing WindowServer keyboard routing. The lease is held for the
-    /// lifetime of this lock-screen window and released during teardown.
-    func acquireActiveGlassAppearance() {
-        setPrivateBool(true, selectorName: "_setForceActiveControls:")
-        setPrivateBool(true, selectorName: "_setHasActiveAppearance:")
-        setPrivateBool(true, selectorName: "_setForceMainAppearance:")
 
-        if !holdsActiveAppearanceLease {
-            callPrivateVoid("acquireKeyAppearance")
-            callPrivateVoid("acquireMainAppearance")
-            holdsActiveAppearanceLease = true
-        }
-
-        callPrivateVoid("_sendForcedWindowChangedKeyState")
-        NotificationCenter.default.post(name: .knotchGlassAppearanceNeedsRefresh, object: self)
-    }
-
-    func releaseActiveGlassAppearance() {
-        guard holdsActiveAppearanceLease else { return }
-        callPrivateVoid("resignKeyAppearance")
-        callPrivateVoid("resignMainAppearance")
-        holdsActiveAppearanceLease = false
-        setPrivateBool(false, selectorName: "_setForceMainAppearance:")
-        setPrivateBool(false, selectorName: "_setHasActiveAppearance:")
-        setPrivateBool(false, selectorName: "_setForceActiveControls:")
-    }
-
-    // KnotchSkyLightWindow normally refreshes glass by briefly becoming the
-    // real key window. This subclass must never do that on the Lock Screen.
-    override func refreshGlassBackdrop() {
-        guard isVisible else { return }
-        acquireActiveGlassAppearance()
-    }
-
-    // The superclass listens to the main notch's open/close notifications.
-    // For this independent lock-screen panel those are refresh opportunities,
-    // not reasons to take or relinquish real key status.
-    override func holdGlassBackdropKey() {
-        refreshGlassBackdrop()
-    }
-
-    override func releaseGlassBackdropKey() {
-        refreshGlassBackdrop()
-    }
-
-    private func setPrivateBool(_ value: Bool, selectorName: String) {
-        let selector = NSSelectorFromString(selectorName)
-        guard responds(to: selector),
-              let method = class_getInstanceMethod(type(of: self), selector) else { return }
-        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
-        let function = unsafeBitCast(method_getImplementation(method), to: Setter.self)
-        function(self, selector, value)
-    }
-
-    private func callPrivateVoid(_ selectorName: String) {
-        let selector = NSSelectorFromString(selectorName)
-        guard responds(to: selector),
-              let method = class_getInstanceMethod(type(of: self), selector) else { return }
-        typealias Action = @convention(c) (AnyObject, Selector) -> Void
-        let function = unsafeBitCast(method_getImplementation(method), to: Action.self)
-        function(self, selector)
-    }
 }
 
 // MARK: - Root SwiftUI host

@@ -27,6 +27,8 @@ struct AirDropReceiveHUD: View {
     @State private var collapseDeadline: Date? = nil
     @State private var collapsePausedRemaining: TimeInterval? = nil
     @State private var thumbnail: NSImage? = nil
+    @State private var fileIcon: NSImage? = nil
+    @State private var receivedDescription = "Received file from AirDrop"
     @EnvironmentObject var vm: KnotchViewModel
     @Default(.notchAppearanceStyle) private var notchAppearanceStyle
 
@@ -66,9 +68,8 @@ struct AirDropReceiveHUD: View {
 
     /// "Received video from AirDrop" / "Received photo from AirDrop" / etc.,
     /// matching macOS's own AirDrop-completion notification wording.
-    private var receivedDescription: String {
-        guard let fileURL,
-              let type = try? fileURL.resourceValues(forKeys: [.contentTypeKey]).contentType
+    private func description(for fileURL: URL) -> String {
+        guard let type = try? fileURL.resourceValues(forKeys: [.contentTypeKey]).contentType
         else { return "Received file from AirDrop" }
 
         let kind: String
@@ -93,7 +94,6 @@ struct AirDropReceiveHUD: View {
             }
         }
         .frame(height: phaseHeight, alignment: .top)
-        .animation(expandedHUDSpring, value: phase)
         .onChange(of: progress) { _, newValue in
             if newValue >= 0.999 && phase == .compact {
                 // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
@@ -131,24 +131,29 @@ struct AirDropReceiveHUD: View {
             // forever with nothing left to resume it.
             KnotchViewCoordinator.shared.resumeSneakPeekAutoHide()
         }
-        .onChange(of: filePath) { _, _ in
-            if let fileURL { loadThumbnail(for: fileURL) }
+        .task(id: filePath) {
+            thumbnail = nil
+            fileIcon = nil
+            receivedDescription = "Received file from AirDrop"
+            guard let fileURL else { return }
+            receivedDescription = description(for: fileURL)
+            fileIcon = NSWorkspace.shared.icon(forFile: fileURL.path)
+            await loadThumbnail(for: fileURL)
         }
     }
 
-    private func loadThumbnail(for url: URL) {
+    private func loadThumbnail(for url: URL) async {
         thumbnail = nil
         let size = CGSize(width: 88, height: 88)
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
-        Task { @MainActor in
-            do {
-                let representation = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
-                guard self.fileURL == url else { return }
-                self.thumbnail = NSImage(cgImage: representation.cgImage, size: size)
-            } catch {
-                NSLog("AirDrop thumbnail generation failed for \(url.path): \(error.localizedDescription)")
-            }
+        do {
+            let representation = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
+            guard !Task.isCancelled, self.fileURL == url else { return }
+            self.thumbnail = NSImage(cgImage: representation.cgImage, size: size)
+        } catch {
+            guard !Task.isCancelled else { return }
+            NSLog("AirDrop thumbnail generation failed for \(url.path): \(error.localizedDescription)")
         }
     }
 
@@ -370,10 +375,10 @@ struct AirDropReceiveHUD: View {
             Image(nsImage: thumbnail)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-        } else if let fileURL, FileManager.default.fileExists(atPath: fileURL.path) {
+        } else if let fileIcon {
             ZStack {
                 Color.white.opacity(0.1)
-                Image(nsImage: NSWorkspace.shared.icon(forFile: fileURL.path))
+                Image(nsImage: fileIcon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .padding(6)

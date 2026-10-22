@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		66022CBBC83A43439F8ABF7D /* SettingsPreviewWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */; };
+		4CB016C77250468DA4A45F1B /* SettingsCoordinatorObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */; };
 		08AFF8DBC768D09C4087E7DF /* UpdateFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C0BA205B1B48CEEA465D5A /* UpdateFlowState.swift */; };
 		0F6910BCE3F41A97AEF28C87 /* CompactMusicPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB876E9270BAD7096DB7FE87 /* CompactMusicPlayerView.swift */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
@@ -256,6 +258,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPreviewWallpaper.swift; sourceTree = "<group>"; };
+		278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoordinatorObserver.swift; sourceTree = "<group>"; };
 		0B0CC491A0E83D8760E7CA95 /* BlurTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTransition.swift; sourceTree = "<group>"; };
 		0CDD1EF7AC76C2F03C659688 /* BlurRevealModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurRevealModifier.swift; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
@@ -977,6 +981,8 @@
 			children = (
 				11F748832ECB27DC00F841DB /* MusicSlotConfigurationView.swift */,
 				11C5E3152DFE88510065821E /* SettingsView.swift */,
+				5E63EC16578C4B0C80487947 /* SettingsPreviewWallpaper.swift */,
+				278245C0A7B9455CA13B5DFF /* SettingsCoordinatorObserver.swift */,
 				11C5E3112DFE85970065821E /* SettingsWindowController.swift */,
 				B1D6FD422C6603730015F173 /* SoftwareUpdater.swift */,
 				58C5287C10716745A6A5F658 /* ReleaseNotesView.swift */,
@@ -1284,6 +1290,8 @@
 				B10F84A32C6C9596009F3026 /* TestView.swift in Sources */,
 				1443E7F32C609DCE0027C1FC /* matters.swift in Sources */,
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
+				66022CBBC83A43439F8ABF7D /* SettingsPreviewWallpaper.swift in Sources */,
+				4CB016C77250468DA4A45F1B /* SettingsCoordinatorObserver.swift in Sources */,
 				1153BD932D986E4300979FB0 /* AppleMusicController.swift in Sources */,
 				11C5E3132DFE85970065821E /* SettingsWindowController.swift in Sources */,
 				110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */,

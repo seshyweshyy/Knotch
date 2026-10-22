@@ -1,19 +1,11 @@
-//
-//  NotchStylePreview.swift
-//  Knotch
-//
-//
-
+import Defaults
 import SwiftUI
 
-/// Miniature live preview of a notch appearance style: a sample wallpaper
-/// with a scaled-down notch shape rendered on top using the exact same
-/// material code path as the real notch, so what you see in Settings is
-/// what you'll actually get.
+/// Native in-window glass samples the wallpaper directly behind the notch.
 struct NotchStylePreview: View {
     let style: NotchAppearanceStyle
-
-    @State private var wallpaperImage: NSImage?
+    @ObservedObject private var wallpaper = SettingsPreviewWallpaper.shared
+    @Default(.semiLiquidGlassTransition) private var glassAmount
 
     private var previewNotchShape: NotchShape {
         NotchShape(topCornerRadius: 6, bottomCornerRadius: 14)
@@ -21,100 +13,47 @@ struct NotchStylePreview: View {
 
     var body: some View {
         ZStack {
-            Group {
-                if let wallpaperImage {
-                    Image(nsImage: wallpaperImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Color.gray.opacity(0.3)
-                }
+            if let image = wallpaper.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.gray.opacity(0.3)
             }
-
-            previewNotchShape
-                .fill(Color.black)
-                .frame(width: 84, height: 34)
-                .overlay {
-                    notchMaterial
-                        .clipShape(previewNotchShape)
-                }
+            notchMaterial
                 .frame(width: 84, height: 34)
         }
-        .task {
-            loadCurrentWallpaper()
-        }
-    }
-
-    private func loadCurrentWallpaper() {
-        guard let screen = NSScreen.main,
-              let url = NSWorkspace.shared.desktopImageURL(for: screen),
-              let image = NSImage(contentsOf: url) else {
-            return
-        }
-        wallpaperImage = image
+        .task { wallpaper.refresh() }
     }
 
     @ViewBuilder
     private var notchMaterial: some View {
-        switch style {
-        case .solidBlack:
-            Color.black
-
-        case .semiLiquidGlass:
-            ZStack {
-                // Thumbnail-only stand-in for the real glass material:
-                // a blurred copy of the same wallpaper, since the private
-                // NSGlassEffectView backdrop sampler doesn't reliably
-                // render at this size/depth inside a Form row.
-                Group {
-                    if let wallpaperImage {
-                        Image(nsImage: wallpaperImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .blur(radius: 6)
+        if style == .solidBlack {
+            previewNotchShape.fill(.black)
+        } else if #available(macOS 26.0, *) {
+            Color.clear
+                .glassEffect(.clear, in: previewNotchShape)
+                .overlay {
+                    if style == .semiLiquidGlass {
+                        let midpoint = 1 - glassAmount
+                        let start = max(0, midpoint - 0.15)
+                        let end = min(1, midpoint + 0.15)
+                        previewNotchShape.fill(.black)
+                            .mask {
+                                LinearGradient(stops: [
+                                    .init(color: .black, location: 0),
+                                    .init(color: .black, location: start),
+                                    .init(color: .black.opacity(0.6), location: (start + end) / 2),
+                                    .init(color: .clear, location: end),
+                                    .init(color: .clear, location: 1)
+                                ], startPoint: .top, endPoint: .bottom)
+                            }
                     } else {
-                        Color.gray.opacity(0.5)
+                        previewNotchShape.fill(.black.opacity(0.25))
                     }
                 }
-                .frame(width: 84, height: 34)
-                .clipped()
-
-                Color.black
-                    .mask {
-                        LinearGradient(
-                            stops: [
-                                .init(color: .black, location: 0),
-                                .init(color: .black, location: 0.42),
-                                .init(color: .black.opacity(0.6), location: 0.5),
-                                .init(color: .clear, location: 0.58),
-                                .init(color: .clear, location: 1)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-            }
-
-        case .fullLiquidGlass:
-            ZStack {
-                // Same thumbnail-only stand-in as semiLiquidGlass above, but
-                // uniformly darkened instead of gradient-masked, matching
-                // the flat Color.black.opacity(0.25) used over the real glass.
-                Group {
-                    if let wallpaperImage {
-                        Image(nsImage: wallpaperImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .blur(radius: 6)
-                    } else {
-                        Color.gray.opacity(0.5)
-                    }
-                }
-                .frame(width: 84, height: 34)
-                .clipped()
-
-                Color.black.opacity(0.25)
-            }
+        } else {
+            previewNotchShape.fill(.ultraThinMaterial)
         }
     }
 }

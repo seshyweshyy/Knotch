@@ -33,6 +33,13 @@ struct VolumeHUDLottieView: View {
 
 private struct _VolumeHUDLottieNSView: NSViewRepresentable {
     let value: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    final class Coordinator {
+        var target: CGFloat?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     private static let totalFrames: CGFloat = 105
 
@@ -68,6 +75,15 @@ private struct _VolumeHUDLottieNSView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let lottie = nsView.subviews.first as? LottieAnimationView else { return }
         let target = lottieProgress
+        if reduceMotion {
+            lottie.pause()
+            lottie.currentProgress = target
+            context.coordinator.target = target
+            return
+        }
+        // A parent redraw during playback must not restart the same segment.
+        guard context.coordinator.target != target else { return }
+        context.coordinator.target = target
         guard abs(target - lottie.currentProgress) > 0.001 else { return }
         lottie.animationSpeed = 1.8
         lottie.play(
@@ -93,6 +109,13 @@ struct DisplayHUDLottieView: View {
 
 private struct _DisplayHUDLottieNSView: NSViewRepresentable {
     let value: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    final class Coordinator {
+        var target: CGFloat?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     private var lottieProgress: CGFloat {
         max(0, min(1, value))
@@ -123,6 +146,15 @@ private struct _DisplayHUDLottieNSView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let lottie = nsView.subviews.first as? LottieAnimationView else { return }
         let target = lottieProgress
+        if reduceMotion {
+            lottie.pause()
+            lottie.currentProgress = target
+            context.coordinator.target = target
+            return
+        }
+        // A parent redraw during playback must not restart the same segment.
+        guard context.coordinator.target != target else { return }
+        context.coordinator.target = target
         guard abs(target - lottie.currentProgress) > 0.001 else { return }
         lottie.animationSpeed = 1.8
         lottie.play(

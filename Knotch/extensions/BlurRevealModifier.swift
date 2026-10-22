@@ -57,6 +57,7 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
     // outDuration before the next one) can recognize it's stale and bail
     // instead of swapping in its own now-outdated value.
     @State private var generation: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         _ value: Value,
@@ -89,12 +90,18 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
         // continuous motion. Plunging fast at the very end, right as the
         // swap below lands, connects the outro directly into the intro's
         // own fast start (still .easeOut) instead of pausing at empty first.
-        withAnimation(.easeIn(duration: outDuration)) {
+        if reduceMotion {
+            displayedValue = newValue
+            blur = 0
+            revealOpacity = 1
+            revealScale = 1
+            return
+        }
+        withAnimation(.easeIn(duration: outDuration), completionCriteria: .removed) {
             blur = blurRadius
             revealOpacity = 0
             revealScale = startScale
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + outDuration) {
+        } completion: {
             guard thisGeneration == generation else { return }
             // Forced non-animated, rather than left as a bare assignment —
             // otherwise this swap can inherit whatever *ambient*
@@ -177,5 +184,6 @@ struct BlurRevealText<Value: Hashable, Content: View>: View {
             .scaleEffect(revealScale, anchor: anchor)
             .onAppear { if animatesOnAppear { pulse(to: value) } }
             .onChange(of: value) { _, newValue in pulse(to: newValue) }
+            .onDisappear { generation += 1 }
     }
 }

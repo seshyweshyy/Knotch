@@ -146,7 +146,6 @@ struct HoverButton: View {
         let iconPointSize: CGFloat = (scale == .large ? 34 : scale == .small ? 17 : 22) * iconScale
         let skipDirection: SkipTriangleDirection = (icon == "backward.fill") ? .forward : .backward
         let slideAnimation: Animation = .interpolatingSpring(stiffness: 235, damping: 20)
-        let slideDuration: Double = 0.66
         let useSkipGlyph = animateOnTap && isSkipIcon
         let activeDotDiameter: CGFloat = 3
         let activeDotRestingOffset: CGFloat = iconPointSize / 2 + 1
@@ -157,7 +156,7 @@ struct HoverButton: View {
 
         Button {
             if useSkipGlyph {
-                runSkipAnimation(slideAnimation: slideAnimation, slideDuration: slideDuration)
+                runSkipAnimation(slideAnimation: slideAnimation)
             }
             if activeDot != nil {
                 awaitingOwnTapConfirmation = true
@@ -224,7 +223,7 @@ struct HoverButton: View {
         }
         .onReceive(animationEventPublisher) { _ in
             guard useSkipGlyph else { return }
-            runSkipAnimation(slideAnimation: slideAnimation, slideDuration: slideDuration)
+            runSkipAnimation(slideAnimation: slideAnimation)
         }
         .sensoryFeedback(.alignment, trigger: activeDotHaptic)
         .onChange(of: hapticWatchKey) { _, _ in
@@ -248,16 +247,19 @@ struct HoverButton: View {
         }
     }
 
-    private func runSkipAnimation(slideAnimation: Animation, slideDuration: Double) {
+    private func runSkipAnimation(slideAnimation: Animation) {
         guard !isTapTransitionActive else { return }
         isTapTransitionActive = true
         tapTransitionProgress = 0
-        withAnimation(slideAnimation) {
+        withAnimation(slideAnimation, completionCriteria: .removed) {
             tapTransitionProgress = 1
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + slideDuration) {
-            tapTransitionProgress = 0
-            isTapTransitionActive = false
+        } completion: {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                tapTransitionProgress = 0
+                isTapTransitionActive = false
+            }
         }
     }
 }

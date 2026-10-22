@@ -72,11 +72,17 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
         window.contentView = effectView
     }
 
-    func show() {
+    func show(activate: Bool = false) {
         choiceMade = false
-        NSApp.activate(ignoringOtherApps: true)
         positionWindow()
-        window.makeKeyAndOrderFront(nil)
+        if activate {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+        } else if !window.isVisible {
+            // Background checks and later download/install phases must not
+            // interrupt typing in another app or reclaim a dismissed focus.
+            window.orderFront(nil)
+        }
     }
 
     /// Centers horizontally, but sits a bit above dead-center vertically —

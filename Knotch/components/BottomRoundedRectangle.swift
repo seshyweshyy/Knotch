@@ -6,7 +6,13 @@ import SwiftUI
 struct BottomRoundedRectangle: Shape {
     var radius: CGFloat
     
+    var animatableData: CGFloat {
+        get { radius }
+        set { radius = newValue }
+    }
+
     func path(in rect: CGRect) -> Path {
+        let radius = min(max(0, radius), max(0, min(rect.width / 2, rect.height)))
         var path = Path()
         
         // Top left corner

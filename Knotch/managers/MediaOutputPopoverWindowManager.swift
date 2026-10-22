@@ -119,8 +119,10 @@ final class MediaOutputPopoverWindowManager {
             panelToHide.contentView = nil
             NotchSpaceManager.shared.notchSpace.windows.remove(panelToHide)
         }
+        let currentOpacity = layer.presentation()?.opacity ?? layer.opacity
+        layer.removeAnimation(forKey: "fadeIn")
         let fadeOut = CABasicAnimation(keyPath: "opacity")
-        fadeOut.fromValue = 1
+        fadeOut.fromValue = currentOpacity
         fadeOut.toValue = 0
         fadeOut.duration = fadeDuration
         fadeOut.timingFunction = CAMediaTimingFunction(name: .easeIn)

@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 extension Notification.Name {
-    /// Posted by a focus-safe lock-screen panel after it acquires appearance-
-    /// only key/main state. Observers refresh only their known glass instance;
+    /// Posted by an overlay when its material needs a visual refresh.
+    /// Observers refresh only their known glass instance;
     /// never walk SwiftUI's private wrapper hierarchy looking for class names.
     static let knotchGlassAppearanceNeedsRefresh = Notification.Name("com.Knotch.glassAppearanceNeedsRefresh")
 }
@@ -259,12 +259,11 @@ struct KnotchLiquidGlass: NSViewRepresentable, @preconcurrency Animatable {
             refreshActiveAppearance()
         }
 
-        /// NSGlassEffectView normally recomputes these values from a real
-        /// key-window transition. Focus-safe lock-screen panels provide only
-        /// the appearance lease, so refresh the known glass object directly
-        /// and then reassert the clear, non-subdued profile.
+        /// Refresh the known material's visual state directly. Neither the
+        /// main overlay nor lock-screen panels should take keyboard focus
+        /// merely to update glass sampling.
         func refreshActiveAppearance() {
-            guard adaptiveAppearance, let glassView else { return }
+            guard let glassView else { return }
             let selector = NSSelectorFromString("_windowChangedKeyState")
             if glassView.responds(to: selector) {
                 glassView.perform(selector)

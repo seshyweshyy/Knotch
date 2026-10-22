@@ -650,6 +650,7 @@ private struct LyricLineRow: View {
 }
 
 private struct LyricsSkeleton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let fontSize: CGFloat
     @State private var pulsing = false
 
@@ -668,6 +669,7 @@ private struct LyricsSkeleton: View {
         .frame(maxHeight: .infinity, alignment: .center)
         .opacity(pulsing ? 0.45 : 1)
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulsing = true }
         }
     }

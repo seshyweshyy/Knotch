@@ -92,14 +92,14 @@ extension AnyTransition {
 
     /// The reveal Compact/Standard mode's open content uses (see ContentView's
     /// compactContentOverlay/standardContentOverlay) — scaled up from 0.6x
-    /// out of the top edge, blurred by 30pt, faded in. Pair with
+    /// out of the top edge, blurred by the shared reveal radius, faded in. Pair with
     /// `notchOpenSpring`/`notchCloseSpring`. The blur spreads past the
     /// shape's edge, so this clips the view's bottom corners to
     /// `bottomCornerRadius` afterwards.
     static func notchOpenReveal(bottomCornerRadius: CGFloat) -> AnyTransition {
         .modifier(
             active: NotchPopModifier(
-                blur: 30, opacity: 0, scaleX: 0.6, scaleY: 0.6, anchor: .top,
+                blur: notchRevealBlurRadius, opacity: 0, scaleX: 0.6, scaleY: 0.6, anchor: .top,
                 bottomClipRadius: bottomCornerRadius
             ),
             identity: NotchPopModifier(anchor: .top, bottomClipRadius: bottomCornerRadius)

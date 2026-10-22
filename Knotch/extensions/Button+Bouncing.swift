@@ -10,7 +10,7 @@ import Defaults
 @MainActor
 struct BouncingButtonStyle: ButtonStyle {
     let vm: KnotchViewModel
-    @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -20,12 +20,11 @@ struct BouncingButtonStyle: ButtonStyle {
                     .fill(Color(red: 20/255, green: 20/255, blue: 20/255))
                     .strokeBorder(.white.opacity(0.04), lineWidth: 1)
             )
-            .scaleEffect(isPressed ? 0.9 : 1.0)
-            .onChange(of: configuration.isPressed) { _, _ in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.3, blendDuration: 0.3)) {
-                    isPressed.toggle()
-                }
-            }
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.8),
+                value: configuration.isPressed
+            )
     }
 }
 

@@ -34,6 +34,7 @@ extension SkyLightOperator {
 
 class KnotchSkyLightWindow: NSPanel {
     private var isSkyLightEnabled: Bool = false
+    private var holdsActiveAppearanceLease = false
 
     override init(
         contentRect: NSRect,
@@ -85,52 +86,17 @@ class KnotchSkyLightWindow: NSPanel {
             }
             .store(in: &observers)
 
-        // NSGlassEffectView's backdrop capture goes stale after this window
-        // moves spaces (enableSkyLight) and again whenever the frontmost app
-        // changes. It only refreshes on a "became key" event, so re-trigger
-        // that momentarily whenever the backdrop content behind us changes.
+        // Refresh the known glass views without changing keyboard ownership.
         NSWorkspace.shared.notificationCenter
             .publisher(for: NSWorkspace.didActivateApplicationNotification)
-            .sink { [weak self] _ in
-                self?.refreshGlassBackdrop()
-            }
+            .sink { [weak self] _ in self?.refreshGlassBackdrop() }
             .store(in: &observers)
 
-        // Same backdrop-capture staleness this class already works around
-        // above (space/app switches), just triggered by the panel's own
-        // open resize instead. Without this, the glass's edge/lensing kept
-        // visibly drifting for ~200ms after the panel's width had already
-        // settled — confirmed via pixel measurement that neither
-        // vm.notchSize nor the corner radii were the cause (both change
-        // exactly once, cleanly); it was specifically the glass material
-        // catching up to geometry it already had.
-        //
-        // EXPERIMENT: holds key status for the notch's whole open duration
-        // (see holdGlassBackdropKey/releaseGlassBackdropKey) instead of the
-        // brief 50ms grab-and-release refreshGlassBackdrop() normally does.
-        // Testing whether duration, not just a momentary key transition, is
-        // what's needed for the lock-screen glass to track the system
-        // Clear/Tinted setting — a real click on the open notch (which
-        // holds key status for however long the user is actually
-        // interacting) has correlated with clear glass afterward, while a
-        // hover-only open (no real key hold at all) hasn't. This is purely
-        // diagnostic, not the intended end UX — the goal is still for this
-        // to work automatically without requiring the user to open the
-        // notch before locking.
-        NotificationCenter.default
-            .publisher(for: .knotchWillOpen)
-            .sink { [weak self] _ in
-                self?.holdGlassBackdropKey()
-            }
-            .store(in: &observers)
-
-        // See knotchWillClose's declaration — same staleness, close's own resize.
-        NotificationCenter.default
-            .publisher(for: .knotchWillClose)
-            .sink { [weak self] _ in
-                self?.releaseGlassBackdropKey()
-            }
-            .store(in: &observers)
+        for name in [Notification.Name.knotchWillOpen, .knotchWillClose] {
+            NotificationCenter.default.publisher(for: name)
+                .sink { [weak self] _ in self?.refreshGlassBackdrop() }
+                .store(in: &observers)
+        }
     }
 
     private func updateSharingType() {
@@ -156,77 +122,80 @@ class KnotchSkyLightWindow: NSPanel {
         }
     }
 
-    // Momentarily takes key status to force NSGlassEffectView to resample
-    // its backdrop, then relinquishes it again so we don't steal keyboard
-    // focus from another window (e.g. Settings, or another app entirely).
-    // .nonactivatingPanel only guarantees becoming key here won't activate
-    // Knotch or steal the frontmost-app slot — it says nothing about real
-    // keyboard-event routing, a separate, window-server-level notion of
-    // "key". The common case is some other app being frontmost, where
-    // NSApp.keyWindow (Knotch's own) is nil: there's no in-app window to
-    // hand key status back to, so instead of leaving it parked here we
-    // explicitly resignKey() and let the window server return real
-    // keyboard focus to whatever app actually owns it. Previously this
-    // fell through a guard that only handled the non-nil case, so a nil
-    // previousKeyWindow left the panel holding real focus indefinitely —
-    // seen as e.g. a text field needing a re-click after a HUD closed.
-    // Not gated on isSkyLightEnabled: this window only enables SkyLight
-    // while the screen is locked, but the glass needs the same refresh in
-    // ordinary (unlocked) use, where SkyLight is never engaged at all.
     func refreshGlassBackdrop() {
         guard isVisible else { return }
-        let previousKeyWindow = NSApp.keyWindow
-        makeKey()
-        guard previousKeyWindow !== self else { return }
-        // Delayed rather than synchronous — becoming key only triggers the
-        // resample, it doesn't block until the window server finishes it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            if let previousKeyWindow {
-                previousKeyWindow.makeKey()
-            } else {
-                self?.resignKey()
-            }
-        }
+        acquireActiveGlassAppearance()
     }
 
-    // EXPERIMENT — see the .knotchWillOpen subscription's comment. Takes
-    // key status and holds it (no 50ms auto-release) until
-    // releaseGlassBackdropKey() is called on close, instead of the brief
-    // grab-and-release refreshGlassBackdrop() does.
-    private var heldPreviousKeyWindow: NSWindow?
-    private var isHoldingGlassBackdropKey = false
-
-    func holdGlassBackdropKey() {
-        guard isVisible, !isHoldingGlassBackdropKey else { return }
-        heldPreviousKeyWindow = NSApp.keyWindow
-        makeKey()
-        isHoldingGlassBackdropKey = (heldPreviousKeyWindow !== self)
+    override func orderFrontRegardless() {
+        super.orderFrontRegardless()
+        refreshGlassBackdrop()
     }
 
-    func releaseGlassBackdropKey() {
-        guard isHoldingGlassBackdropKey else { return }
-        isHoldingGlassBackdropKey = false
-        if let heldPreviousKeyWindow {
-            heldPreviousKeyWindow.makeKey()
-        } else {
-            resignKey()
+    override func orderOut(_ sender: Any?) {
+        releaseActiveGlassAppearance()
+        super.orderOut(sender)
+    }
+
+    override func close() {
+        releaseActiveGlassAppearance()
+        super.close()
+    }
+
+    /// Gives NSGlassEffectView the visual state of a key/main window without
+    /// changing WindowServer keyboard routing. The lease is held for the
+    /// visible lifetime of the overlay and released during teardown.
+    func acquireActiveGlassAppearance() {
+        setPrivateBool(true, selectorName: "_setForceActiveControls:")
+        setPrivateBool(true, selectorName: "_setHasActiveAppearance:")
+        setPrivateBool(true, selectorName: "_setForceMainAppearance:")
+
+        if !holdsActiveAppearanceLease {
+            callPrivateVoid("acquireKeyAppearance")
+            callPrivateVoid("acquireMainAppearance")
+            holdsActiveAppearanceLease = true
         }
-        heldPreviousKeyWindow = nil
+
+        callPrivateVoid("_sendForcedWindowChangedKeyState")
+        NotificationCenter.default.post(name: .knotchGlassAppearanceNeedsRefresh, object: self)
+    }
+
+    func releaseActiveGlassAppearance() {
+        guard holdsActiveAppearanceLease else { return }
+        callPrivateVoid("resignKeyAppearance")
+        callPrivateVoid("resignMainAppearance")
+        holdsActiveAppearanceLease = false
+        setPrivateBool(false, selectorName: "_setForceMainAppearance:")
+        setPrivateBool(false, selectorName: "_setHasActiveAppearance:")
+        setPrivateBool(false, selectorName: "_setForceActiveControls:")
+    }
+
+    private func setPrivateBool(_ value: Bool, selectorName: String) {
+        let selector = NSSelectorFromString(selectorName)
+        guard responds(to: selector),
+              let method = class_getInstanceMethod(type(of: self), selector) else { return }
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        let function = unsafeBitCast(method_getImplementation(method), to: Setter.self)
+        function(self, selector, value)
+    }
+
+    private func callPrivateVoid(_ selectorName: String) {
+        let selector = NSSelectorFromString(selectorName)
+        guard responds(to: selector),
+              let method = class_getInstanceMethod(type(of: self), selector) else { return }
+        typealias Action = @convention(c) (AnyObject, Selector) -> Void
+        let function = unsafeBitCast(method_getImplementation(method), to: Action.self)
+        function(self, selector)
     }
 
     private var observers: Set<AnyCancellable> = []
 
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
 
 extension Notification.Name {
-    // TEMP DIAGNOSTIC EXPERIMENT — remove once the every-open X-drift bug is
-    // root-caused. Posted from KnotchViewModel.open() to test whether
-    // NSGlassEffectView's backdrop-capture staleness (see setupObservers()
-    // above) also applies to the panel's own resize, not just space/app
-    // changes.
+    // Geometry changes refresh material sampling without taking focus.
     static let knotchWillOpen = Notification.Name("com.Knotch.knotchWillOpen")
-    // Same resize-triggered staleness as knotchWillOpen, but for close().
     static let knotchWillClose = Notification.Name("com.Knotch.knotchWillClose")
 }

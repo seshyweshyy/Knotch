@@ -16,6 +16,10 @@ let timerCompactPillExtraWidth: CGFloat = 125
 
 let shadowPadding: CGFloat = 20
 
+// Enough defocus to hide incoming content without a 30pt filter across
+// the entire panel. Shared by standard, compact, and card reveals.
+let notchRevealBlurRadius: CGFloat = 12
+
 // Max extra height the notch can stretch to when pulled during the
 // swipe-down tab-switch gesture (clamp * height factor in ContentView).
 let liquidPullMaxStretch: CGFloat = 30
