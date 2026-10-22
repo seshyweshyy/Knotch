@@ -1120,7 +1120,7 @@ struct ContentView: View {
                 return plain + 3
             }
             if coordinator.sneakPeek.type == .airdropReceive {
-                return airdropHUDExpanded ? 28 : plain + 4
+                return airdropHUDExpanded ? 36 : plain + 4
             }
             // Always an Inline-style HUD here now — see restingTopCornerRadius's
             // matching comment.

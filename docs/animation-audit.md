@@ -125,3 +125,24 @@ Every file below was included in the static animation-site scan. This list is co
 - `Knotch/models/BatteryStatusViewModel.swift`
 - `Knotch/models/KnotchViewModel.swift`
 - `Knotch/sizing/matters.swift`
+
+## HUD content choreography follow-up
+
+Reviewed the supplied Bluetooth sequence recording at 60 fps. Bluetooth and AirDrop now use paired content transitions: the compact row tucks upward with a small squeeze, while expanded content unfolds from the top edge and retracts on collapse. Both use the existing phase/shell spring, with only a 3pt transient blur and no added timers or staggered callbacks. Reduce Motion substitutes opacity transitions.
+
+Bluetooth now keeps a single battery ring mounted through the entire sequence, animating its position, diameter and stroke width between the two layouts. Its percentage label enters/exits separately inside the ring. The existing persistent device video is retained, so expansion does not restart playback or crossfade duplicate icons/rings. Resting layouts and phase durations are unchanged.
+
+The supplied recording verifies the original behavior. Visual confirmation of the updated sequence is still needed in the running app.
+
+After the next recording review, centered the expanded-content scale reveal and removed nested leading-edge text transitions. Compact content now drops downward on exit and settles down from above when returning. Shell timing, persistent ring/video identity, Reduce Motion behavior, and final layouts remain unchanged.
+
+AirDrop follow-up: both compact and expanded content now remain mounted on
+one fixed-width, top-centred canvas. Only their opacity, scale, blur, and
+vertical offset animate; no phase inserts/removes a differently sized layout.
+The reported shell width/height still follows the phase, with a geometry group
+boundary. The compact row drops by the expanded top inset plus 8pt into the
+card as it compresses/fades, reversing on collapse. Hidden layers disable hit
+testing and accessibility; Reduce Motion uses opacity only. Expanded AirDrop
+bottom corners increased from 28pt to 36pt. No extra timers or frame callbacks.
+The prior conditional ZStack plus geometry group alone did not eliminate the
+horizontal drift in the user's recording and was replaced by this layout.

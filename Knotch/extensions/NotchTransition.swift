@@ -57,6 +57,30 @@ struct NotchPopModifier: ViewModifier {
 }
 
 extension AnyTransition {
+    /// Compact content drops into the growing card on exit. On return it
+    /// settles downward from just above the bar, keeping the handoff vertical.
+    static var hudCompactContent: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: NotchPopModifier(blur: 3, opacity: 0, offsetY: -10, scaleX: 0.9, scaleY: 0.78, anchor: .center),
+                identity: NotchPopModifier(anchor: .center)
+            ),
+            removal: .modifier(
+                active: NotchPopModifier(blur: 3, opacity: 0, offsetY: 10, scaleX: 0.9, scaleY: 0.78, anchor: .center),
+                identity: NotchPopModifier(anchor: .center)
+            )
+        )
+    }
+
+    /// Expanded content grows from its own center without a lateral slide.
+    /// Uses the shell's transaction for synchronized, interruptible motion.
+    static var hudExpandedContent: AnyTransition {
+        .modifier(
+            active: NotchPopModifier(blur: 3, opacity: 0, scaleX: 0.82, scaleY: 0.7, anchor: .center),
+            identity: NotchPopModifier(anchor: .center)
+        )
+    }
+
     static var blurAndFade: AnyTransition {
         .modifier(
             active: BlurFadeModifier(blur: 20, opacity: 0),

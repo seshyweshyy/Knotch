@@ -83,14 +83,13 @@ struct BluetoothHUDView: View {
                     // RIGHT: battery ring
                     HStack(spacing: 4) {
                         if batteryFraction >= 0 {
-                            BatteryRingView(fraction: batteryFraction, lineWidth: 2.5, showsPercentLabel: false)
-                                .frame(width: 16, height: 16)
+                            Color.clear.frame(width: 16, height: 16)
                         }
                     }
                     .padding(.trailing, 4)
                     .frame(width: 30, alignment: .trailing)                }
                 .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-                .transition(.opacity)
+                .transition(reduceMotion ? .opacity : .hudCompactContent)
             } else {
                 // Expanded pill: drops below notch with name + battery ring
                 HStack(spacing: 0) {
@@ -107,14 +106,11 @@ struct BluetoothHUDView: View {
                             .lineLimit(1)
                     }
                     .padding(.leading, 8)
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
 
                     Spacer()
 
                     if batteryFraction >= 0 {
-                        BatteryRingView(fraction: batteryFraction, lineWidth: 3.5)
-                            .frame(width: 34, height: 34)
-                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                        Color.clear.frame(width: 34, height: 34)
                     }
                 }
                 // Just visual breathing room — clearing the panel's rounded corners
@@ -124,7 +120,7 @@ struct BluetoothHUDView: View {
                 .frame(width: expandedWidth, height: 44)
                 .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
                 .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                .transition(reduceMotion ? .opacity : .hudExpandedContent)
             }
         }
         .frame(height: phaseHeight, alignment: .top)
@@ -141,6 +137,28 @@ struct BluetoothHUDView: View {
                     y: phase == .expanded ? (isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight) + 4 : 2
                 )
                 .allowsHitTesting(false)
+        }
+        .overlay(alignment: .topTrailing) {
+            // One ring travels between both layouts. Keeping its identity
+            // avoids overlapping compact/expanded copies during the morph.
+            if batteryFraction >= 0 {
+                BatteryRingView(
+                    fraction: batteryFraction,
+                    lineWidth: phase == .expanded ? 3.5 : 2.5,
+                    showsPercentLabel: phase == .expanded
+                )
+                .frame(
+                    width: phase == .expanded ? 34 : 16,
+                    height: phase == .expanded ? 34 : 16
+                )
+                .offset(
+                    x: phase == .expanded ? -10 : -4,
+                    y: phase == .expanded
+                        ? (isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight) + 5
+                        : (vm.effectiveClosedNotchHeight - 16) / 2
+                )
+                .allowsHitTesting(false)
+            }
         }
         .onAppear {
             startPhaseSequence()
@@ -270,6 +288,7 @@ private struct BatteryRingView: View {
                 Text("\(displayPercent)")
                     .font(.system(size: lineWidth * 3, weight: .semibold, design: .rounded))
                     .foregroundStyle(ringColor)
+                    .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
         }
     }

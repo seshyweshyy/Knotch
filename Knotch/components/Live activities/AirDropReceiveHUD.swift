@@ -30,6 +30,7 @@ struct AirDropReceiveHUD: View {
     @State private var fileIcon: NSImage? = nil
     @State private var receivedDescription = "Received file from AirDrop"
     @EnvironmentObject var vm: KnotchViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Default(.notchAppearanceStyle) private var notchAppearanceStyle
 
     private let expandedWidth: CGFloat = 300
@@ -44,6 +45,14 @@ struct AirDropReceiveHUD: View {
         guard phase == .expanded else { return vm.effectiveClosedNotchHeight }
         let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
         return expandedContentHeight + topInset + 10
+    }
+
+    private var compactWidth: CGFloat {
+        vm.closedNotchSize.width + vm.effectiveClosedNotchHeight + 16
+    }
+
+    private var phaseWidth: CGFloat {
+        phase == .expanded ? expandedWidth : compactWidth
     }
 
     // Matches BatteryNotchBanner's treatment: when glass is active, the
@@ -83,17 +92,52 @@ struct AirDropReceiveHUD: View {
     }
 
     var body: some View {
-        Group {
-            switch phase {
-            case .compact:
-                compactBody
-            case .expanded:
-                expandedBody
-            case .collapsing:
-                collapsingBody
+        // Both layers keep their identity and their own fixed layout width.
+        // Conditional insertion made SwiftUI interpolate a new layer's
+        // placement from the old, differently sized bar's coordinate space.
+        ZStack(alignment: .top) {
+            inlinePill {
+                ZStack {
+                    TransferRingView(progress: progress, lineWidth: 2.5)
+                        .frame(width: 16, height: 16)
+                        .opacity(phase == .collapsing ? 0 : 1)
+                    Image(systemName: "checkmark.circle.fill")
+                        .resizable()
+                        .foregroundStyle(.green)
+                        .frame(width: 15, height: 15)
+                        .opacity(phase == .collapsing ? 1 : 0)
+                }
+                .frame(width: 16, height: 16)
             }
+            .frame(width: compactWidth)
+            .modifier(NotchPopModifier(
+                blur: reduceMotion || phase != .expanded ? 0 : 3,
+                opacity: phase == .expanded ? 0 : 1,
+                offsetY: reduceMotion || phase != .expanded
+                    ? 0 : (isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight) + 8,
+                scaleX: reduceMotion || phase != .expanded ? 1 : 0.9,
+                scaleY: reduceMotion || phase != .expanded ? 1 : 0.78,
+                anchor: .center
+            ))
+            .allowsHitTesting(false)
+            .accessibilityHidden(phase == .expanded)
+
+            expandedBody
+                .modifier(NotchPopModifier(
+                    blur: reduceMotion || phase == .expanded ? 0 : 3,
+                    opacity: phase == .expanded ? 1 : 0,
+                    scaleX: reduceMotion || phase == .expanded ? 1 : 0.82,
+                    scaleY: reduceMotion || phase == .expanded ? 1 : 0.7,
+                    anchor: .center
+                ))
+                .allowsHitTesting(phase == .expanded)
+                .accessibilityHidden(phase != .expanded)
         }
-        .frame(height: phaseHeight, alignment: .top)
+        // This canvas never changes width; only the reported shell size does.
+        .frame(width: max(compactWidth, expandedWidth), alignment: .top)
+        .fixedSize(horizontal: true, vertical: true)
+        .frame(width: phaseWidth, height: phaseHeight, alignment: .top)
+        .geometryGroup()
         .onChange(of: progress) { _, newValue in
             if newValue >= 0.999 && phase == .compact {
                 // Same NSGlassEffectView backdrop staleness KnotchViewModel.open()
@@ -196,22 +240,6 @@ struct AirDropReceiveHUD: View {
 
     // MARK: - Compact / collapsing (inline pill)
 
-    private var compactBody: some View {
-        inlinePill {
-            TransferRingView(progress: progress, lineWidth: 2.5)
-                .frame(width: 16, height: 16)
-        }
-    }
-
-    private var collapsingBody: some View {
-        inlinePill {
-            Image(systemName: "checkmark.circle.fill")
-                .resizable()
-                .foregroundStyle(.green)
-                .frame(width: 15, height: 15)
-        }
-    }
-
     @ViewBuilder
     private func inlinePill<TrailingContent: View>(@ViewBuilder trailing: () -> TrailingContent) -> some View {
         HStack(spacing: 0) {
@@ -236,7 +264,6 @@ struct AirDropReceiveHUD: View {
             .frame(width: 30, alignment: .trailing)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-        .transition(.opacity)
     }
 
     // MARK: - Expanded (completed card)
@@ -245,7 +272,6 @@ struct AirDropReceiveHUD: View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
                 thumbnailWithBadge
-                    .transition(.opacity.combined(with: .scale(scale: 0.7)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AirDrop Complete")
@@ -257,7 +283,6 @@ struct AirDropReceiveHUD: View {
                         .foregroundStyle(.gray)
                         .lineLimit(1)
                 }
-                .transition(.opacity.combined(with: .move(edge: .leading)))
 
                 Spacer(minLength: 0)
             }
@@ -282,9 +307,8 @@ struct AirDropReceiveHUD: View {
         .frame(width: expandedWidth, height: expandedContentHeight)
         .padding(.top, isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight)
         .padding(.bottom, 10)
-        .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
         .onHover { hovering in
-            if hovering {
+            if hovering && phase == .expanded {
                 pauseCollapseIfNeeded()
                 KnotchViewCoordinator.shared.pauseSneakPeekAutoHide()
             } else {
