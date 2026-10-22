@@ -6,6 +6,17 @@
 import Defaults
 import SwiftUI
 
+// Keep the shell and its content in sync as status and percentage style change.
+func batteryStatusPeekWidth(status: String, externalPercentage: Bool) -> CGFloat {
+    if status.hasPrefix("Low Power Mode") {
+        return externalPercentage ? 244 : 204
+    }
+    if externalPercentage {
+        return status == "Not Charging" ? 200 : 184
+    }
+    return 172
+}
+
 /// Whichever single thing currently owns the closed-notch "row 1" slot.
 /// `ContentView` tracks a *desired* family (from live coordinator/manager
 /// state) and a *displayed* family (what's actually rendered right now) —
@@ -41,6 +52,7 @@ enum ClosedRowFamily: Equatable {
 @MainActor
 func restingRowWidth(
     for family: ClosedRowFamily,
+    batteryPeekWidth: CGFloat = 204,
     sneakPeekType: SneakContentType,
     sneakPeekShow: Bool = false,
     isIsland: Bool = false,
@@ -163,22 +175,15 @@ func restingRowWidth(
         }
         return isIsland ? islandPlainWidth : closedNotchWidth - 20 + timerCompactPillExtraWidth
     case .battery:
-        // Matches BatteryNotchBanner's own two forms: the low/full-battery
-        // takeover card is a flat 280 (bannerWidth), while the low-power-mode
-        // toggle message's slim pill is status-text(110) + gap(closedNotchWidth+40)
-        // + battery-icon(76) = closedNotchWidth + 226.
+        // Takeover cards retain their full width; status peeks hug the content.
         let batteryModel = BatteryStatusViewModel.shared
         let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
             || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
         if isStandardBanner {
             return 280 + islandExtra
         }
-        // The generic banner's own middle gap is narrowed separately for
-        // island (see BatteryNotchBanner.genericBanner's matching
-        // Rectangle) — the physical notch's "closedNotchWidth+40" gap reads
-        // as excessive relative to island's much smaller default width.
-        let genericGap: CGFloat = isIsland ? 60 : closedNotchWidth + 40
-        return 110 + genericGap + 76 + islandExtra
+        // The compact peek groups both items below the physical camera.
+        return max(batteryPeekWidth, closedNotchWidth) + islandExtra
     }
 }
 
@@ -196,6 +201,9 @@ func restingRowWidth(
 /// fade — so a family swap reads as squeezing together into the notch and
 /// blurring through the middle of the motion, not just crossfading in place.
 struct ClosedNotchRowContent: View {
+    @ObservedObject private var peekBatteryModel = BatteryStatusViewModel.shared
+    @Default(.showBatteryPercentage) private var showBatteryPercentage
+    @Default(.showBatteryPercentageAsIcon) private var showBatteryPercentageAsIcon
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
@@ -245,6 +253,7 @@ struct ClosedNotchRowContent: View {
     private var restingWidth: CGFloat {
         restingRowWidth(
             for: family,
+            batteryPeekWidth: batteryStatusPeekWidth(status: peekBatteryModel.statusText, externalPercentage: showBatteryPercentage && !showBatteryPercentageAsIcon),
             sneakPeekType: coordinator.sneakPeek.type,
             sneakPeekShow: coordinator.sneakPeek.show,
             isIsland: isIslandAppearance,
@@ -277,6 +286,15 @@ struct ClosedNotchRowContent: View {
     // is why the background narrowed first and shortened only at the swap.
     private var expandedHUDRestingHeight: CGFloat? {
         let topInset = isIslandAppearance ? 10 : vm.effectiveClosedNotchHeight
+        if family == .battery {
+            let battery = BatteryStatusViewModel.shared
+            let isTakeover = (battery.levelBattery <= 20 && !battery.isCharging && !battery.isPluggedIn)
+                || (battery.levelBattery == 100 && (battery.isCharging || battery.isPluggedIn))
+            // Give battery banners concrete height endpoints so both axes
+            // follow morph together instead of dropping height at the swap.
+            if isTakeover { return vm.effectiveClosedNotchHeight + 60 + 10 }
+            return (isIslandAppearance ? 6 : vm.effectiveClosedNotchHeight) + 32 + 6
+        }
         if family == .timer {
             return timerCardExpanded ? TimerExpandedCard.contentHeight + topInset + 10 : nil
         }

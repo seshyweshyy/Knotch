@@ -296,23 +296,14 @@ struct MusicLiveActivity: View {
 }
 
 struct BatteryNotchBanner: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
+    @Default(.showBatteryPercentage) private var showBatteryPercentage
+    @Default(.showBatteryPercentageAsIcon) private var showBatteryPercentageAsIcon
     @EnvironmentObject var vm: KnotchViewModel
-    @Default(.notchAppearanceStyle) var notchAppearanceStyle
-
     private let bannerWidth: CGFloat = 280
     private let bannerContentHeight: CGFloat = 60
 
-    // When glass is active, the genericBanner's middle strip should let the
-    // shared notch background (glass + gradient mask) show through instead
-    // of covering it with an opaque black rectangle.
-    private var glassActive: Bool {
-        notchAppearanceStyle == .semiLiquidGlass || notchAppearanceStyle == .fullLiquidGlass
-    }
-
-    // Matches restingRowWidth's own island-specific genericGap — the
-    // physical notch's "closedNotchSize.width+40" gap reads as excessive
-    // once closedNotchSize.width itself is island's much narrower default.
     private var isIslandAppearance: Bool {
         usesDynamicIslandAppearance(screenUUID: vm.screenUUID)
     }
@@ -357,36 +348,39 @@ struct BatteryNotchBanner: View {
         }
     }
 
-    // Original slim pill — still used for the Low Power Mode toggle message
+    // A shallow peek below the camera keeps the status and battery together.
     private var genericBanner: some View {
-        HStack(spacing: 0) {
-            HStack {
+        HStack(spacing: 14) {
+            ZStack(alignment: .leading) {
                 Text(batteryModel.statusText)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .minimumScaleFactor(0.85)
+                    .id(batteryModel.statusText)
+                    .transition(reduceMotion ? .opacity : .asymmetric(
+                        insertion: .offset(y: 20),
+                        removal: .offset(y: -20)
+                    ))
             }
-            .frame(width: 110, alignment: .leading)
+            .frame(height: 20)
+            .clipped()
+            .animation(reduceMotion ? .easeInOut(duration: 0.15) : .smooth(duration: 0.3), value: batteryModel.statusText)
+            .layoutPriority(1)
 
-            Rectangle()
-                .fill(glassActive ? Color.clear : Color.black)
-                .frame(width: isIslandAppearance ? 60 : vm.closedNotchSize.width + 40)
-
-            HStack {
-                KnotchBatteryView(
-                    batteryWidth: 30,
-                    isCharging: batteryModel.isCharging,
-                    isInLowPowerMode: batteryModel.isInLowPowerMode,
-                    isPluggedIn: batteryModel.isPluggedIn,
-                    levelBattery: batteryModel.levelBattery,
-                    isForNotification: true
-                )
-            }
-            .frame(width: 76, alignment: .trailing)
+            KnotchBatteryView(
+                batteryWidth: 30,
+                isCharging: batteryModel.isCharging,
+                isInLowPowerMode: batteryModel.isInLowPowerMode,
+                isPluggedIn: batteryModel.isPluggedIn,
+                levelBattery: batteryModel.levelBattery,
+                isForNotification: true
+            )
+            .fixedSize()
         }
-        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+        .frame(width: batteryStatusPeekWidth(status: batteryModel.statusText, externalPercentage: showBatteryPercentage && !showBatteryPercentageAsIcon) - 12, height: 32)
+        .padding(.top, isIslandAppearance ? 6 : vm.effectiveClosedNotchHeight)
+        .padding(.bottom, 6)
     }
 
     // Takeover banner for low/full battery
@@ -644,6 +638,9 @@ struct BatteryNotchBanner: View {
 
 @MainActor
 struct ContentView: View {
+    @ObservedObject private var peekBatteryModel = BatteryStatusViewModel.shared
+    @Default(.showBatteryPercentage) private var showBatteryPercentage
+    @Default(.showBatteryPercentageAsIcon) private var showBatteryPercentageAsIcon
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var vm: KnotchViewModel
     @ObservedObject var coordinator = KnotchViewCoordinator.shared
@@ -876,14 +873,11 @@ struct ContentView: View {
             return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? 12 : activeCornerRadiusInsets.closed.top
         case .battery:
-            // Same concave treatment as the expanded Bluetooth/AirDrop cards
-            // above — only the low/full-battery takeover card (not the
-            // low-power-mode toggle message) is tall enough to need it.
-            // Matches restingBottomCornerRadius's isStandardBanner check.
+            // Takeover cards use a deeper curve than the shallow status peek.
             let batteryModel = BatteryStatusViewModel.shared
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
-            return isStandardBanner ? 26 : activeCornerRadiusInsets.closed.top
+            return isStandardBanner ? 26 : 18
         case .timer:
             // Same concave top the expanded Bluetooth/AirDrop cards get.
             return timerCardExpanded ? 26 : activeCornerRadiusInsets.closed.top
@@ -1133,13 +1127,11 @@ struct ContentView: View {
             return (coordinator.sneakPeek.show && coordinator.sneakPeek.type == .music)
                 ? (isIslandAppearance ? 24 : 26) : plain
         case .battery:
-            // Matches the original isExpandedBatteryBanner check — only the
-            // low/full-battery takeover card (not the low-power-mode toggle
-            // message) gets the deeper concave radius.
+            // Keep the shallow status peek softly rounded beneath the notch.
             let batteryModel = BatteryStatusViewModel.shared
             let isStandardBanner = (batteryModel.levelBattery <= 20 && !batteryModel.isCharging && !batteryModel.isPluggedIn)
                 || (batteryModel.levelBattery == 100 && (batteryModel.isCharging || batteryModel.isPluggedIn))
-            return isStandardBanner ? 28 : plain
+            return isStandardBanner ? 28 : 26
         case .timer:
             // Island: half the card's own 64pt height (44 content + 10 top +
             // 10 bottom), i.e. a true capsule like the iOS timer card — same
@@ -1204,6 +1196,7 @@ struct ContentView: View {
         let bare = vm.closedNotchSize.width - 20
         let resting = restingRowWidth(
             for: displayedRowFamily,
+            batteryPeekWidth: batteryStatusPeekWidth(status: peekBatteryModel.statusText, externalPercentage: showBatteryPercentage && !showBatteryPercentageAsIcon),
             sneakPeekType: coordinator.sneakPeek.type,
             sneakPeekShow: coordinator.sneakPeek.show,
             isIsland: isIslandAppearance,
@@ -1329,7 +1322,7 @@ struct ContentView: View {
                         // sneak-peek/HUD states raise it (12, 26, ...) instead of
                         // the gap shrinking — and the content behind it clipping
                         // tighter — every time the concave radius grows.
-                        : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top))
+                        : closedShapeHorizontalPadding)
                     )
                     .background {
                         ZStack {
@@ -2082,7 +2075,10 @@ struct ContentView: View {
     // .padding(.horizontal, ...) in body uses (kept in step by hand: that
     // expression also handles the open state, which the bubble never needs).
     private var closedShapeHorizontalPadding: CGFloat {
-        isIslandAppearance
+        if displayedRowFamily == .battery && !isStandardBatteryBanner {
+            return isIslandAppearance ? 0 : topCornerRadius + (showBatteryPercentageAsIcon ? 4 : 0)
+        }
+        return isIslandAppearance
             ? 0
             : topCornerRadius + (cornerRadiusInsets.closed.bottom - cornerRadiusInsets.closed.top)
     }
